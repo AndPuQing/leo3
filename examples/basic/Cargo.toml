@@ -1,0 +1,8 @@
+[package]
+name = "leo3-basic-example"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+leo3 = { path = "../../leo3" }

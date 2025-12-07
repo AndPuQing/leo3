@@ -7,6 +7,9 @@ members = [
     "leo3-macros",
     "leo3-macros-backend",
 ]
+exclude = [
+    "examples",
+]
 
 [workspace.package]
 version = "0.1.0"
