@@ -44,15 +44,17 @@ pub unsafe fn lean_unbox(o: b_lean_obj_arg) -> size_t {
 /// Check if an object uses single-threaded reference counting.
 ///
 /// This checks if the object is not marked as multi-threaded.
+/// Objects with m_rc > 0 are in ST mode, m_rc == 0 are persistent.
 #[inline(always)]
 unsafe fn lean_is_st(o: *mut lean_object) -> bool {
     // Don't dereference scalars
     if lean_is_scalar(o as *const lean_object) {
         return false;
     }
-    // In ST mode, m_cs_sz == 0
-    // This is a simplified version; full implementation would check the m_cs_sz field
-    (*o).m_rc != 0
+    // ST mode: m_rc > 0 (positive reference count)
+    // MT mode: m_rc < 0 (negative means using atomic operations)
+    // Persistent: m_rc == 0 (no reference counting needed)
+    (*o).m_rc > 0
 }
 
 /// Increment reference count (without scalar check).

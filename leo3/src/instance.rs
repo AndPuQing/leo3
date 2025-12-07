@@ -125,7 +125,7 @@ impl<'l, T> LeanBound<'l, T> {
 impl<'l, T> Drop for LeanBound<'l, T> {
     fn drop(&mut self) {
         unsafe {
-            ffi::object::lean_dec_ref_cold(self.inner.as_ptr());
+            ffi::object::lean_dec(self.inner.as_ptr() as *mut _);
         }
     }
 }

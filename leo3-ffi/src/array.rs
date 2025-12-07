@@ -129,7 +129,7 @@ pub unsafe fn lean_array_get_size(a: b_lean_obj_arg) -> lean_obj_res {
 #[inline]
 pub unsafe fn lean_array_uget(a: b_lean_obj_arg, i: size_t) -> lean_obj_res {
     let elem = lean_array_get_core(a, i);
-    crate::object::lean_inc_ref(elem as *mut lean_object);
+    crate::object::lean_inc(elem as *mut lean_object);
     elem as *mut lean_object
 }
 
@@ -165,7 +165,7 @@ pub unsafe fn lean_array_fget_borrowed(a: b_lean_obj_arg, i: b_lean_obj_arg) -> 
 pub unsafe fn lean_array_uset(a: lean_obj_arg, i: size_t, v: lean_obj_arg) -> lean_obj_res {
     if crate::object::lean_is_exclusive(a) {
         let old = lean_array_get_core(a, i);
-        crate::object::lean_dec_ref_cold(old as *mut lean_object);
+        crate::object::lean_dec(old as *mut lean_object);
         lean_array_set_core(a, i, v);
         a
     } else {
@@ -199,7 +199,7 @@ pub unsafe fn lean_array_pop(a: lean_obj_arg) -> lean_obj_res {
 
     if crate::object::lean_is_exclusive(a) {
         let last = lean_array_get_core(a, sz - 1);
-        crate::object::lean_dec_ref_cold(last as *mut lean_object);
+        crate::object::lean_dec(last as *mut lean_object);
         lean_array_set_size(a, sz - 1);
         a
     } else {
