@@ -3,13 +3,13 @@ resolver = "2"
 members = [
     "leo3",
     "leo3-ffi",
-    "leo3-ffi-check",
     "leo3-build-config",
     "leo3-macros",
     "leo3-macros-backend",
 ]
 exclude = [
     "examples",
+    "leo3-ffi-check",  # Validation tool - only build when needed
 ]
 
 [workspace.package]
