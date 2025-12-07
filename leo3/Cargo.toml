@@ -20,6 +20,9 @@ leo3-macros = { workspace = true, optional = true }
 [build-dependencies]
 leo3-build-config = { workspace = true }
 
+[dev-dependencies]
+trybuild = "1.0"
+
 [features]
 default = ["macros"]
 macros = ["leo3-macros"]

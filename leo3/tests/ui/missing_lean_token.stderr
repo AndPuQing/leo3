@@ -1,0 +1,15 @@
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+  --> tests/ui/missing_lean_token.rs:10:13
+   |
+10 |     let n = LeanNat::from_usize(42);
+   |             ^^^^^^^^^^^^^^^^^^^---- an argument of type `Lean<'_>` is missing
+   |
+note: associated function defined here
+  --> $WORKSPACE/leo3/src/types/nat.rs
+   |
+   |     pub fn from_usize<'l>(lean: Lean<'l>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
+   |            ^^^^^^^^^^
+help: provide the argument
+   |
+10 |     let n = LeanNat::from_usize(/* Lean<'_> */, 42);
+   |                                ~~~~~~~~~~~~~~~~~~~~

@@ -1,0 +1,9 @@
+error[E0597]: `lean` does not live long enough
+  --> tests/ui/invalid_lifetime.rs:11:36
+   |
+10 |         let result = leo3::with_lean(|lean| {
+   |                                       ----- has type `Lean<'1>`
+11 |             LeanNat::from_usize(lean, 42)
+   |             ----------------------------- cast requires that `lean` is borrowed for `'1`
+12 |         });
+   |         ^ `lean` dropped here while still borrowed

@@ -1,0 +1,17 @@
+[package]
+name = "leantests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+description = "Integration tests for Rust ↔ Lean interoperability"
+
+[dependencies]
+leo3 = { path = "../leo3" }
+
+[build-dependencies]
+leo3-build-config = { path = "../leo3-build-config" }
+
+[[test]]
+name = "lean_integration"
+harness = true

@@ -1,0 +1,15 @@
+error[E0308]: mismatched types
+  --> tests/ui/type_mismatch.rs:12:36
+   |
+12 |         let _ = LeanString::to_str(&n);
+   |                 ------------------ ^^ expected `&LeanBound<'_, LeanString>`, found `&LeanBound<'_, LeanNat>`
+   |                 |
+   |                 arguments to this function are incorrect
+   |
+   = note: expected reference `&LeanBound<'_, LeanString>`
+              found reference `&LeanBound<'_, leo3::types::LeanNat>`
+note: associated function defined here
+  --> $WORKSPACE/leo3/src/types/string.rs
+   |
+   |     pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
+   |            ^^^^^^
