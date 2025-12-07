@@ -1,0 +1,18 @@
+[package]
+name = "leo3-ffi-check"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+description = "Validation tool for leo3-ffi bindings against Lean4 headers"
+
+[dependencies]
+leo3-ffi = { path = "../leo3-ffi" }
+
+[build-dependencies]
+bindgen = "0.70"
+leo3-build-config = { path = "../leo3-build-config" }
+
+[[test]]
+name = "ffi_layout"
+harness = false
