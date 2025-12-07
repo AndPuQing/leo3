@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Create GitHub release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  # Build and test before release
+  build-and-test:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release --workspace
+
+      - name: Run tests
+        run: cargo test --release --workspace
+
+  publish-check:
+    name: Publish Check
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check publishability
+        run: |
+          cargo publish --dry-run -p leo3-ffi
+          cargo publish --dry-run -p leo3-build-config
+          cargo publish --dry-run -p leo3-macros-backend
+          cargo publish --dry-run -p leo3-macros
+          cargo publish --dry-run -p leo3
+
+      - name: Note about publishing
+        run: |
+          echo "To publish to crates.io, run:"
+          echo "  cargo publish -p leo3-ffi"
+          echo "  cargo publish -p leo3-build-config"
+          echo "  cargo publish -p leo3-macros-backend"
+          echo "  cargo publish -p leo3-macros"
+          echo "  cargo publish -p leo3"

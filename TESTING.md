@@ -14,59 +14,6 @@ This document outlines Leo3's testing approach, inspired by PyO3's comprehensive
 ### Example Tests
 - `examples/basic/` - Comprehensive usage example
 
-## Testing Roadmap (Inspired by PyO3)
-
-### Phase 1: Core Infrastructure ✓
-- [x] Basic integration tests
-- [x] Type-specific operation tests
-- [x] Test utilities module
-- [x] Helper macros for assertions
-
-### Phase 2: FFI Validation (High Priority)
-- [ ] Create `leo3-ffi-check` crate
-  - Use `bindgen` on Lean4 headers
-  - Validate struct layouts and sizes
-  - Ensure ABI compatibility across Lean4 versions
-- [ ] Add FFI correctness tests
-- [ ] Test reference counting behavior
-
-### Phase 3: Extended Test Coverage
-- [ ] Garbage collection tests (`test_gc.rs`)
-  - Reference count management
-  - Drop behavior
-  - Memory leak detection
-- [ ] Conversion tests (`test_conversion.rs`)
-  - Rust → Lean conversions
-  - Lean → Rust conversions
-  - Error handling
-- [ ] Thread safety tests (if applicable)
-- [ ] Performance benchmarks
-
-### Phase 4: Compile-Time Error Testing
-- [ ] Add `trybuild` dependency
-- [ ] Create `tests/ui/` directory
-- [ ] Test invalid macro usage
-- [ ] Test type errors with clear messages
-- [ ] Test lifetime errors
-
-### Phase 5: Lean Integration Tests
-- [ ] Create `leantests/` directory
-- [ ] Write Lean4 code that calls Rust
-- [ ] Write tests that call Lean4 from Rust
-- [ ] Test complex Rust ↔ Lean interactions
-
-### Phase 6: Build and Feature Testing
-- [ ] Test with different feature combinations
-- [ ] Test with different Lean4 versions (4.0, 4.1, etc.)
-- [ ] Test static vs dynamic linking
-- [ ] Cross-platform testing (Linux, macOS, Windows)
-
-### Phase 7: CI/CD Integration
-- [ ] Set up GitHub Actions workflows
-- [ ] Test matrix across Lean4 versions
-- [ ] Code coverage reporting
-- [ ] Automated benchmarking
-
 ## Test Utilities
 
 ### Available Macros
