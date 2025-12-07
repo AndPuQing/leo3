@@ -123,19 +123,25 @@ fn test_array_set() {
 }
 
 #[test]
-#[should_panic(expected = "Index out of bounds")]
 fn test_array_set_out_of_bounds() {
     leo3::prepare_freethreaded_lean();
 
-    let _ = leo3::with_lean(|lean| {
+    let result = leo3::with_lean(|lean| {
         let arr = LeanArray::new(lean)?;
 
-        // Try to set element at index 0 in empty array - should panic
+        // Try to set element at index 0 in empty array - should return error
         let n = LeanNat::from_usize(lean, 42)?;
-        let _ = LeanArray::set(arr, 0, n.cast())?;
+        let result = LeanArray::set(arr, 0, n.cast());
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Index out of bounds"));
+        }
 
         Ok::<(), LeanError>(())
     });
+
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -168,18 +174,24 @@ fn test_array_pop() {
 }
 
 #[test]
-#[should_panic(expected = "Cannot pop from empty array")]
 fn test_array_pop_empty() {
     leo3::prepare_freethreaded_lean();
 
-    let _ = leo3::with_lean(|lean| {
+    let result = leo3::with_lean(|lean| {
         let arr = LeanArray::new(lean)?;
 
-        // Try to pop from empty array - should panic
-        let _ = LeanArray::pop(arr)?;
+        // Try to pop from empty array - should return error
+        let result = LeanArray::pop(arr);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Cannot pop from empty array"));
+        }
 
         Ok::<(), LeanError>(())
     });
+
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -209,22 +221,28 @@ fn test_array_swap() {
 }
 
 #[test]
-#[should_panic(expected = "Index out of bounds")]
 fn test_array_swap_out_of_bounds() {
     leo3::prepare_freethreaded_lean();
 
-    let _ = leo3::with_lean(|lean| {
+    let result = leo3::with_lean(|lean| {
         let mut arr = LeanArray::new(lean)?;
 
         // Create array with one element
         let n = LeanNat::from_usize(lean, 42)?;
         arr = LeanArray::push(arr, n.cast())?;
 
-        // Try to swap with out of bounds index - should panic
-        let _ = LeanArray::swap(arr, 0, 5)?;
+        // Try to swap with out of bounds index - should return error
+        let result = LeanArray::swap(arr, 0, 5);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert!(e.to_string().contains("Index out of bounds"));
+        }
 
         Ok::<(), LeanError>(())
     });
+
+    assert!(result.is_ok());
 }
 
 #[test]

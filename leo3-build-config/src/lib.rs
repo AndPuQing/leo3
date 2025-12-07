@@ -255,6 +255,13 @@ fn emit_link_config(config: &LeanConfig) {
     // Link against leanshared or lean
     println!("cargo:rustc-link-lib=dylib=leanshared");
 
+    // Add rpath so binaries can find the library at runtime
+    // This is necessary for tests and executables
+    println!(
+        "cargo:rustc-link-arg=-Wl,-rpath,{}",
+        config.lean_lib_dir.display()
+    );
+
     // Add include path for bindgen (future use)
     println!("cargo:include={}", config.lean_include_dir.display());
 }

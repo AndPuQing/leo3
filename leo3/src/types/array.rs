@@ -1,6 +1,6 @@
 //! Lean array type wrapper.
 
-use crate::err::LeanResult;
+use crate::err::{LeanError, LeanResult};
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
@@ -103,9 +103,9 @@ impl LeanArray {
     /// Returns the modified array. If the array is exclusive (RC == 1),
     /// it's modified in-place. Otherwise, a copy is made.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if index is out of bounds.
+    /// Returns an error if index is out of bounds.
     ///
     /// # Example
     ///
@@ -118,7 +118,9 @@ impl LeanArray {
         index: usize,
         value: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        assert!(index < Self::size(&arr), "Index out of bounds");
+        if index >= Self::size(&arr) {
+            return Err(LeanError::runtime("Index out of bounds"));
+        }
 
         unsafe {
             let lean = arr.lean_token();
@@ -131,9 +133,9 @@ impl LeanArray {
     ///
     /// Returns the modified array with the last element removed.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the array is empty.
+    /// Returns an error if the array is empty.
     ///
     /// # Example
     ///
@@ -141,7 +143,9 @@ impl LeanArray {
     /// let arr = LeanArray::pop(arr)?;
     /// ```
     pub fn pop<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        assert!(!Self::is_empty(&arr), "Cannot pop from empty array");
+        if Self::is_empty(&arr) {
+            return Err(LeanError::runtime("Cannot pop from empty array"));
+        }
 
         unsafe {
             let lean = arr.lean_token();
@@ -152,9 +156,9 @@ impl LeanArray {
 
     /// Swap two elements in the array.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if either index is out of bounds.
+    /// Returns an error if either index is out of bounds.
     ///
     /// # Example
     ///
@@ -167,7 +171,9 @@ impl LeanArray {
         j: usize,
     ) -> LeanResult<LeanBound<'l, Self>> {
         let size = Self::size(&arr);
-        assert!(i < size && j < size, "Index out of bounds");
+        if i >= size || j >= size {
+            return Err(LeanError::runtime("Index out of bounds"));
+        }
 
         unsafe {
             let lean = arr.lean_token();
