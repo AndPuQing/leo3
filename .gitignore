@@ -1,0 +1,50 @@
+# Rust build artifacts
+/target
+**/target/
+
+# Cargo.lock for libraries (keep for binaries)
+# Cargo.lock is included for applications but not for libraries
+# Uncomment if this becomes an application
+# Cargo.lock
+
+# Remove Cargo.lock from tracking if present (workspace pattern)
+leo3/Cargo.lock
+leo3-ffi/Cargo.lock
+leo3-build-config/Cargo.lock
+leo3-macros/Cargo.lock
+leo3-macros-backend/Cargo.lock
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build output
+*.rlib
+*.so
+*.dylib
+*.dll
+
+# Documentation build
+/target/doc/
+
+# Backup files
+*.bak
+*.tmp
+
+# Test artifacts
+*.profraw
+*.profdata
+
+# Lake/Lean build artifacts (if testing with Lean)
+.lake/
+lake-packages/
+build/
+*.olean
+*.trace
+
+# Examples build output
+examples/*/target/

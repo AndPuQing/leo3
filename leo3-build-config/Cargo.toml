@@ -1,0 +1,17 @@
+[package]
+name = "leo3-build-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Build-time configuration for Leo3"
+keywords = ["lean", "lean4", "build"]
+categories = ["development-tools::build-utils"]
+
+[dependencies]
+# For build script utilities
+once_cell = "1.19"
+
+[features]
+default = []

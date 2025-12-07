@@ -1,0 +1,29 @@
+[package]
+name = "leo3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Rust bindings for the Lean4 theorem prover"
+keywords = ["lean", "lean4", "theorem-prover", "bindings"]
+categories = ["api-bindings"]
+readme = "../README.md"
+
+[dependencies]
+leo3-ffi = { workspace = true }
+libc.workspace = true
+
+# Optional macro support
+leo3-macros = { workspace = true, optional = true }
+
+[build-dependencies]
+leo3-build-config = { workspace = true }
+
+[features]
+default = ["macros"]
+macros = ["leo3-macros"]
+
+# Future features
+# auto-initialize = []
+# extension-module = []
