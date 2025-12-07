@@ -3,6 +3,7 @@
 //! These tests verify that data can be correctly converted between
 //! Rust and Lean types.
 
+use leo3::instance::LeanAny;
 use leo3::prelude::*;
 
 // =============================================================================
@@ -288,7 +289,7 @@ fn test_cast_nat_to_any() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let n: LeanBound<LeanNat> = LeanNat::from_usize(lean, 42)?;
-        let any: LeanBound<_> = n.cast();
+        let any: LeanBound<LeanAny> = n.cast();
 
         // The cast should preserve the object
         // (We can't easily convert back without unsafe, but it shouldn't crash)
@@ -306,7 +307,7 @@ fn test_cast_string_to_any() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let s: LeanBound<LeanString> = LeanString::new(lean, "test")?;
-        let any: LeanBound<_> = s.cast();
+        let any: LeanBound<LeanAny> = s.cast();
 
         drop(any);
 
@@ -322,7 +323,7 @@ fn test_cast_array_to_any() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let arr: LeanBound<LeanArray> = LeanArray::new(lean)?;
-        let any: LeanBound<_> = arr.cast();
+        let any: LeanBound<LeanAny> = arr.cast();
 
         drop(any);
 
@@ -398,7 +399,7 @@ fn test_array_unbind_bind() {
 fn test_string_with_null_byte_fails() {
     leo3::prepare_freethreaded_lean();
 
-    let result = leo3::with_lean(|lean| {
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Strings with null bytes should fail to create
         let result = LeanString::new(lean, "Hello\0World");
         assert!(result.is_err());

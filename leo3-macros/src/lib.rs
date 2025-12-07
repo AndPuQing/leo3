@@ -3,9 +3,9 @@
 //! This crate provides the proc macro attributes for Leo3. The actual implementation
 //! is in `leo3-macros-backend`.
 
+use leo3_macros_backend::{build_lean_function, LeanFunctionOptions};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use leo3_macros_backend::{build_lean_function, LeanFunctionOptions};
 use quote::quote;
 use syn::parse_macro_input;
 

@@ -27,6 +27,10 @@ trybuild = "1.0"
 default = ["macros"]
 macros = ["leo3-macros"]
 
+# Runtime testing feature - enables tests that require Lean4 to be linked
+# When disabled, only compile-time tests run
+runtime-tests = []
+
 # Future features
 # auto-initialize = []
 # extension-module = []

@@ -63,29 +63,27 @@
 
 pub use leo3_ffi as ffi;
 
-pub mod marker;
-pub mod instance;
 pub mod conversion;
-pub mod types;
 pub mod err;
+pub mod instance;
+pub mod marker;
+pub mod types;
 
 // Re-export key types
-pub use marker::Lean;
+pub use err::{LeanError, LeanResult};
 pub use instance::{LeanBound, LeanRef};
-pub use err::{LeanResult, LeanError};
+pub use marker::Lean;
 
 /// Prelude module for convenient imports
 pub mod prelude {
     //! Commonly used items for Leo3 users.
-    pub use crate::{
-        Lean, LeanBound, LeanRef, LeanResult, LeanError,
-    };
+    pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
 
     // Re-export commonly used types
-    pub use crate::types::{LeanNat, LeanString, LeanArray};
+    pub use crate::types::{LeanArray, LeanNat, LeanString};
 
     #[cfg(feature = "macros")]
-    pub use leo3_macros::{leanfn, leanclass, leanmodule};
+    pub use leo3_macros::{leanclass, leanfn, leanmodule};
 }
 
 /// Initialize the Lean runtime for standalone use.

@@ -2,8 +2,13 @@
 //!
 //! Based on the string functions from lean.h
 
+use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 use libc::{c_char, size_t};
-use crate::object::{lean_obj_arg, lean_obj_res, b_lean_obj_arg};
+
+// Re-export inline functions with leo3_ prefix for backwards compatibility
+pub use crate::inline::{
+    lean_string_cstr as leo3_string_cstr, lean_string_len as leo3_string_len, lean_string_size,
+};
 
 extern "C" {
     /// Create a new Lean string from C string
@@ -11,25 +16,6 @@ extern "C" {
     /// # Safety
     /// - `s` must be a valid null-terminated UTF-8 string
     pub fn lean_mk_string(s: *const c_char) -> lean_obj_res;
-
-    /// Get C string pointer from Lean string
-    ///
-    /// # Safety
-    /// - `o` must be a valid string object
-    /// - Returned pointer is valid only while object is alive
-    pub fn lean_string_cstr(o: b_lean_obj_arg) -> *const c_char;
-
-    /// Get string size in bytes (including null terminator)
-    ///
-    /// # Safety
-    /// - `o` must be a valid string object
-    pub fn lean_string_size(o: b_lean_obj_arg) -> size_t;
-
-    /// Get string length in UTF-8 characters
-    ///
-    /// # Safety
-    /// - `o` must be a valid string object
-    pub fn lean_string_len(o: b_lean_obj_arg) -> size_t;
 
     /// Push a UTF-32 character to the end of a string
     ///
@@ -91,7 +77,11 @@ extern "C" {
     /// # Safety
     /// - `s` must be a valid string object
     /// - `b` and `e` must be valid byte positions (boxed usize)
-    pub fn lean_string_utf8_extract(s: b_lean_obj_arg, b: b_lean_obj_arg, e: b_lean_obj_arg) -> lean_obj_res;
+    pub fn lean_string_utf8_extract(
+        s: b_lean_obj_arg,
+        b: b_lean_obj_arg,
+        e: b_lean_obj_arg,
+    ) -> lean_obj_res;
 
     /// Compare two strings for equality (cold path)
     ///
@@ -111,7 +101,7 @@ extern "C" {
 /// Get string length as boxed object
 #[inline]
 pub unsafe fn lean_string_length(s: b_lean_obj_arg) -> lean_obj_res {
-    crate::object::lean_box(lean_string_len(s))
+    crate::object::lean_box(leo3_string_len(s))
 }
 
 /// Get string byte size as boxed object (size - 1, excluding null terminator)
@@ -141,7 +131,7 @@ pub unsafe fn lean_string_utf8_at_end(s: b_lean_obj_arg, i: b_lean_obj_arg) -> b
 /// Get byte at position (fast path, no bounds check)
 #[inline]
 pub unsafe fn lean_string_get_byte_fast(s: b_lean_obj_arg, i: b_lean_obj_arg) -> u8 {
-    let cstr = lean_string_cstr(s);
+    let cstr = leo3_string_cstr(s);
     let idx = crate::object::lean_unbox(i);
     *cstr.add(idx) as u8
 }

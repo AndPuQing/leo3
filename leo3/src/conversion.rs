@@ -2,9 +2,9 @@
 //!
 //! This module provides traits for converting between Rust values and Lean objects.
 
-use crate::marker::Lean;
-use crate::instance::LeanBound;
 use crate::err::LeanResult;
+use crate::instance::LeanBound;
+use crate::marker::Lean;
 
 /// Trait for types that can be converted from Rust to Lean.
 ///

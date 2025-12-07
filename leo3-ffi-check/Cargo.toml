@@ -12,7 +12,3 @@ leo3-ffi = { path = "../leo3-ffi" }
 [build-dependencies]
 bindgen = "0.70"
 leo3-build-config = { path = "../leo3-build-config" }
-
-[[test]]
-name = "ffi_layout"
-harness = false

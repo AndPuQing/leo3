@@ -1,9 +1,9 @@
 //! Lean array type wrapper.
 
-use crate::ffi;
-use crate::marker::Lean;
-use crate::instance::{LeanBound, LeanAny};
 use crate::err::LeanResult;
+use crate::ffi;
+use crate::instance::{LeanAny, LeanBound};
+use crate::marker::Lean;
 
 /// A Lean array object.
 ///

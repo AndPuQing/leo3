@@ -2,6 +2,17 @@
 //!
 //! This module provides helper functions and macros for testing,
 //! inspired by PyO3's test infrastructure.
+//!
+//! ## Running Tests
+//!
+//! Tests are divided into two categories:
+//!
+//! 1. **Compile-only tests** - Test that code compiles correctly (UI tests, etc.)
+//!    - Run with: `LEO3_NO_LEAN=1 cargo test`
+//!
+//! 2. **Runtime tests** - Test actual Lean4 functionality (require Lean4 linked)
+//!    - Run with: `cargo test --features runtime-tests`
+//!    - Requires Lean4 to be installed and properly linked
 
 use leo3::prelude::*;
 
@@ -85,11 +96,33 @@ macro_rules! assert_lean_array_size {
     };
 }
 
+/// Macro to conditionally ignore tests that require Lean4 runtime
+///
+/// Use this for tests that call Lean FFI functions. These tests will be
+/// ignored unless the `runtime-tests` feature is enabled.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// #[test]
+/// #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+/// fn test_lean_functionality() {
+///     // Test that calls Lean FFI
+/// }
+/// ```
+#[macro_export]
+macro_rules! runtime_test_cfg {
+    () => {
+        #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime (run with --features runtime-tests)")]
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
     fn test_with_lean_test_helper() {
         with_lean_test(|lean| {
             let n = LeanNat::from_usize(lean, 100)?;

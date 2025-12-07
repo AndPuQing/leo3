@@ -5,6 +5,7 @@
 //!
 //! Inspired by PyO3's test_gc.rs
 
+use leo3::instance::LeanAny;
 use leo3::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -216,7 +217,7 @@ fn test_cast_preserves_refcount() {
         let n_clone = n.clone();
 
         // Cast to LeanAny
-        let any = n.cast();
+        let any: LeanBound<LeanAny> = n.cast();
 
         // Original clone should still be valid
         assert_eq!(LeanNat::to_usize(&n_clone)?, 42);

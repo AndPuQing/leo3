@@ -24,28 +24,32 @@
 //! - `array` - Array operations
 //! - `nat` - Natural number operations
 //! - `closure` - Closures, thunks, tasks, and promises
+//! - `inline` - Rust re-implementations of Lean4's static inline functions
 
 // Re-export libc types used across modules
 pub use libc::{c_char, c_int, c_uint, c_void, size_t};
 
+pub mod array;
+pub mod closure;
+pub mod nat;
 pub mod object;
 pub mod string;
-pub mod array;
-pub mod nat;
-pub mod closure;
+
+// Inline function implementations (PyO3-style)
+pub mod inline;
 
 // Re-export commonly used types from object module
 pub use object::{
-    lean_object,
-    lean_obj_arg,
     b_lean_obj_arg,
-    u_lean_obj_arg,
-    lean_obj_res,
+    lean_box,
     // Inline functions
     lean_is_scalar,
-    lean_box,
-    lean_unbox,
+    lean_obj_arg,
+    lean_obj_res,
     lean_obj_tag,
+    lean_object,
+    lean_unbox,
+    u_lean_obj_arg,
 };
 
 /// Lean object type tags (from lean.h)
@@ -156,16 +160,8 @@ pub unsafe fn lean_is_external(o: *const lean_object) -> bool {
 // High-level inc/dec with scalar checking (from lean.h)
 // ============================================================================
 
-/// Increment reference count (checks for scalars)
-///
-/// # Safety
-/// - `o` must be a valid lean_object pointer or a boxed scalar
-#[inline]
-pub unsafe fn lean_inc(o: *mut lean_object) {
-    if !lean_is_scalar(o) {
-        object::lean_inc_ref(o);
-    }
-}
+// Re-export inline implementations from object module (which gets them from inline module)
+pub use object::{lean_dec, lean_dec_ref, lean_inc, lean_inc_ref};
 
 /// Increment reference count by n (checks for scalars)
 ///
@@ -178,23 +174,6 @@ pub unsafe fn lean_inc_n(o: *mut lean_object, n: size_t) {
     }
 }
 
-/// Decrement reference count (checks for scalars)
-///
-/// # Safety
-/// - `o` must be a valid lean_object pointer or a boxed scalar
-/// - Object may be deallocated if refcount reaches zero
-#[inline]
-pub unsafe fn lean_dec(o: *mut lean_object) {
-    if !lean_is_scalar(o) {
-        // Fast path: if RC > 1, just decrement
-        if (*o).m_rc > 1 {
-            (*o).m_rc -= 1;
-        } else if (*o).m_rc != 0 {
-            object::lean_dec_ref_cold(o);
-        }
-    }
-}
-
 /// Allocate a constructor object (inline from lean.h)
 ///
 /// # Safety
@@ -202,17 +181,20 @@ pub unsafe fn lean_dec(o: *mut lean_object) {
 /// - `num_objs` must be < LEAN_MAX_CTOR_FIELDS
 /// - Must initialize all fields after allocation
 #[inline]
-pub unsafe fn lean_alloc_ctor(tag: c_uint, num_objs: c_uint, scalar_sz: c_uint) -> *mut lean_object {
-    // This is a complex inline function in lean.h
-    // For FFI purposes, we'll declare it as extern
-    lean_alloc_ctor_impl(tag, num_objs, scalar_sz)
-}
-
-extern "C" {
-    /// Internal implementation of lean_alloc_ctor
-    ///
-    /// Note: In lean.h this is actually an inline function, but for FFI
-    /// we need to link against the implementation
-    #[link_name = "lean_alloc_ctor"]
-    fn lean_alloc_ctor_impl(tag: c_uint, num_objs: c_uint, scalar_sz: c_uint) -> *mut lean_object;
+pub unsafe fn lean_alloc_ctor(
+    tag: c_uint,
+    num_objs: c_uint,
+    scalar_sz: c_uint,
+) -> *mut lean_object {
+    // Calculate total size: header + object pointers + scalar bytes
+    let sz = std::mem::size_of::<lean_object>()
+        + (num_objs as usize) * std::mem::size_of::<*mut lean_object>()
+        + (scalar_sz as usize);
+    let obj = object::lean_alloc_object(sz);
+    // Initialize header
+    (*obj).m_rc = 1;
+    (*obj).m_cs_sz = ((scalar_sz as u16) << 8) | (num_objs as u16);
+    (*obj).m_tag = tag as u8;
+    (*obj).m_other = 0;
+    obj
 }

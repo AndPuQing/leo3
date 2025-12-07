@@ -22,11 +22,7 @@ macro_rules! check_struct_layout {
         );
 
         assert_eq!(our_size, bindgen_size, "Size mismatch for {}", $name);
-        assert_eq!(
-            our_align, bindgen_align,
-            "Alignment mismatch for {}",
-            $name
-        );
+        assert_eq!(our_align, bindgen_align, "Alignment mismatch for {}", $name);
     }};
 }
 

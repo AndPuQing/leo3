@@ -1,9 +1,9 @@
 //! Lean natural number type wrapper.
 
+use crate::err::{LeanError, LeanResult};
 use crate::ffi;
-use crate::marker::Lean;
 use crate::instance::LeanBound;
-use crate::err::{LeanResult, LeanError};
+use crate::marker::Lean;
 
 /// A Lean natural number object.
 ///
@@ -30,7 +30,7 @@ impl LeanNat {
     /// ```
     pub fn from_usize<'l>(lean: Lean<'l>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let ptr = ffi::nat::lean_usize_to_nat(n);
+            let ptr = ffi::nat::leo3_usize_to_nat(n);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -47,8 +47,8 @@ impl LeanNat {
     /// ```
     pub fn to_usize<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<usize> {
         unsafe {
-            if ffi::nat::lean_nat_is_small(obj.as_ptr()) {
-                Ok(ffi::nat::lean_nat_to_usize(obj.as_ptr()))
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                Ok(ffi::nat::leo3_nat_to_usize(obj.as_ptr()))
             } else {
                 Err(LeanError::conversion("Natural number too large for usize"))
             }
@@ -64,7 +64,7 @@ impl LeanNat {
     /// assert!(LeanNat::is_small(&n));
     /// ```
     pub fn is_small<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::lean_nat_is_small(obj.as_ptr()) }
+        unsafe { ffi::nat::leo3_nat_is_small(obj.as_ptr()) }
     }
 
     /// Add two natural numbers.
@@ -83,7 +83,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_add(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::leo3_nat_add(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -104,7 +104,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_sub(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::leo3_nat_sub(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -125,7 +125,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_mul(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::leo3_nat_mul(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -146,7 +146,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_div(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::leo3_nat_div(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -167,7 +167,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_mod(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::leo3_nat_mod(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -224,7 +224,7 @@ impl LeanNat {
     /// assert!(LeanNat::eq(&a, &b));
     /// ```
     pub fn eq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::lean_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
+        unsafe { ffi::nat::leo3_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
     }
 
     /// Compare two natural numbers for less-than.
@@ -237,12 +237,12 @@ impl LeanNat {
     /// assert!(LeanNat::lt(&a, &b));
     /// ```
     pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::lean_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
+        unsafe { ffi::nat::leo3_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
     }
 
     /// Compare two natural numbers for less-than-or-equal.
     pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::lean_nat_dec_le(a.as_ptr(), b.as_ptr()) }
+        unsafe { ffi::nat::leo3_nat_dec_le(a.as_ptr(), b.as_ptr()) }
     }
 }
 

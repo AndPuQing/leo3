@@ -16,24 +16,20 @@ pub struct lean_object {
 }
 
 /// Type aliases matching Lean's calling conventions
-pub type lean_obj_arg = *mut lean_object;       // Standard object argument (consumes RC)
-pub type b_lean_obj_arg = *const lean_object;   // Borrowed object argument (doesn't consume)
-pub type u_lean_obj_arg = *mut lean_object;     // Unique (exclusive) object argument
-pub type lean_obj_res = *mut lean_object;       // Standard object result
-pub type b_lean_obj_res = *const lean_object;   // Borrowed object result
+pub type lean_obj_arg = *mut lean_object; // Standard object argument (consumes RC)
+pub type b_lean_obj_arg = *const lean_object; // Borrowed object argument (doesn't consume)
+pub type u_lean_obj_arg = *mut lean_object; // Unique (exclusive) object argument
+pub type lean_obj_res = *mut lean_object; // Standard object result
+pub type b_lean_obj_res = *const lean_object; // Borrowed object result
 
 // ============================================================================
 // Reference Counting
 // ============================================================================
 
-extern "C" {
-    /// Increment reference count of a Lean object
-    ///
-    /// # Safety
-    /// - `o` must be a valid lean_object pointer or null
-    /// - Object must not be a scalar (use lean_inc for mixed types)
-    pub fn lean_inc_ref(o: *mut lean_object);
+// Re-export inline implementations from inline module
+pub use crate::inline::{lean_dec, lean_dec_ref, lean_inc, lean_inc_ref, lean_is_exclusive};
 
+extern "C" {
     /// Increment reference count by n
     ///
     /// # Safety
@@ -46,12 +42,6 @@ extern "C" {
     /// - `o` must be a valid lean_object pointer
     /// - Object may be deallocated if refcount reaches zero
     pub fn lean_dec_ref_cold(o: *mut lean_object);
-
-    /// Check if object is exclusive (RC == 1)
-    ///
-    /// # Safety
-    /// - `o` must be a valid lean_object pointer
-    pub fn lean_is_exclusive(o: *const lean_object) -> bool;
 
     /// Check if object is shared (RC > 1)
     ///
@@ -192,31 +182,8 @@ extern "C" {
 // Boxing/Unboxing (Scalars)
 // ============================================================================
 
-// These are inline functions in lean.h - we implement them in Rust
-
-/// Check if an object is actually a scalar (not a pointer)
-///
-/// Scalars have the LSB set: ((size_t)o & 1) == 1
-#[inline]
-pub unsafe fn lean_is_scalar(o: *const lean_object) -> bool {
-    ((o as usize) & 1) == 1
-}
-
-/// Box a usize value as a lean_object pointer
-///
-/// Formula: (n << 1) | 1
-#[inline]
-pub unsafe fn lean_box(n: size_t) -> *mut lean_object {
-    ((n << 1) | 1) as *mut lean_object
-}
-
-/// Unbox a lean_object pointer to get the usize value
-///
-/// Formula: (size_t)o >> 1
-#[inline]
-pub unsafe fn lean_unbox(o: *const lean_object) -> size_t {
-    (o as usize) >> 1
-}
+// Re-export inline functions from the inline module
+pub use crate::inline::{lean_box, lean_is_scalar, lean_unbox};
 
 // ============================================================================
 // Object Type Checking (inline from lean.h)

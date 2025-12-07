@@ -32,12 +32,14 @@ macro_rules! check_struct_layout {
         );
 
         assert_eq!(
-            our_size, bindgen_size,
+            our_size,
+            bindgen_size,
             "Size mismatch for {}",
             stringify!($name)
         );
         assert_eq!(
-            our_align, bindgen_align,
+            our_align,
+            bindgen_align,
             "Alignment mismatch for {}",
             stringify!($name)
         );
@@ -54,7 +56,8 @@ macro_rules! check_type_size {
         println!("  Our size: {}, bindgen size: {}", our_size, bindgen_size);
 
         assert_eq!(
-            our_size, bindgen_size,
+            our_size,
+            bindgen_size,
             "Size mismatch for {}",
             stringify!($name)
         );
@@ -97,16 +100,4 @@ fn check_function_existence() {
     let _: unsafe extern "C" fn() = ffi::lean_finalize_runtime_module;
     let _: unsafe extern "C" fn() = ffi::lean_initialize_thread;
     let _: unsafe extern "C" fn() = ffi::lean_finalize_thread;
-}
-
-fn main() {
-    // Run tests
-    println!("=== Leo3 FFI Layout Validation ===\n");
-
-    check_lean_object_layout();
-    check_type_aliases();
-    check_constants();
-    check_function_existence();
-
-    println!("\n✓ All FFI layout checks passed!");
 }

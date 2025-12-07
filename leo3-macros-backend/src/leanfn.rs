@@ -41,10 +41,7 @@ pub fn build_lean_function(
 
     // For now, generate a simple stub that will be expanded later
     // This demonstrates the structure without full implementation
-    let wrapper_name = syn::Ident::new(
-        &format!("__leo3_leanfn_{}", rust_name),
-        rust_name.span(),
-    );
+    let wrapper_name = syn::Ident::new(&format!("__leo3_leanfn_{}", rust_name), rust_name.span());
 
     Ok(quote! {
         // Hidden module to hold metadata (similar to pyo3's pattern)

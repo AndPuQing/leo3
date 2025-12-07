@@ -3,10 +3,10 @@
 //! This module provides safe wrappers around Lean's built-in types like
 //! strings, arrays, natural numbers, etc.
 
-pub mod string;
-pub mod nat;
 pub mod array;
+pub mod nat;
+pub mod string;
 
-pub use string::LeanString;
-pub use nat::LeanNat;
 pub use array::LeanArray;
+pub use nat::LeanNat;
+pub use string::LeanString;

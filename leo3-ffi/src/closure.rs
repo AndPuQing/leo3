@@ -2,8 +2,8 @@
 //!
 //! Based on the closure/thunk/task functions from lean.h
 
+use crate::object::{b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res};
 use libc::c_uint;
-use crate::object::{lean_obj_arg, lean_obj_res, b_lean_obj_arg, b_lean_obj_res};
 
 // ============================================================================
 // Closure Functions
@@ -130,12 +130,8 @@ extern "C" {
     /// - `f` must be a valid closure object (consumed)
     /// - `sync` indicates if the task should be forced synchronously
     /// - `prio` is the priority for the new task
-    pub fn lean_task_bind(
-        t: lean_obj_arg,
-        f: lean_obj_arg,
-        sync: u8,
-        prio: c_uint,
-    ) -> lean_obj_res;
+    pub fn lean_task_bind(t: lean_obj_arg, f: lean_obj_arg, sync: u8, prio: c_uint)
+        -> lean_obj_res;
 
     /// Create a pure task (already completed)
     ///

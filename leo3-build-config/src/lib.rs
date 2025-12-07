@@ -33,8 +33,22 @@ static LEAN_CONFIG: OnceCell<LeanConfig> = OnceCell::new();
 ///     leo3_build_config::use_leo3_cfgs();
 /// }
 /// ```
+///
+/// ## Environment Variables
+///
+/// - `LEO3_NO_LEAN=1` - Skip Lean4 detection and linking (for compile-only tests)
+/// - `LEAN_HOME` - Override Lean4 installation directory
+/// - `LEAN_LIB_DIR` - Override Lean4 library directory
+/// - `LEAN_INCLUDE_DIR` - Override Lean4 include directory
 pub fn use_leo3_cfgs() {
     print_expected_cfgs();
+
+    // Check if we should skip Lean entirely (for compile-only tests)
+    if env::var("LEO3_NO_LEAN").is_ok() {
+        eprintln!("cargo:warning=LEO3_NO_LEAN set: skipping Lean4 detection and linking");
+        eprintln!("cargo:warning=Tests requiring Lean4 runtime will not run");
+        return;
+    }
 
     match get_lean_config() {
         Ok(config) => {
@@ -50,6 +64,7 @@ pub fn use_leo3_cfgs() {
         Err(e) => {
             eprintln!("cargo:warning=Failed to detect Lean4: {}", e);
             eprintln!("cargo:warning=Leo3 will not function without Lean4 installed");
+            eprintln!("cargo:warning=Set LEO3_NO_LEAN=1 to build without Lean4 (compile-only)");
         }
     }
 }
@@ -116,9 +131,7 @@ fn detect_from_lake() -> Result<LeanConfig, String> {
         .output()
         .map_err(|e| format!("Failed to get LEAN_HOME from lake: {}", e))?;
 
-    let lean_home = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let lean_home = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if lean_home.is_empty() {
         return Err("lake did not provide LEAN_HOME".to_string());
@@ -139,9 +152,7 @@ fn detect_from_elan() -> Result<LeanConfig, String> {
         return Err("elan command failed".to_string());
     }
 
-    let lean_path = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let lean_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     // Extract LEAN_HOME from the lean binary path
     // Typically: ~/.elan/toolchains/<version>/bin/lean
@@ -165,9 +176,7 @@ fn detect_from_path() -> Result<LeanConfig, String> {
         return Err("lean not found in PATH".to_string());
     }
 
-    let lean_path = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .to_string();
+    let lean_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     let lean_bin = PathBuf::from(lean_path);
     let lean_home = lean_bin
@@ -189,7 +198,10 @@ fn validate_lean_installation(lean_home: &Path) -> Result<LeanConfig, String> {
     let lean_lib_dir = lean_home.join("lib").join("lean");
 
     if !lean_include_dir.exists() {
-        return Err(format!("Include directory not found: {}", lean_include_dir.display()));
+        return Err(format!(
+            "Include directory not found: {}",
+            lean_include_dir.display()
+        ));
     }
 
     // Get Lean version
@@ -235,7 +247,10 @@ fn get_lean_version(lean_bin: &Path) -> Result<String, String> {
 /// Emit link configuration for cargo
 fn emit_link_config(config: &LeanConfig) {
     // Add library search path
-    println!("cargo:rustc-link-search=native={}", config.lean_lib_dir.display());
+    println!(
+        "cargo:rustc-link-search=native={}",
+        config.lean_lib_dir.display()
+    );
 
     // Link against leanshared or lean
     println!("cargo:rustc-link-lib=dylib=leanshared");

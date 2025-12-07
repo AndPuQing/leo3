@@ -1,11 +1,23 @@
 //! Basic integration tests for Leo3
 //!
 //! These tests demonstrate basic runtime initialization and usage patterns.
-//! Note: These tests require Lean4 to be properly linked to run successfully.
+//!
+//! ## Running These Tests
+//!
+//! Without Lean4 (compile-only):
+//! ```bash
+//! LEO3_NO_LEAN=1 cargo test
+//! ```
+//!
+//! With Lean4 (full runtime tests):
+//! ```bash
+//! cargo test --features runtime-tests
+//! ```
 
 use leo3::prelude::*;
 
 #[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_runtime_initialization() {
     // Initialize the Lean runtime
     leo3::prepare_freethreaded_lean();

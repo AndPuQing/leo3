@@ -2,8 +2,10 @@
 //!
 //! Based on the array functions from lean.h
 
+use crate::object::{
+    b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res, lean_object, u_lean_obj_arg,
+};
 use libc::size_t;
-use crate::object::{lean_object, lean_obj_arg, lean_obj_res, b_lean_obj_arg, b_lean_obj_res, u_lean_obj_arg};
 
 extern "C" {
     /// Create an array from a list
@@ -170,7 +172,7 @@ pub unsafe fn lean_array_uset(a: lean_obj_arg, i: size_t, v: lean_obj_arg) -> le
         // Array is shared, need to copy
         let _sz = lean_array_size(a);
         let new_array = lean_array_mk(crate::object::lean_box(0)); // Simplified
-        // TODO: Proper array copy implementation
+                                                                   // TODO: Proper array copy implementation
         new_array
     }
 }
@@ -231,6 +233,14 @@ pub unsafe fn lean_array_uswap(a: lean_obj_arg, i: size_t, j: size_t) -> lean_ob
 /// - `a` must be a valid array object (consumed)
 /// - `i` and `j` must be boxed usize < array size
 #[inline]
-pub unsafe fn lean_array_fswap(a: lean_obj_arg, i: b_lean_obj_arg, j: b_lean_obj_arg) -> lean_obj_res {
-    lean_array_uswap(a, crate::object::lean_unbox(i), crate::object::lean_unbox(j))
+pub unsafe fn lean_array_fswap(
+    a: lean_obj_arg,
+    i: b_lean_obj_arg,
+    j: b_lean_obj_arg,
+) -> lean_obj_res {
+    lean_array_uswap(
+        a,
+        crate::object::lean_unbox(i),
+        crate::object::lean_unbox(j),
+    )
 }

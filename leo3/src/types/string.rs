@@ -1,9 +1,9 @@
 //! Lean string type wrapper.
 
+use crate::err::{LeanError, LeanResult};
 use crate::ffi;
-use crate::marker::Lean;
 use crate::instance::LeanBound;
-use crate::err::{LeanResult, LeanError};
+use crate::marker::Lean;
 use std::ffi::CStr;
 
 /// A Lean string object.
@@ -47,7 +47,7 @@ impl LeanString {
     /// ```
     pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
         unsafe {
-            let c_str = ffi::string::lean_string_cstr(obj.as_ptr());
+            let c_str = ffi::string::leo3_string_cstr(obj.as_ptr());
             let cstr = CStr::from_ptr(c_str);
             cstr.to_str()
                 .map_err(|e| LeanError::conversion(&format!("Invalid UTF-8: {}", e)))
@@ -63,7 +63,7 @@ impl LeanString {
     /// assert_eq!(LeanString::len(&s), 5);
     /// ```
     pub fn len<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        unsafe { ffi::string::lean_string_len(obj.as_ptr()) }
+        unsafe { ffi::string::leo3_string_len(obj.as_ptr()) }
     }
 
     /// Get the byte size of the string.
@@ -85,10 +85,7 @@ impl LeanString {
     /// let s = LeanString::push(s, '!' as u32)?;
     /// assert_eq!(LeanString::to_str(&s)?, "Hello!");
     /// ```
-    pub fn push<'l>(
-        s: LeanBound<'l, Self>,
-        c: u32,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn push<'l>(s: LeanBound<'l, Self>, c: u32) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = s.lean_token();
             let ptr = ffi::string::lean_string_push(s.into_ptr(), c);
@@ -155,11 +152,7 @@ impl LeanString {
         unsafe {
             let start_boxed = ffi::lean_box(start);
             let end_boxed = ffi::lean_box(end);
-            let ptr = ffi::string::lean_string_utf8_extract(
-                s.as_ptr(),
-                start_boxed,
-                end_boxed,
-            );
+            let ptr = ffi::string::lean_string_utf8_extract(s.as_ptr(), start_boxed, end_boxed);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
