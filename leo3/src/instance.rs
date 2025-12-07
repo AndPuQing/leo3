@@ -57,7 +57,7 @@ impl<'l, T> LeanBound<'l, T> {
     #[inline]
     pub unsafe fn from_borrowed_ptr(_lean: Lean<'l>, ptr: *const ffi::lean_object) -> Self {
         let ptr = ptr as *mut ffi::lean_object;
-        ffi::lean_inc_ref(ptr);
+        ffi::object::lean_inc_ref(ptr);
         Self {
             inner: NonNull::new_unchecked(ptr),
             _marker: PhantomData,
@@ -88,17 +88,44 @@ impl<'l, T> LeanBound<'l, T> {
     /// stored and used across initialization boundaries.
     #[inline]
     pub fn unbind(self) -> LeanRef<T> {
-        LeanRef {
-            inner: self.inner,
-            _marker: PhantomData,
-        }
+        let ptr = self.into_ptr();
+        unsafe { LeanRef::from_owned_ptr(ptr) }
+    }
+
+    /// Get a `Lean<'l>` token from this bound object.
+    ///
+    /// This is safe because `LeanBound<'l, T>` can only exist if
+    /// a `Lean<'l>` token was used to create it, proving the runtime
+    /// is initialized for the 'l lifetime.
+    #[inline]
+    pub fn lean_token(&self) -> Lean<'l> {
+        unsafe { Lean::assume_initialized() }
+    }
+
+    /// Cast this `LeanBound<'l, T>` to `LeanBound<'l, U>`.
+    ///
+    /// This is safe because all Lean objects share the same underlying
+    /// representation. The type parameter is only used for type safety
+    /// at the Rust level.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n: LeanBound<LeanNat> = LeanNat::from_usize(lean, 42)?;
+    /// let any: LeanBound<LeanAny> = n.cast();
+    /// ```
+    #[inline]
+    pub fn cast<U>(self) -> LeanBound<'l, U> {
+        let lean = self.lean_token();
+        let ptr = self.into_ptr();
+        unsafe { LeanBound::from_owned_ptr(lean, ptr) }
     }
 }
 
 impl<'l, T> Drop for LeanBound<'l, T> {
     fn drop(&mut self) {
         unsafe {
-            ffi::lean_dec_ref(self.inner.as_ptr());
+            ffi::object::lean_dec_ref_cold(self.inner.as_ptr());
         }
     }
 }
@@ -106,7 +133,7 @@ impl<'l, T> Drop for LeanBound<'l, T> {
 impl<'l, T> Clone for LeanBound<'l, T> {
     fn clone(&self) -> Self {
         unsafe {
-            ffi::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc_ref(self.inner.as_ptr());
         }
         Self {
             inner: self.inner,
@@ -133,7 +160,7 @@ impl<T> LeanRef<T> {
     #[inline]
     pub fn bind<'l>(&self, _lean: Lean<'l>) -> LeanBound<'l, T> {
         unsafe {
-            ffi::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc_ref(self.inner.as_ptr());
         }
         LeanBound {
             inner: self.inner,
@@ -165,7 +192,7 @@ impl<T> LeanRef<T> {
 impl<T> Drop for LeanRef<T> {
     fn drop(&mut self) {
         unsafe {
-            ffi::lean_dec_ref(self.inner.as_ptr());
+            ffi::object::lean_dec_ref_cold(self.inner.as_ptr());
         }
     }
 }
@@ -173,7 +200,7 @@ impl<T> Drop for LeanRef<T> {
 impl<T> Clone for LeanRef<T> {
     fn clone(&self) -> Self {
         unsafe {
-            ffi::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc_ref(self.inner.as_ptr());
         }
         Self {
             inner: self.inner,

@@ -81,6 +81,9 @@ pub mod prelude {
         Lean, LeanBound, LeanRef, LeanResult, LeanError,
     };
 
+    // Re-export commonly used types
+    pub use crate::types::{LeanNat, LeanString, LeanArray};
+
     #[cfg(feature = "macros")]
     pub use leo3_macros::{leanfn, leanclass, leanmodule};
 }
