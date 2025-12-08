@@ -2,8 +2,12 @@
 //!
 //! Based on the array functions from lean.h
 
-use crate::object::{
-    b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res, lean_object, u_lean_obj_arg,
+use crate::{
+    inline::lean_has_rc,
+    object::{
+        b_lean_obj_arg, b_lean_obj_res, lean_is_exclusive, lean_obj_arg, lean_obj_res, lean_object,
+        u_lean_obj_arg,
+    },
 };
 use libc::size_t;
 
@@ -96,7 +100,7 @@ pub unsafe fn lean_array_get_core(o: b_lean_obj_arg, i: size_t) -> b_lean_obj_re
     *lean_array_cptr(o as *mut lean_object).add(i)
 }
 
-/// Set array element (unchecked)
+/// Set array element
 ///
 /// # Safety
 /// - `o` must be a valid, exclusive array object
@@ -104,6 +108,8 @@ pub unsafe fn lean_array_get_core(o: b_lean_obj_arg, i: size_t) -> b_lean_obj_re
 /// - Consumes `v`
 #[inline]
 pub unsafe fn lean_array_set_core(o: u_lean_obj_arg, i: size_t, v: lean_obj_arg) {
+    assert!(!lean_has_rc(o) || lean_is_exclusive(o));
+    assert!(i < lean_array_size(o));
     *lean_array_cptr(o).add(i) = v;
 }
 
@@ -240,10 +246,9 @@ pub unsafe fn lean_array_uswap(a: lean_obj_arg, i: size_t, j: size_t) -> lean_ob
 
     let r = lean_ensure_exclusive_array(a);
     let ptr = lean_array_cptr(r);
-    let elem_i = *ptr.add(i);
-    let elem_j = *ptr.add(j);
-    lean_array_set_core(r, i, elem_j);
-    lean_array_set_core(r, j, elem_i);
+    let v1 = *ptr.add(i);
+    lean_array_set_core(r, i, *ptr.add(j));
+    lean_array_set_core(r, j, v1);
     r
 }
 

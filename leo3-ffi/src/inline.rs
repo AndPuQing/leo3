@@ -57,6 +57,12 @@ unsafe fn lean_is_st(o: *mut lean_object) -> bool {
     (*o).m_rc > 0
 }
 
+/// Check if an object has reference counting (not persistent).
+#[inline]
+pub unsafe fn lean_has_rc(o: *const lean_object) -> bool {
+    return (*o).m_rc != 0;
+}
+
 /// Increment reference count (without scalar check).
 ///
 /// # Safety
