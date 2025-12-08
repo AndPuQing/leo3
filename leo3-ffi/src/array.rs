@@ -14,6 +14,13 @@ extern "C" {
     /// - `l` must be a valid list object (consumed)
     pub fn lean_array_mk(l: lean_obj_arg) -> lean_obj_res;
 
+    /// Copy an array, optionally expanding capacity
+    ///
+    /// # Safety
+    /// - `a` must be a valid array object (consumed)
+    /// - When `expand` is true, capacity is grown to at least (capacity + 1) * 2
+    pub fn lean_copy_expand_array(a: lean_obj_arg, expand: bool) -> lean_obj_res;
+
     /// Convert array to list
     ///
     /// # Safety
@@ -155,6 +162,28 @@ pub unsafe fn lean_array_fget_borrowed(a: b_lean_obj_arg, i: b_lean_obj_arg) -> 
     lean_array_get_core(a, crate::object::lean_unbox(i))
 }
 
+/// Copy an array without expanding capacity.
+///
+/// # Safety
+/// - `a` must be a valid array object (consumed)
+#[inline]
+pub unsafe fn lean_copy_array(a: lean_obj_arg) -> lean_obj_res {
+    lean_copy_expand_array(a, false)
+}
+
+/// Ensure an array is exclusively owned, copying when necessary.
+///
+/// # Safety
+/// - `a` must be a valid array object (consumed)
+#[inline]
+pub unsafe fn lean_ensure_exclusive_array(a: lean_obj_arg) -> lean_obj_res {
+    if crate::object::lean_is_exclusive(a) {
+        a
+    } else {
+        lean_copy_array(a)
+    }
+}
+
 /// Set array element at unboxed index
 ///
 /// # Safety
@@ -163,18 +192,11 @@ pub unsafe fn lean_array_fget_borrowed(a: b_lean_obj_arg, i: b_lean_obj_arg) -> 
 /// - `v` is consumed
 #[inline]
 pub unsafe fn lean_array_uset(a: lean_obj_arg, i: size_t, v: lean_obj_arg) -> lean_obj_res {
-    if crate::object::lean_is_exclusive(a) {
-        let old = lean_array_get_core(a, i);
-        crate::object::lean_dec(old as *mut lean_object);
-        lean_array_set_core(a, i, v);
-        a
-    } else {
-        // Array is shared, need to copy
-        let _sz = lean_array_size(a);
-        let new_array = lean_array_mk(crate::object::lean_box(0)); // Simplified
-                                                                   // TODO: Proper array copy implementation
-        new_array
-    }
+    let r = lean_ensure_exclusive_array(a);
+    let slot = lean_array_cptr(r).add(i);
+    crate::object::lean_dec(*slot as *mut lean_object);
+    *slot = v;
+    r
 }
 
 /// Set array element at boxed index
@@ -194,19 +216,15 @@ pub unsafe fn lean_array_fset(a: lean_obj_arg, i: b_lean_obj_arg, v: lean_obj_ar
 /// - `a` must be a valid, non-empty array object (consumed)
 #[inline]
 pub unsafe fn lean_array_pop(a: lean_obj_arg) -> lean_obj_res {
-    let sz = lean_array_size(a);
-    assert!(sz > 0);
-
-    if crate::object::lean_is_exclusive(a) {
-        let last = lean_array_get_core(a, sz - 1);
-        crate::object::lean_dec(last as *mut lean_object);
-        lean_array_set_size(a, sz - 1);
-        a
-    } else {
-        // Array is shared, need to copy
-        // TODO: Proper implementation
-        a
+    let r = lean_ensure_exclusive_array(a);
+    let sz = lean_array_size(r);
+    if sz == 0 {
+        return r;
     }
+    let last = lean_array_cptr(r).add(sz - 1);
+    crate::object::lean_dec(*last as *mut lean_object);
+    lean_array_set_size(r, sz - 1);
+    r
 }
 
 /// Swap two array elements (unboxed indices)
@@ -220,11 +238,13 @@ pub unsafe fn lean_array_uswap(a: lean_obj_arg, i: size_t, j: size_t) -> lean_ob
         return a;
     }
 
-    let elem_i = lean_array_get_core(a, i) as *mut lean_object;
-    let elem_j = lean_array_get_core(a, j) as *mut lean_object;
-    lean_array_set_core(a, i, elem_j);
-    lean_array_set_core(a, j, elem_i);
-    a
+    let r = lean_ensure_exclusive_array(a);
+    let ptr = lean_array_cptr(r);
+    let elem_i = *ptr.add(i);
+    let elem_j = *ptr.add(j);
+    lean_array_set_core(r, i, elem_j);
+    lean_array_set_core(r, j, elem_i);
+    r
 }
 
 /// Swap two array elements (boxed indices)

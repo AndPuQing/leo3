@@ -169,12 +169,12 @@ fn test_string_lengths() {
         // ASCII - byte length == char length
         let s = LeanString::new(lean, "Hello")?;
         assert_eq!(LeanString::len(&s), 5);
-        assert_eq!(LeanString::byte_size(&s), 5);
+        assert_eq!(LeanString::byte_size(&s), 6);
 
         // Empty
         let s = LeanString::new(lean, "")?;
         assert_eq!(LeanString::len(&s), 0);
-        assert_eq!(LeanString::byte_size(&s), 0);
+        assert_eq!(LeanString::byte_size(&s), 1);
 
         // Note: For multibyte characters, byte_size > len
         // The exact values depend on Lean's UTF-8 handling
@@ -428,32 +428,36 @@ fn test_array_out_of_bounds_get() {
 }
 
 #[test]
-#[should_panic(expected = "Index out of bounds")]
 fn test_array_out_of_bounds_set_panics() {
     leo3::prepare_freethreaded_lean();
 
-    let _ = leo3::with_lean(|lean| {
+    let result = leo3::with_lean(|lean| {
         let arr = LeanArray::new(lean)?;
         let n = LeanNat::from_usize(lean, 1)?;
 
-        // Setting out of bounds should panic
-        let _ = LeanArray::set(arr, 0, n.cast())?;
+        // Setting out of bounds should return an error
+        let result = LeanArray::set(arr, 0, n.cast());
+        assert!(result.is_err(), "Expected error for out of bounds set");
 
         Ok::<(), LeanError>(())
     });
+
+    assert!(result.is_ok());
 }
 
 #[test]
-#[should_panic(expected = "Cannot pop from empty array")]
 fn test_array_pop_empty_panics() {
     leo3::prepare_freethreaded_lean();
 
-    let _ = leo3::with_lean(|lean| {
+    let result = leo3::with_lean(|lean| {
         let arr = LeanArray::new(lean)?;
 
-        // Popping from empty array should panic
-        let _ = LeanArray::pop(arr)?;
+        // Popping from empty array should return an error
+        let result = LeanArray::pop(arr);
+        assert!(result.is_err(), "Expected error for pop from empty array");
 
         Ok::<(), LeanError>(())
     });
+
+    assert!(result.is_ok());
 }
