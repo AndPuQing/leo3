@@ -3,7 +3,7 @@
 //! Based on the string functions from lean.h
 
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
-use libc::{c_char};
+use libc::c_char;
 
 // Re-export inline functions with leo3_ prefix for backwards compatibility
 pub use crate::inline::{

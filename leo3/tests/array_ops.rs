@@ -76,9 +76,9 @@ fn test_array_get() {
         }
 
         // Get elements back
-        let elem0 = LeanArray::get(&arr, lean, 0).expect("Element 0 should exist");
-        let elem1 = LeanArray::get(&arr, lean, 1).expect("Element 1 should exist");
-        let elem2 = LeanArray::get(&arr, lean, 2).expect("Element 2 should exist");
+        let _elem0 = LeanArray::get(&arr, lean, 0).expect("Element 0 should exist");
+        let _elem1 = LeanArray::get(&arr, lean, 1).expect("Element 1 should exist");
+        let _elem2 = LeanArray::get(&arr, lean, 2).expect("Element 2 should exist");
 
         // Note: Elements are returned as LeanAny, would need type-specific handling
         // For now, just check that we got something

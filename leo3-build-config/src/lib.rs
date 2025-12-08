@@ -290,7 +290,6 @@ fn emit_version_cfgs(version: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_version_parsing() {

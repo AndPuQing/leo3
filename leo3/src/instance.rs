@@ -192,7 +192,7 @@ impl<T> LeanRef<T> {
 impl<T> Drop for LeanRef<T> {
     fn drop(&mut self) {
         unsafe {
-            ffi::object::lean_dec_ref_cold(self.inner.as_ptr());
+            ffi::object::lean_dec(self.inner.as_ptr());
         }
     }
 }
