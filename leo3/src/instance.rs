@@ -57,7 +57,7 @@ impl<'l, T> LeanBound<'l, T> {
     #[inline]
     pub unsafe fn from_borrowed_ptr(_lean: Lean<'l>, ptr: *const ffi::lean_object) -> Self {
         let ptr = ptr as *mut ffi::lean_object;
-        ffi::object::lean_inc_ref(ptr);
+        ffi::object::lean_inc(ptr);
         Self {
             inner: NonNull::new_unchecked(ptr),
             _marker: PhantomData,
@@ -133,7 +133,7 @@ impl<'l, T> Drop for LeanBound<'l, T> {
 impl<'l, T> Clone for LeanBound<'l, T> {
     fn clone(&self) -> Self {
         unsafe {
-            ffi::object::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc(self.inner.as_ptr());
         }
         Self {
             inner: self.inner,
@@ -160,7 +160,7 @@ impl<T> LeanRef<T> {
     #[inline]
     pub fn bind<'l>(&self, _lean: Lean<'l>) -> LeanBound<'l, T> {
         unsafe {
-            ffi::object::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc(self.inner.as_ptr());
         }
         LeanBound {
             inner: self.inner,
@@ -200,7 +200,7 @@ impl<T> Drop for LeanRef<T> {
 impl<T> Clone for LeanRef<T> {
     fn clone(&self) -> Self {
         unsafe {
-            ffi::object::lean_inc_ref(self.inner.as_ptr());
+            ffi::object::lean_inc(self.inner.as_ptr());
         }
         Self {
             inner: self.inner,
