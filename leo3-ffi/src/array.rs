@@ -3,7 +3,7 @@
 //! Based on the array functions from lean.h
 
 use crate::{
-    inline::lean_has_rc,
+    inline::{lean_has_rc, lean_to_array},
     object::{
         b_lean_obj_arg, b_lean_obj_res, lean_is_exclusive, lean_obj_arg, lean_obj_res, lean_object,
         u_lean_obj_arg,
@@ -59,10 +59,7 @@ extern "C" {
 /// - `o` must be a valid array object
 #[inline]
 pub unsafe fn lean_array_size(o: b_lean_obj_arg) -> size_t {
-    // Access m_size field of lean_array_object
-    // The struct layout is: header (16 bytes on 64-bit), then m_size
-    let size_ptr = (o as *const u8).add(std::mem::size_of::<lean_object>()) as *const size_t;
-    *size_ptr
+    (*lean_to_array(o as *mut lean_object)).m_size
 }
 
 /// Get array capacity
@@ -71,11 +68,7 @@ pub unsafe fn lean_array_size(o: b_lean_obj_arg) -> size_t {
 /// - `o` must be a valid array object
 #[inline]
 pub unsafe fn lean_array_capacity(o: b_lean_obj_arg) -> size_t {
-    // m_capacity is after m_size
-    let capacity_ptr = (o as *const u8)
-        .add(std::mem::size_of::<lean_object>())
-        .add(std::mem::size_of::<size_t>()) as *const size_t;
-    *capacity_ptr
+    (*lean_to_array(o as *mut lean_object)).m_capacity
 }
 
 /// Get pointer to array data
@@ -84,10 +77,7 @@ pub unsafe fn lean_array_capacity(o: b_lean_obj_arg) -> size_t {
 /// - `o` must be a valid array object
 #[inline]
 pub unsafe fn lean_array_cptr(o: *mut lean_object) -> *mut *mut lean_object {
-    // m_data is after header + m_size + m_capacity
-    (o as *mut u8)
-        .add(std::mem::size_of::<lean_object>())
-        .add(2 * std::mem::size_of::<size_t>()) as *mut *mut lean_object
+    (*lean_to_array(o)).m_data.as_ptr() as *mut *mut lean_object
 }
 
 /// Get array element (unchecked)
@@ -97,6 +87,7 @@ pub unsafe fn lean_array_cptr(o: *mut lean_object) -> *mut *mut lean_object {
 /// - `i` must be < array size
 #[inline]
 pub unsafe fn lean_array_get_core(o: b_lean_obj_arg, i: size_t) -> b_lean_obj_res {
+    assert!(i < lean_array_size(o));
     *lean_array_cptr(o as *mut lean_object).add(i)
 }
 
@@ -120,8 +111,7 @@ pub unsafe fn lean_array_set_core(o: u_lean_obj_arg, i: size_t, v: lean_obj_arg)
 /// - `sz` must be <= capacity
 #[inline]
 pub unsafe fn lean_array_set_size(o: u_lean_obj_arg, sz: size_t) {
-    let size_ptr = (o as *mut u8).add(std::mem::size_of::<lean_object>()) as *mut size_t;
-    *size_ptr = sz;
+    (*lean_to_array(o)).m_size = sz;
 }
 
 /// Get array size as boxed object
