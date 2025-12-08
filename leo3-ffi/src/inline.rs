@@ -6,88 +6,168 @@
 //!
 //! These implementations are based on Lean4 v4.25.2 headers.
 
-use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res, lean_object};
-use libc::size_t;
+use crate::{
+    object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res, lean_object},
+    LEAN_ARRAY, LEAN_CLOSURE, LEAN_EXTERNAL, LEAN_MAX_CTOR_TAG, LEAN_MPZ, LEAN_PROMISE, LEAN_REF,
+    LEAN_SCALAR_ARRAY, LEAN_STRING, LEAN_TASK, LEAN_THUNK,
+};
+use libc::{c_void, size_t};
+use std::sync::atomic::{AtomicI32, AtomicPtr, Ordering};
+
+// ========================================================================
+// Lean object layouts (needed for cast helpers below)
+// ========================================================================
+
+#[repr(C)]
+pub struct lean_ctor_object {
+    pub m_header: lean_object,
+    pub m_objs: [*mut lean_object; 0],
+}
+
+#[repr(C)]
+pub struct lean_array_object {
+    pub m_header: lean_object,
+    pub m_size: size_t,
+    pub m_capacity: size_t,
+    pub m_data: [*mut lean_object; 0],
+}
+
+#[repr(C)]
+pub struct lean_sarray_object {
+    pub m_header: lean_object,
+    pub m_size: size_t,
+    pub m_capacity: size_t,
+    pub m_data: [u8; 0],
+}
+
+#[repr(C)]
+pub struct lean_string_object {
+    pub m_header: lean_object,
+    pub m_size: size_t,
+    pub m_capacity: size_t,
+    pub m_length: size_t,
+    pub m_data: [u8; 0],
+}
+
+#[repr(C)]
+pub struct lean_closure_object {
+    pub m_header: lean_object,
+    pub m_fun: *mut c_void,
+    pub m_arity: u16,
+    pub m_num_fixed: u16,
+    pub m_objs: [*mut lean_object; 0],
+}
+
+#[repr(C)]
+pub struct lean_ref_object {
+    pub m_header: lean_object,
+    pub m_value: *mut lean_object,
+}
+
+#[repr(C)]
+pub struct lean_thunk_object {
+    pub m_header: lean_object,
+    pub m_value: AtomicPtr<lean_object>,
+    pub m_closure: AtomicPtr<lean_object>,
+}
+
+#[repr(C)]
+pub struct lean_task_imp {
+    pub m_closure: *mut lean_object,
+    pub m_head_dep: *mut lean_task_object,
+    pub m_next_dep: *mut lean_task_object,
+    pub m_prio: u32,
+    pub m_canceled: u8,
+    pub m_keep_alive: u8,
+    pub m_deleted: u8,
+    pub _padding: u8,
+}
+
+#[repr(C)]
+pub struct lean_task_object {
+    pub m_header: lean_object,
+    pub m_value: AtomicPtr<lean_object>,
+    pub m_imp: *mut lean_task_imp,
+}
+
+#[repr(C)]
+pub struct lean_promise_object {
+    pub m_header: lean_object,
+    pub m_result: *mut lean_task_object,
+}
+
+#[repr(C)]
+pub struct lean_external_object {
+    pub m_header: lean_object,
+    pub m_class: *mut c_void,
+    pub m_data: *mut c_void,
+}
 
 // ============================================================================
 // Core Object Functions
 // ============================================================================
 
-/// Check if an object is a scalar (immediate value, not a pointer).
-///
-/// Scalars have the lowest bit set to 1.
 #[inline(always)]
 pub unsafe fn lean_is_scalar(o: *const lean_object) -> bool {
     ((o as size_t) & 1) == 1
 }
 
-/// Box a size_t value into a scalar object.
-///
-/// Shifts left by 1 and sets the lowest bit to 1.
 #[inline(always)]
 pub unsafe fn lean_box(n: size_t) -> lean_obj_res {
     ((n << 1) | 1) as lean_obj_res
 }
 
-/// Unbox a scalar object to get the size_t value.
-///
-/// Shifts right by 1 to remove the tag bit.
 #[inline(always)]
 pub unsafe fn lean_unbox(o: b_lean_obj_arg) -> size_t {
     (o as size_t) >> 1
+}
+
+#[inline(always)]
+pub unsafe fn lean_ptr_tag(o: *const lean_object) -> u8 {
+    (*o).m_tag
+}
+
+#[inline(always)]
+pub unsafe fn lean_ptr_other(o: *const lean_object) -> u8 {
+    (*o).m_other
 }
 
 // ============================================================================
 // Reference Counting
 // ============================================================================
 
-/// Check if an object uses single-threaded reference counting.
-///
-/// This checks if the object is not marked as multi-threaded.
-/// Objects with m_rc > 0 are in ST mode, m_rc == 0 are persistent.
+#[inline(always)]
+unsafe fn lean_is_mt(o: *mut lean_object) -> bool {
+    (*o).m_rc < 0
+}
+
 #[inline(always)]
 unsafe fn lean_is_st(o: *mut lean_object) -> bool {
-    // Don't dereference scalars
-    if lean_is_scalar(o as *const lean_object) {
-        return false;
-    }
-    // ST mode: m_rc > 0 (positive reference count)
-    // MT mode: m_rc < 0 (negative means using atomic operations)
-    // Persistent: m_rc == 0 (no reference counting needed)
     (*o).m_rc > 0
 }
 
-/// Check if an object has reference counting (not persistent).
 #[inline]
 pub unsafe fn lean_has_rc(o: *const lean_object) -> bool {
-    return (*o).m_rc != 0;
+    (*o).m_rc != 0
 }
 
-/// Increment reference count (without scalar check).
-///
-/// # Safety
-/// - `o` must be a valid non-scalar object pointer
-#[inline]
-pub unsafe fn lean_inc_ref(o: *mut lean_object) {
-    if lean_is_st(o) {
-        (*o).m_rc = (*o).m_rc.wrapping_add(1);
-    }
-    // MT case would use atomic operations, but we're in ST mode for now
-}
-
-/// Decrement reference count (without scalar check).
-///
-/// # Safety
-/// - `o` must be a valid non-scalar object pointer
-/// - Calls lean_dec_ref_cold if count reaches 0
 #[inline(always)]
-pub unsafe fn lean_dec_ref(o: *mut lean_object) {
-    if (*o).m_rc > 1 {
-        (*o).m_rc -= 1;
-    } else if (*o).m_rc != 0 {
-        // Call the exported cold path for deallocation
-        lean_dec_ref_cold(o);
+unsafe fn lean_get_rc_mt_addr(o: *mut lean_object) -> *mut AtomicI32 {
+    &mut (*o).m_rc as *mut _ as *mut AtomicI32
+}
+
+#[inline]
+pub unsafe fn lean_inc_ref_n(o: *mut lean_object, n: size_t) {
+    if lean_is_st(o) {
+        (*o).m_rc = (*o).m_rc.wrapping_add(n as i32);
+    } else if lean_is_mt(o) {
+        (*lean_get_rc_mt_addr(o)).fetch_sub(n as i32, Ordering::Relaxed);
     }
+}
+
+#[inline(always)]
+pub unsafe fn lean_inc_ref(o: *mut lean_object) {
+    lean_inc_ref_n(o, 1);
 }
 
 /// Increment reference count (with scalar check).
@@ -98,6 +178,30 @@ pub unsafe fn lean_dec_ref(o: *mut lean_object) {
 pub unsafe fn lean_inc(o: lean_obj_arg) {
     if !lean_is_scalar(o) {
         lean_inc_ref(o);
+    }
+}
+
+/// Increment reference count by n (with scalar check).
+///
+/// # Safety
+/// - `o` can be any lean object (scalar or pointer)
+#[inline(always)]
+pub unsafe fn lean_inc_n(o: lean_obj_arg, n: size_t) {
+    if !lean_is_scalar(o) {
+        lean_inc_ref_n(o, n);
+    }
+}
+
+extern "C" {
+    fn lean_dec_ref_cold(o: *mut lean_object);
+}
+
+#[inline(always)]
+pub unsafe fn lean_dec_ref(o: *mut lean_object) {
+    if (*o).m_rc > 1 {
+        (*o).m_rc -= 1;
+    } else if (*o).m_rc != 0 {
+        lean_dec_ref_cold(o);
     }
 }
 
@@ -125,9 +229,132 @@ pub unsafe fn lean_is_exclusive(o: *mut lean_object) -> bool {
     }
 }
 
-// External declaration for the cold path
-extern "C" {
-    fn lean_dec_ref_cold(o: *mut lean_object);
+// ============================================================================
+// Object tag tests and casts
+// ============================================================================
+
+#[inline(always)]
+pub unsafe fn lean_is_ctor(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) <= LEAN_MAX_CTOR_TAG
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_closure(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_CLOSURE
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_array(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_ARRAY
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_sarray(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_SCALAR_ARRAY
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_string(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_STRING
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_mpz(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_MPZ
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_thunk(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_THUNK
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_task(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_TASK
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_promise(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_PROMISE
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_external(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_EXTERNAL
+}
+
+#[inline(always)]
+pub unsafe fn lean_is_ref(o: lean_obj_arg) -> bool {
+    lean_ptr_tag(o) == LEAN_REF
+}
+
+#[inline]
+pub unsafe fn lean_obj_tag(o: lean_obj_arg) -> u8 {
+    if lean_is_scalar(o) {
+        lean_unbox(o) as u8
+    } else {
+        lean_ptr_tag(o)
+    }
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_ctor(o: lean_obj_arg) -> *mut lean_ctor_object {
+    debug_assert!(lean_is_ctor(o));
+    o as *mut lean_ctor_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_closure(o: lean_obj_arg) -> *mut lean_closure_object {
+    debug_assert!(lean_is_closure(o));
+    o as *mut lean_closure_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_array(o: lean_obj_arg) -> *mut lean_array_object {
+    debug_assert!(lean_is_array(o));
+    o as *mut lean_array_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_sarray(o: lean_obj_arg) -> *mut lean_sarray_object {
+    debug_assert!(lean_is_sarray(o));
+    o as *mut lean_sarray_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_string(o: lean_obj_arg) -> *mut lean_string_object {
+    debug_assert!(lean_is_string(o));
+    o as *mut lean_string_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_thunk(o: lean_obj_arg) -> *mut lean_thunk_object {
+    debug_assert!(lean_is_thunk(o));
+    o as *mut lean_thunk_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_task(o: lean_obj_arg) -> *mut lean_task_object {
+    debug_assert!(lean_is_task(o));
+    o as *mut lean_task_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_promise(o: lean_obj_arg) -> *mut lean_promise_object {
+    debug_assert!(lean_is_promise(o));
+    o as *mut lean_promise_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_ref(o: lean_obj_arg) -> *mut lean_ref_object {
+    debug_assert!(lean_is_ref(o));
+    o as *mut lean_ref_object
+}
+
+#[inline(always)]
+pub unsafe fn lean_to_external(o: lean_obj_arg) -> *mut lean_external_object {
+    debug_assert!(lean_is_external(o));
+    o as *mut lean_external_object
 }
 
 // ============================================================================
@@ -168,20 +395,6 @@ pub unsafe fn lean_usize_of_nat(o: b_lean_obj_arg) -> size_t {
 extern "C" {
     fn lean_alloc_mpz(n: size_t) -> lean_obj_res;
     fn lean_usize_of_big_nat(o: b_lean_obj_arg) -> size_t;
-}
-
-// ============================================================================
-// String Functions
-// ============================================================================
-
-/// Lean string object layout (simplified)
-#[repr(C)]
-struct lean_string_object {
-    m_header: lean_object,
-    m_size: size_t,
-    m_capacity: size_t,
-    m_length: size_t,
-    // m_data follows (flexible array member)
 }
 
 /// Get C string pointer from Lean string

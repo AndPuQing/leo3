@@ -102,77 +102,18 @@ extern "C" {
 // Object Type Checking Helpers (inline from lean.h)
 // ============================================================================
 
-/// Check if object is a constructor
-#[inline]
-pub unsafe fn lean_is_ctor(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag <= LEAN_MAX_CTOR_TAG
-}
-
-/// Check if object is a closure
-#[inline]
-pub unsafe fn lean_is_closure(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_CLOSURE
-}
-
-/// Check if object is an array
-#[inline]
-pub unsafe fn lean_is_array(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_ARRAY
-}
-
-/// Check if object is a scalar array
-#[inline]
-pub unsafe fn lean_is_sarray(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_SCALAR_ARRAY
-}
-
-/// Check if object is a string
-#[inline]
-pub unsafe fn lean_is_string(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_STRING
-}
-
-/// Check if object is a thunk
-#[inline]
-pub unsafe fn lean_is_thunk(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_THUNK
-}
-
-/// Check if object is a task
-#[inline]
-pub unsafe fn lean_is_task(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_TASK
-}
-
-/// Check if object is a reference
-#[inline]
-pub unsafe fn lean_is_ref(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_REF
-}
-
-/// Check if object is external
-#[inline]
-pub unsafe fn lean_is_external(o: *const lean_object) -> bool {
-    !lean_is_scalar(o) && (*o).m_tag == LEAN_EXTERNAL
-}
+pub use inline::{
+    lean_is_array, lean_is_closure, lean_is_ctor, lean_is_external, lean_is_mpz, lean_is_promise,
+    lean_is_ref, lean_is_sarray, lean_is_string, lean_is_task, lean_is_thunk, lean_to_array,
+    lean_to_closure, lean_to_ctor, lean_to_external, lean_to_promise, lean_to_ref, lean_to_sarray,
+    lean_to_string, lean_to_task, lean_to_thunk,
+};
 
 // ============================================================================
 // High-level inc/dec with scalar checking (from lean.h)
 // ============================================================================
 
-// Re-export inline implementations from object module (which gets them from inline module)
-pub use object::{lean_dec, lean_dec_ref, lean_inc, lean_inc_ref};
-
-/// Increment reference count by n (checks for scalars)
-///
-/// # Safety
-/// - `o` must be a valid lean_object pointer or a boxed scalar
-#[inline]
-pub unsafe fn lean_inc_n(o: *mut lean_object, n: size_t) {
-    if !lean_is_scalar(o) {
-        object::lean_inc_ref_n(o, n);
-    }
-}
+pub use inline::{lean_dec, lean_dec_ref, lean_inc, lean_inc_n, lean_inc_ref, lean_inc_ref_n};
 
 /// Allocate a constructor object (inline from lean.h)
 ///

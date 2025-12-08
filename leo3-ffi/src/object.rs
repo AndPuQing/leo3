@@ -27,15 +27,11 @@ pub type b_lean_obj_res = *const lean_object; // Borrowed object result
 // ============================================================================
 
 // Re-export inline implementations from inline module
-pub use crate::inline::{lean_dec, lean_dec_ref, lean_inc, lean_inc_ref, lean_is_exclusive};
+pub use crate::inline::{
+    lean_dec, lean_dec_ref, lean_inc, lean_inc_ref, lean_inc_ref_n, lean_is_exclusive, lean_obj_tag,
+};
 
 extern "C" {
-    /// Increment reference count by n
-    ///
-    /// # Safety
-    /// - `o` must be a valid lean_object pointer or null
-    pub fn lean_inc_ref_n(o: *mut lean_object, n: size_t);
-
     /// Decrement reference count (cold path for RC <= 1)
     ///
     /// # Safety
@@ -184,23 +180,6 @@ extern "C" {
 
 // Re-export inline functions from the inline module
 pub use crate::inline::{lean_box, lean_is_scalar, lean_unbox};
-
-// ============================================================================
-// Object Type Checking (inline from lean.h)
-// ============================================================================
-
-/// Get the tag of an object
-///
-/// # Safety
-/// - `o` must be a valid lean_object pointer or a boxed scalar
-#[inline]
-pub unsafe fn lean_obj_tag(o: *const lean_object) -> u8 {
-    if lean_is_scalar(o) {
-        lean_unbox(o) as u8
-    } else {
-        (*o).m_tag
-    }
-}
 
 // ============================================================================
 // External Objects
