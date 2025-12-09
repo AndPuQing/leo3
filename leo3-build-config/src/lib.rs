@@ -25,15 +25,6 @@ pub struct LeanConfig {
 static LEAN_CONFIG: OnceCell<LeanConfig> = OnceCell::new();
 
 /// Main entry point: adds all Leo3 configuration to the current compilation.
-///
-/// This should be called from a build script:
-///
-/// ```rust,no_run
-/// fn main() {
-///     leo3_build_config::use_leo3_cfgs();
-/// }
-/// ```
-///
 /// ## Environment Variables
 ///
 /// - `LEO3_NO_LEAN=1` - Skip Lean4 detection and linking (for compile-only tests)
