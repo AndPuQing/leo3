@@ -1,4 +1,4 @@
-//! Tests for high-priority types: Float, ByteArray, and UInt types
+//! Tests for Float, ByteArray, and UInt types
 
 use leo3::prelude::*;
 
