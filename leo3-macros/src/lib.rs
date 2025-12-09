@@ -40,11 +40,7 @@ pub fn leanfn(attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let expanded = build_lean_function(&mut ast, options).unwrap_or_compile_error();
 
-    quote!(
-        #ast
-        #expanded
-    )
-    .into()
+    expanded.into()
 }
 
 /// Derive macro for automatic `IntoLean` trait implementation.
@@ -78,7 +74,16 @@ pub fn leanfn(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// # Requirements
 ///
 /// All field types must implement `IntoLean<'l>`.
-#[proc_macro_derive(IntoLean)]
+///
+/// # Attributes
+///
+/// The derive supports the following attributes:
+/// - `#[lean(transparent)]` - For newtype wrappers, skips the constructor layer
+/// - `#[lean(skip)]` - Excludes a field from conversion
+/// - `#[lean(with = "path")]` - Uses a custom conversion function
+/// - `#[lean(rename = "name")]` - Custom field name for error messages
+/// - `#[lean(tag = n)]` - Explicit constructor tag for enum variants
+#[proc_macro_derive(IntoLean, attributes(lean))]
 pub fn derive_into_lean(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     leo3_macros_backend::derive::expand_into_lean(ast)
@@ -117,7 +122,17 @@ pub fn derive_into_lean(input: TokenStream) -> TokenStream {
 /// # Requirements
 ///
 /// All field types must implement `FromLean<'l>`.
-#[proc_macro_derive(FromLean)]
+///
+/// # Attributes
+///
+/// The derive supports the following attributes:
+/// - `#[lean(transparent)]` - For newtype wrappers, extracts directly from inner type
+/// - `#[lean(skip)]` - Excludes a field from extraction, uses Default::default()
+/// - `#[lean(default)]` - Uses Default::default() if extraction fails
+/// - `#[lean(with = "path")]` - Uses a custom extraction function
+/// - `#[lean(rename = "name")]` - Custom field name for error messages
+/// - `#[lean(tag = n)]` - Explicit constructor tag for enum variants
+#[proc_macro_derive(FromLean, attributes(lean))]
 pub fn derive_from_lean(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
     leo3_macros_backend::derive::expand_from_lean(ast)

@@ -358,3 +358,271 @@ fn test_all_primitives() {
 
     assert!(result.is_ok());
 }
+
+// Test 11: Transparent newtype wrapper (tuple)
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+#[lean(transparent)]
+struct UserId(u64);
+
+#[test]
+fn test_transparent_newtype() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let user_id = UserId(42);
+        let lean_obj = user_id.into_lean(lean)?;
+        let restored = UserId::from_lean(&lean_obj)?;
+        assert_eq!(UserId(42), restored);
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 12: Transparent newtype wrapper (named field)
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+#[lean(transparent)]
+struct Email {
+    address: String,
+}
+
+#[test]
+fn test_transparent_named_field() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let email = Email {
+            address: "test@example.com".to_string(),
+        };
+        let lean_obj = email.into_lean(lean)?;
+        let restored = Email::from_lean(&lean_obj)?;
+        assert_eq!(
+            Email {
+                address: "test@example.com".to_string()
+            },
+            restored
+        );
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 13: Transparent with generic type
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+#[lean(transparent)]
+struct NewtypeWrapper<T>(T);
+
+#[test]
+fn test_transparent_generic() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        // Test with u64
+        let wrapper_u64 = NewtypeWrapper(100u64);
+        let lean_u64 = wrapper_u64.into_lean(lean)?;
+        let restored_u64 = NewtypeWrapper::<u64>::from_lean(&lean_u64)?;
+        assert_eq!(NewtypeWrapper(100u64), restored_u64);
+
+        // Test with String
+        let wrapper_string = NewtypeWrapper("hello".to_string());
+        let lean_string = wrapper_string.into_lean(lean)?;
+        let restored_string = NewtypeWrapper::<String>::from_lean(&lean_string)?;
+        assert_eq!(NewtypeWrapper("hello".to_string()), restored_string);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 14: Skip attribute - fields excluded from conversion
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+struct UserData {
+    id: u64,
+    name: String,
+    #[lean(skip)]
+    cached_hash: u64,
+}
+
+#[test]
+fn test_skip_field() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let user = UserData {
+            id: 42,
+            name: "Alice".to_string(),
+            cached_hash: 12345, // This will be ignored
+        };
+        let lean_obj = user.into_lean(lean)?;
+        let restored = UserData::from_lean(&lean_obj)?;
+
+        // cached_hash should be 0 (default) after round-trip
+        assert_eq!(42, restored.id);
+        assert_eq!("Alice", restored.name);
+        assert_eq!(0, restored.cached_hash); // Default value
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 15: Skip attribute with tuple struct
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+struct Point3D(u64, u64, #[lean(skip)] u64);
+
+#[test]
+fn test_skip_tuple_field() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let point = Point3D(10, 20, 30);
+        let lean_obj = point.into_lean(lean)?;
+        let restored = Point3D::from_lean(&lean_obj)?;
+
+        assert_eq!(10, restored.0);
+        assert_eq!(20, restored.1);
+        assert_eq!(0, restored.2); // Skipped field gets default
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 16: Default attribute - uses Default::default() on extraction failure
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+struct ConfigData {
+    name: String,
+    #[lean(default)]
+    timeout: u64,
+}
+
+#[test]
+fn test_default_field() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let config = ConfigData {
+            name: "test".to_string(),
+            timeout: 5000,
+        };
+        let lean_obj = config.into_lean(lean)?;
+        let restored = ConfigData::from_lean(&lean_obj)?;
+
+        assert_eq!("test", restored.name);
+        assert_eq!(5000, restored.timeout);
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 17: Skip the custom conversion test for now
+// The 'with' attribute requires more complex setup that we'll handle in integration tests
+// For now, we'll test that basic attribute combinations work
+
+// Test 18: Rename attribute for better error messages
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+struct ApiResponse {
+    #[lean(rename = "status_code")]
+    status: u64,
+    #[lean(rename = "response_body")]
+    body: String,
+}
+
+#[test]
+fn test_rename_attribute() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let response = ApiResponse {
+            status: 200,
+            body: "OK".to_string(),
+        };
+        let lean_obj = response.into_lean(lean)?;
+        let restored = ApiResponse::from_lean(&lean_obj)?;
+
+        assert_eq!(200, restored.status);
+        assert_eq!("OK", restored.body);
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 19: Multiple attributes combined
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+struct ComplexData {
+    id: u64,
+    #[lean(skip)]
+    internal_cache: u64,
+    #[lean(default)]
+    optional_count: u64,
+    #[lean(rename = "temperature")]
+    temp: u64,
+}
+
+#[test]
+fn test_multiple_attributes() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let data = ComplexData {
+            id: 1,
+            internal_cache: 999,
+            optional_count: 42,
+            temp: 25,
+        };
+        let lean_obj = data.into_lean(lean)?;
+        let restored = ComplexData::from_lean(&lean_obj)?;
+
+        assert_eq!(1, restored.id);
+        assert_eq!(0, restored.internal_cache); // skipped, gets default
+        assert_eq!(42, restored.optional_count);
+        assert_eq!(25, restored.temp);
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+// Test 20: Explicit tag attribute for enum variants
+#[derive(Debug, PartialEq, IntoLean, FromLean)]
+enum Protocol {
+    #[lean(tag = 10)]
+    Http,
+    #[lean(tag = 20)]
+    Https,
+    #[lean(tag = 30)]
+    Ftp(String),
+}
+
+#[test]
+fn test_explicit_tags() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        // Test Http with tag 10
+        let http = Protocol::Http;
+        let lean_http = http.into_lean(lean)?;
+        let restored_http = Protocol::from_lean(&lean_http)?;
+        assert_eq!(Protocol::Http, restored_http);
+
+        // Test Https with tag 20
+        let https = Protocol::Https;
+        let lean_https = https.into_lean(lean)?;
+        let restored_https = Protocol::from_lean(&lean_https)?;
+        assert_eq!(Protocol::Https, restored_https);
+
+        // Test Ftp with tag 30
+        let ftp = Protocol::Ftp("server.com".to_string());
+        let lean_ftp = ftp.into_lean(lean)?;
+        let restored_ftp = Protocol::from_lean(&lean_ftp)?;
+        assert_eq!(Protocol::Ftp("server.com".to_string()), restored_ftp);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}

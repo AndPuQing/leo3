@@ -275,11 +275,12 @@ pub fn build_lean_function(
     let metadata = generate_metadata(&info, &leo3_crate);
 
     // Only re-export FFI function if the lean name is different from rust name
+    let internal_ffi_name = format_ident!("__ffi_{}", &info.lean_name);
     let ffi_reexport = if *rust_name != info.lean_name {
         quote! {
             // Re-export FFI function with its Lean name (for FFI calls)
             #[allow(non_snake_case)]
-            pub use #wrapper_module::#lean_name_ident;
+            pub use #wrapper_module::#internal_ffi_name as #lean_name_ident;
         }
     } else {
         quote! {}

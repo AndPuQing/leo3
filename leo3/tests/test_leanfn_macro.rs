@@ -47,7 +47,7 @@ fn do_nothing(x: u64) {
 fn test_leanfn_double() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         // Create Lean Nat
         let input = LeanNat::from_usize(lean, 21)?;
 
@@ -69,7 +69,7 @@ fn test_leanfn_double() {
 fn test_leanfn_with_name() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         let a = LeanNat::from_usize(lean, 10)?;
         let b = LeanNat::from_usize(lean, 32)?;
 
@@ -91,7 +91,7 @@ fn test_leanfn_with_name() {
 fn test_leanfn_string() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         let name = LeanString::mk(lean, "World")?;
 
         unsafe {
@@ -110,18 +110,18 @@ fn test_leanfn_string() {
 fn test_leanfn_bool() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         let input_true = LeanBool::mk(lean, true)?;
         let input_false = LeanBool::mk(lean, false)?;
 
         unsafe {
             let result_ptr = __leo3_leanfn_negate::__ffi_negate(input_true.into_ptr());
             let result: LeanBound<LeanBool> = LeanBound::from_owned_ptr(lean, result_ptr);
-            assert_eq!(LeanBool::toBool(&result), false);
+            assert!(!LeanBool::toBool(&result));
 
             let result_ptr = __leo3_leanfn_negate::__ffi_negate(input_false.into_ptr());
             let result: LeanBound<LeanBool> = LeanBound::from_owned_ptr(lean, result_ptr);
-            assert_eq!(LeanBool::toBool(&result), true);
+            assert!(LeanBool::toBool(&result));
         }
 
         Ok(())
@@ -134,7 +134,7 @@ fn test_leanfn_bool() {
 fn test_leanfn_mixed_types() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         let n = LeanNat::from_usize(lean, 42)?;
         let positive = LeanBool::mk(lean, true)?;
 
@@ -157,13 +157,14 @@ fn test_leanfn_mixed_types() {
 fn test_leanfn_unit_return() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         let input = LeanNat::from_usize(lean, 42)?;
 
         unsafe {
             let result_ptr = __leo3_leanfn_do_nothing::__ffi_do_nothing(input.into_ptr());
             // Unit return should be a constructor with tag 0 and 0 fields
-            let result: LeanBound<_> = LeanBound::from_owned_ptr(lean, result_ptr);
+            // Using LeanNat as a placeholder type since we just check the pointer
+            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
             // Just verify it doesn't crash
             assert!(!result.as_ptr().is_null());
         }
@@ -180,6 +181,6 @@ fn test_rust_side_call() {
     assert_eq!(double(21), 42);
     assert_eq!(add(10, 32), 42);
     assert_eq!(greet("Rust".to_string()), "Hello, Rust!");
-    assert_eq!(negate(true), false);
+    assert!(!negate(true));
     assert_eq!(describe_number(42, true), "positive 42");
 }
