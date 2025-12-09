@@ -461,3 +461,180 @@ fn test_array_pop_empty_panics() {
 
     assert!(result.is_ok());
 }
+
+#[test]
+fn test_vec_u8_bulk_conversion() {
+    use leo3::conversion::{vec_u8_from_lean, vec_u8_into_lean};
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        // Test empty vec
+        let empty_vec: Vec<u8> = vec![];
+        let ba = vec_u8_into_lean(empty_vec, lean)?;
+        assert_eq!(LeanByteArray::size(&ba), 0);
+        let result_vec = vec_u8_from_lean(&ba);
+        assert_eq!(result_vec, vec![]);
+
+        // Test small vec
+        let small_vec = vec![1, 2, 3, 4, 5];
+        let ba = vec_u8_into_lean(small_vec.clone(), lean)?;
+        assert_eq!(LeanByteArray::size(&ba), 5);
+        let result_vec = vec_u8_from_lean(&ba);
+        assert_eq!(result_vec, small_vec);
+
+        // Test large vec
+        let large_vec: Vec<u8> = (0..=255).cycle().take(10000).collect();
+        let ba = vec_u8_into_lean(large_vec.clone(), lean)?;
+        assert_eq!(LeanByteArray::size(&ba), 10000);
+        let result_vec = vec_u8_from_lean(&ba);
+        assert_eq!(result_vec, large_vec);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_slice_u8_bulk_conversion() {
+    use leo3::conversion::{slice_u8_into_lean, vec_u8_from_lean};
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        // Test byte string literal
+        let bytes = b"Hello, World!";
+        let ba = slice_u8_into_lean(bytes, lean)?;
+        assert_eq!(LeanByteArray::size(&ba), 13);
+        let result_vec = vec_u8_from_lean(&ba);
+        assert_eq!(result_vec.as_slice(), bytes);
+
+        // Test slice from vec
+        let vec = [10, 20, 30, 40, 50];
+        let ba = slice_u8_into_lean(&vec[1..4], lean)?;
+        assert_eq!(LeanByteArray::size(&ba), 3);
+        let result_vec = vec_u8_from_lean(&ba);
+        assert_eq!(result_vec, vec![20, 30, 40]);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_array_builder_basic() {
+    use leo3::conversion::ArrayBuilder;
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let mut builder = ArrayBuilder::with_capacity(lean, 10)?;
+        assert_eq!(builder.len(), 0);
+        assert!(builder.is_empty());
+
+        for i in 0..10 {
+            let n = LeanNat::from_usize(lean, i)?;
+            builder.push(n.cast())?;
+        }
+
+        assert_eq!(builder.len(), 10);
+        assert!(!builder.is_empty());
+
+        let arr = builder.finish();
+        assert_eq!(LeanArray::size(&arr), 10);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_array_builder_empty() {
+    use leo3::conversion::ArrayBuilder;
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let builder = ArrayBuilder::with_capacity(lean, 5)?;
+        let arr = builder.finish();
+        assert_eq!(LeanArray::size(&arr), 0);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_iter_into_lean() {
+    use leo3::conversion::iter_into_lean;
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        // Test with range iterator
+        let arr = iter_into_lean(0..10_usize, lean)?;
+        assert_eq!(LeanArray::size(&arr), 10);
+
+        // Test with mapped iterator
+        let arr = iter_into_lean((0..5_usize).map(|x| x * 2), lean)?;
+        assert_eq!(LeanArray::size(&arr), 5);
+
+        // Verify elements (spot check)
+        for i in 0..5 {
+            let elem = LeanArray::get(&arr, lean, i).unwrap();
+            let nat: LeanBound<LeanNat> = elem.cast();
+            let value = LeanNat::to_usize(&nat)?;
+            assert_eq!(value, i * 2);
+        }
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_slice_into_lean() {
+    use leo3::conversion::slice_into_lean;
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let data = [1_u64, 2, 3, 4, 5];
+        let arr = slice_into_lean(&data, lean)?;
+        assert_eq!(LeanArray::size(&arr), 5);
+
+        // Verify elements
+        for (i, &expected) in data.iter().enumerate() {
+            let elem = LeanArray::get(&arr, lean, i).unwrap();
+            let nat: LeanBound<LeanNat> = elem.cast();
+            let value = LeanNat::to_usize(&nat)? as u64;
+            assert_eq!(value, expected);
+        }
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_iter_into_lean_empty() {
+    use leo3::conversion::iter_into_lean;
+
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let arr = iter_into_lean(0..0_usize, lean)?;
+        assert_eq!(LeanArray::size(&arr), 0);
+        assert!(LeanArray::isEmpty(&arr));
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}

@@ -329,7 +329,7 @@ fn test_leanfn_vec_transform() {
             // Should return [2, 4, 6]
             assert_eq!(LeanArray::size(&result), 3);
 
-            let expected = vec![2, 4, 6];
+            let expected = [2, 4, 6];
             for (i, &expected_val) in expected.iter().enumerate() {
                 let elem = LeanArray::get(&result, lean, i).unwrap();
                 let nat: LeanBound<LeanNat> = elem.cast();
