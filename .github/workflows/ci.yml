@@ -79,13 +79,6 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Install Lean4
-        shell: bash
-        run: |
-          elan toolchain install leanprover/lean4:v4.25.2
-          elan default leanprover/lean4:v4.25.2
-          lean --version
-
       - name: Run tests
         run: cargo test --locked --all-features --workspace
 
