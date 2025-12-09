@@ -5,11 +5,6 @@
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 use libc::c_char;
 
-// Re-export inline functions with leo3_ prefix for backwards compatibility
-pub use crate::inline::{
-    lean_string_cstr as leo3_string_cstr, lean_string_len as leo3_string_len, lean_string_size,
-};
-
 extern "C" {
     /// Create a new Lean string from C string
     ///
@@ -101,13 +96,13 @@ extern "C" {
 /// Get string length as boxed object
 #[inline]
 pub unsafe fn lean_string_length(s: b_lean_obj_arg) -> lean_obj_res {
-    crate::object::lean_box(leo3_string_len(s))
+    crate::object::lean_box(crate::inline::lean_string_len(s))
 }
 
 /// Get string byte size as boxed object (size - 1, excluding null terminator)
 #[inline]
 pub unsafe fn lean_string_utf8_byte_size(s: b_lean_obj_arg) -> lean_obj_res {
-    crate::object::lean_box(lean_string_size(s) - 1)
+    crate::object::lean_box(crate::inline::lean_string_size(s) - 1)
 }
 
 /// Compare two strings for equality (fast path checks pointer equality first)
@@ -125,13 +120,13 @@ pub unsafe fn lean_string_ne(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> bool {
 /// Check if iterator is at end of string
 #[inline]
 pub unsafe fn lean_string_utf8_at_end(s: b_lean_obj_arg, i: b_lean_obj_arg) -> bool {
-    crate::object::lean_unbox(i) >= lean_string_size(s) - 1
+    crate::object::lean_unbox(i) >= crate::inline::lean_string_size(s) - 1
 }
 
 /// Get byte at position (fast path, no bounds check)
 #[inline]
 pub unsafe fn lean_string_get_byte_fast(s: b_lean_obj_arg, i: b_lean_obj_arg) -> u8 {
-    let cstr = leo3_string_cstr(s);
+    let cstr = crate::inline::lean_string_cstr(s);
     let idx = crate::object::lean_unbox(i);
     *cstr.add(idx) as u8
 }

@@ -64,7 +64,7 @@ impl LeanString {
     /// ```
     pub fn cstr<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
         unsafe {
-            let c_str = ffi::string::leo3_string_cstr(obj.as_ptr());
+            let c_str = ffi::inline::lean_string_cstr(obj.as_ptr());
             let cstr = CStr::from_ptr(c_str);
             cstr.to_str()
                 .map_err(|e| LeanError::conversion(&format!("Invalid UTF-8: {}", e)))
@@ -88,12 +88,12 @@ impl LeanString {
     /// assert_eq!(LeanString::len(&s), 5);
     /// ```
     pub fn len<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        unsafe { ffi::string::leo3_string_len(obj.as_ptr()) }
+        unsafe { ffi::inline::lean_string_len(obj.as_ptr()) }
     }
 
     /// Get the byte size of the string.
     pub fn byte_size<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        unsafe { ffi::string::lean_string_size(obj.as_ptr()) }
+        unsafe { ffi::inline::lean_string_size(obj.as_ptr()) }
     }
 
     /// Check if the string is empty.
