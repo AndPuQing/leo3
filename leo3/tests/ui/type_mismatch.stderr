@@ -1,5 +1,5 @@
 error[E0308]: mismatched types
-  --> tests/ui/type_mismatch.rs:12:36
+  --> tests/ui/type_mismatch.rs:12:34
    |
 12 |         let _ = LeanString::cstr(&n);
    |                 ---------------- ^^ expected `&LeanBound<'_, LeanString>`, found `&LeanBound<'_, LeanNat>`
