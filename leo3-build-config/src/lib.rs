@@ -237,17 +237,30 @@ fn get_lean_version(lean_bin: &Path) -> Result<String, String> {
 
 /// Emit link configuration for cargo
 fn emit_link_config(config: &LeanConfig) {
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+
+    // On Windows, DLLs are in bin directory; on Unix, libraries are in lib/lean
+    let lib_search_path = if target_os == "windows" {
+        config.lean_home.join("bin")
+    } else {
+        config.lean_lib_dir.clone()
+    };
+
     // Add library search path
     println!(
         "cargo:rustc-link-search=native={}",
-        config.lean_lib_dir.display()
+        lib_search_path.display()
     );
 
-    // Link against leanshared or lean
+    // Link against Lean shared libraries
+    // Based on lean4/tests/lake/examples/reverse-ffi/Makefile
+    // Order matters: link in reverse dependency order
     println!("cargo:rustc-link-lib=dylib=leanshared");
+    println!("cargo:rustc-link-lib=dylib=leanshared_1");
+    println!("cargo:rustc-link-lib=dylib=leanshared_2");
+    println!("cargo:rustc-link-lib=dylib=Init_shared");
 
     // On Windows, link additional system libraries required by Lean
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "windows" {
         // Windows Socket library (required by Lean's networking functionality)
         println!("cargo:rustc-link-lib=dylib=Ws2_32");

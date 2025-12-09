@@ -86,8 +86,8 @@ jobs:
         run: |
           LEAN_PATH=$(elan which lean)
           LEAN_HOME=$(dirname "$(dirname "$LEAN_PATH")")
+          # On Windows, Lean DLLs are in the bin directory
           echo "$LEAN_HOME/bin" >> $GITHUB_PATH
-          echo "$LEAN_HOME/lib/lean" >> $GITHUB_PATH
           echo "LEAN_HOME=$LEAN_HOME" >> $GITHUB_ENV
 
       - name: Run tests
