@@ -239,26 +239,39 @@ fn get_lean_version(lean_bin: &Path) -> Result<String, String> {
 fn emit_link_config(config: &LeanConfig) {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
 
-    // On Windows, DLLs are in bin directory; on Unix, libraries are in lib/lean
-    let lib_search_path = if target_os == "windows" {
-        config.lean_home.join("bin")
-    } else {
-        config.lean_lib_dir.clone()
-    };
-
     // Add library search path
+    // On Windows: need both lib/lean (for .lib import libraries) and bin (for DLLs at runtime)
+    // On Unix: only need lib/lean
     println!(
         "cargo:rustc-link-search=native={}",
-        lib_search_path.display()
+        config.lean_lib_dir.display()
     );
+
+    // On Windows, also add bin directory to search path for DLLs
+    if target_os == "windows" {
+        let bin_dir = config.lean_home.join("bin");
+        println!("cargo:rustc-link-search=native={}", bin_dir.display());
+    }
 
     // Link against Lean shared libraries
     // Based on lean4/tests/lake/examples/reverse-ffi/Makefile
-    // Order matters: link in reverse dependency order
-    println!("cargo:rustc-link-lib=dylib=leanshared");
-    println!("cargo:rustc-link-lib=dylib=leanshared_1");
-    println!("cargo:rustc-link-lib=dylib=leanshared_2");
-    println!("cargo:rustc-link-lib=dylib=Init_shared");
+    // Order matters: dependencies first, then base libraries
+    //
+    // On Windows, Lean is built with MinGW and provides .dll.a import libraries,
+    // not .lib files. We need to use +verbatim to specify the exact library names.
+    if target_os == "windows" {
+        // Use verbatim to link against .dll.a files (MinGW import libraries)
+        println!("cargo:rustc-link-lib=dylib:+verbatim=libInit_shared.dll.a");
+        println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_2.dll.a");
+        println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_1.dll.a");
+        println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared.dll.a");
+    } else {
+        // Unix: standard library names
+        println!("cargo:rustc-link-lib=dylib=Init_shared");
+        println!("cargo:rustc-link-lib=dylib=leanshared_2");
+        println!("cargo:rustc-link-lib=dylib=leanshared_1");
+        println!("cargo:rustc-link-lib=dylib=leanshared");
+    }
 
     // On Windows, link additional system libraries required by Lean
     if target_os == "windows" {
