@@ -93,22 +93,10 @@ extern "C" {
 // Constructor Objects
 // ============================================================================
 
+// Re-export inline implementations from inline module
+pub use crate::inline::{lean_ctor_get, lean_ctor_set};
+
 extern "C" {
-    /// Get constructor field
-    ///
-    /// # Safety
-    /// - `o` must be a valid constructor object
-    /// - `i` must be within bounds (< num_objs)
-    pub fn lean_ctor_get(o: b_lean_obj_arg, i: c_uint) -> b_lean_obj_res;
-
-    /// Set constructor field
-    ///
-    /// # Safety
-    /// - `o` must be a valid, exclusive constructor object
-    /// - `i` must be within bounds
-    /// - Consumes ownership of `v`
-    pub fn lean_ctor_set(o: lean_obj_arg, i: c_uint, v: lean_obj_arg);
-
     /// Set constructor tag
     ///
     /// # Safety
@@ -137,30 +125,6 @@ extern "C" {
     /// - `i` must be in the scalar area
     pub fn lean_ctor_set_usize(o: lean_obj_arg, i: c_uint, v: size_t);
 
-    /// Get uint8 scalar from constructor
-    pub fn lean_ctor_get_uint8(o: b_lean_obj_arg, offset: c_uint) -> u8;
-
-    /// Set uint8 scalar in constructor
-    pub fn lean_ctor_set_uint8(o: lean_obj_arg, offset: c_uint, v: u8);
-
-    /// Get uint16 scalar
-    pub fn lean_ctor_get_uint16(o: b_lean_obj_arg, offset: c_uint) -> u16;
-
-    /// Set uint16 scalar
-    pub fn lean_ctor_set_uint16(o: lean_obj_arg, offset: c_uint, v: u16);
-
-    /// Get uint32 scalar
-    pub fn lean_ctor_get_uint32(o: b_lean_obj_arg, offset: c_uint) -> u32;
-
-    /// Set uint32 scalar
-    pub fn lean_ctor_set_uint32(o: lean_obj_arg, offset: c_uint, v: u32);
-
-    /// Get uint64 scalar
-    pub fn lean_ctor_get_uint64(o: b_lean_obj_arg, offset: c_uint) -> u64;
-
-    /// Set uint64 scalar
-    pub fn lean_ctor_set_uint64(o: lean_obj_arg, offset: c_uint, v: u64);
-
     /// Get float64 scalar
     pub fn lean_ctor_get_float(o: b_lean_obj_arg, offset: c_uint) -> f64;
 
@@ -173,6 +137,12 @@ extern "C" {
     /// Set float32 scalar
     pub fn lean_ctor_set_float32(o: lean_obj_arg, offset: c_uint, v: f32);
 }
+
+// Re-export inline implementations of uint accessor functions from inline module
+pub use crate::inline::{
+    lean_ctor_get_uint16, lean_ctor_get_uint32, lean_ctor_get_uint64, lean_ctor_get_uint8,
+    lean_ctor_set_uint16, lean_ctor_set_uint32, lean_ctor_set_uint64, lean_ctor_set_uint8,
+};
 
 // ============================================================================
 // Boxing/Unboxing (Scalars)

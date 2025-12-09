@@ -31,6 +31,8 @@ pub use libc::{c_char, c_int, c_uint, c_void, size_t};
 
 pub mod array;
 pub mod closure;
+pub mod float;
+pub mod int;
 pub mod nat;
 pub mod object;
 pub mod string;
@@ -42,6 +44,17 @@ pub mod inline;
 pub use object::{
     b_lean_obj_arg,
     lean_box,
+    // Constructor functions
+    lean_ctor_get,
+    lean_ctor_get_uint16,
+    lean_ctor_get_uint32,
+    lean_ctor_get_uint64,
+    lean_ctor_get_uint8,
+    lean_ctor_set,
+    lean_ctor_set_uint16,
+    lean_ctor_set_uint32,
+    lean_ctor_set_uint64,
+    lean_ctor_set_uint8,
     // Inline functions
     lean_is_scalar,
     lean_obj_arg,
@@ -103,10 +116,35 @@ extern "C" {
 // ============================================================================
 
 pub use inline::{
-    lean_is_array, lean_is_closure, lean_is_ctor, lean_is_external, lean_is_mpz, lean_is_promise,
-    lean_is_ref, lean_is_sarray, lean_is_string, lean_is_task, lean_is_thunk, lean_to_array,
-    lean_to_closure, lean_to_ctor, lean_to_external, lean_to_promise, lean_to_ref, lean_to_sarray,
-    lean_to_string, lean_to_task, lean_to_thunk,
+    // Float inline functions
+    lean_box_float,
+    // ByteArray inline functions
+    lean_byte_array_uget,
+    lean_byte_array_uset,
+    lean_is_array,
+    lean_is_closure,
+    lean_is_ctor,
+    lean_is_external,
+    lean_is_mpz,
+    lean_is_promise,
+    lean_is_ref,
+    lean_is_sarray,
+    lean_is_string,
+    lean_is_task,
+    lean_is_thunk,
+    lean_sarray_cptr,
+    lean_sarray_size,
+    lean_to_array,
+    lean_to_closure,
+    lean_to_ctor,
+    lean_to_external,
+    lean_to_promise,
+    lean_to_ref,
+    lean_to_sarray,
+    lean_to_string,
+    lean_to_task,
+    lean_to_thunk,
+    lean_unbox_float,
 };
 
 // ============================================================================
@@ -114,6 +152,12 @@ pub use inline::{
 // ============================================================================
 
 pub use inline::{lean_dec, lean_dec_ref, lean_inc, lean_inc_n, lean_inc_ref, lean_inc_ref_n};
+
+// ============================================================================
+// Array and ByteArray functions
+// ============================================================================
+
+pub use array::{lean_byte_array_push, lean_mk_empty_byte_array};
 
 /// Allocate a constructor object (inline from lean.h)
 ///
@@ -132,10 +176,10 @@ pub unsafe fn lean_alloc_ctor(
         + (num_objs as usize) * std::mem::size_of::<*mut lean_object>()
         + (scalar_sz as usize);
     let obj = object::lean_alloc_object(sz);
-    // Initialize header
+    // Initialize header (matching lean_set_st_header from lean.h)
     (*obj).m_rc = 1;
-    (*obj).m_cs_sz = ((scalar_sz as u16) << 8) | (num_objs as u16);
     (*obj).m_tag = tag as u8;
-    (*obj).m_other = 0;
+    (*obj).m_other = num_objs as u8; // Stores number of object fields
+    (*obj).m_cs_sz = 0; // Will be set by allocator or left as 0
     obj
 }

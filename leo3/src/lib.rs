@@ -67,6 +67,7 @@ pub mod conversion;
 pub mod err;
 pub mod instance;
 pub mod marker;
+pub mod module;
 pub mod types;
 
 // Re-export key types
@@ -80,7 +81,10 @@ pub mod prelude {
     pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
 
     // Re-export commonly used types
-    pub use crate::types::{LeanArray, LeanNat, LeanString};
+    pub use crate::types::{
+        LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanInt, LeanList, LeanNat,
+        LeanOption, LeanProd, LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8, LeanUSize,
+    };
 
     #[cfg(feature = "macros")]
     pub use leo3_macros::{leanclass, leanfn, leanmodule};
@@ -91,10 +95,8 @@ pub mod prelude {
 /// This must be called before any Lean operations. It initializes the
 /// Lean runtime and returns a `Lean<'l>` token that proves initialization.
 ///
-/// # Safety
-///
-/// This function is safe, but the Lean runtime must not already be initialized.
-/// Only call this once per process.
+/// This function is thread-safe and can be called multiple times - the
+/// initialization will only happen once.
 ///
 /// # Example
 ///
@@ -111,10 +113,13 @@ pub mod prelude {
 /// }
 /// ```
 pub fn prepare_freethreaded_lean() {
-    unsafe {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+
+    INIT.call_once(|| unsafe {
         ffi::lean_initialize_runtime_module();
         ffi::lean_initialize_thread();
-    }
+    });
 }
 
 /// Execute a closure with access to the Lean runtime.

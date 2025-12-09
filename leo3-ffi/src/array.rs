@@ -259,3 +259,11 @@ pub unsafe fn lean_array_fswap(
         crate::object::lean_unbox(j),
     )
 }
+
+// Re-export inline implementation from inline module
+pub use crate::inline::lean_mk_empty_byte_array;
+
+extern "C" {
+    /// Push a byte to byte array
+    pub fn lean_byte_array_push(a: lean_obj_arg, b: u8) -> lean_obj_res;
+}
