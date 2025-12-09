@@ -15,6 +15,9 @@ edition = "2021"
 rust-version = "1.63"
 authors = ["Leo3 Contributors"]
 license = "MIT OR Apache-2.0"
+homepage = "https://github.com/AndPuQing/leo3"
+repository = "https://github.com/AndPuQing/leo3.git"
+documentation = "https://docs.rs/leo3"
 
 [workspace.dependencies]
 leo3-ffi = { path = "leo3-ffi", version = "0.1.0" }
