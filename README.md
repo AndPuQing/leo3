@@ -140,29 +140,14 @@ Leo3 adapts PyO3's architecture for Lean4:
 
 ## Roadmap
 
-### Completed ✅
-- [x] Project structure and workspace setup
-- [x] FFI bindings layer (`leo3-ffi`)
-- [x] Build configuration and Lean4 detection
-- [x] Core abstractions (`Lean<'l>`, smart pointers)
-- [x] Basic type wrappers (String, Nat, Array)
-- [x] Proc macro infrastructure
-- [x] **Calling Lean4 functions from Rust** 🎉
-  - [x] Dynamic library loading
-  - [x] Module initialization
-  - [x] Function calling with type conversion
-  - [x] Working example (see `examples/call-lean/`)
-  - [x] Complete documentation ([CALLING_LEAN_FUNCTIONS.md](CALLING_LEAN_FUNCTIONS.md))
-
 ### In Progress 🚧
-- [ ] `#[leanfn]` macro implementation
 - [ ] Complete FFI bindings (more Lean API functions)
-- [ ] String and Array parameter passing
+- [ ] Array parameter passing (Vec, arrays ↔ LeanArray)
 - [ ] Error handling improvements
 
 ### Planned 📋
 - [ ] IO monad support
-- [ ] Type conversions (Rust ↔ Lean)
+- [ ] Additional type conversions (i8, i16, i32, i64, f32, f64, Option, Result)
 - [ ] `#[leanclass]` for Rust structs as Lean classes
 - [ ] `#[leanmodule]` for module creation
 - [ ] Proof object support
