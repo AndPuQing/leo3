@@ -3,7 +3,6 @@ name = "leo3-ffi-check"
 version = "0.1.0"
 edition = "2021"
 publish = false
-
 description = "Validation tool for leo3-ffi bindings against Lean4 headers"
 
 [dependencies]

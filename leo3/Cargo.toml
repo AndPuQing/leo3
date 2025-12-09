@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Rust bindings for the Lean4 theorem prover"
 keywords = ["lean", "lean4", "theorem-prover", "bindings"]
 categories = ["api-bindings"]

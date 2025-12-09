@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Procedural macros for Leo3 (Rust-Lean4 bindings)"
 keywords = ["lean", "lean4", "macros", "procedural-macros"]
 categories = ["development-tools::procedural-macro-helpers"]
