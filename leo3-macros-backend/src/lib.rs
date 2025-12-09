@@ -10,6 +10,7 @@ use syn::{parse::Parse, punctuated::Punctuated, Token};
 pub mod derive;
 pub mod leanfn;
 
+pub use derive::{expand_from_lean, expand_into_lean};
 pub use leanfn::{build_lean_function, LeanFunctionOptions};
 
 /// Common options that can be applied to Leo3 items
