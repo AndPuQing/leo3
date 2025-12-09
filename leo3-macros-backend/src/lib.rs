@@ -7,6 +7,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, punctuated::Punctuated, Token};
 
+pub mod derive;
 pub mod leanfn;
 
 pub use leanfn::{build_lean_function, LeanFunctionOptions};

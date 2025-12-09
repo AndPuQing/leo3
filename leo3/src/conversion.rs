@@ -184,7 +184,3 @@ impl<'l> IntoLean<'l> for &str {
         LeanString::mk(lean, self)
     }
 }
-
-// Future: Add derive macros
-// #[derive(IntoLean, FromLean)]
-// for automatic conversion implementations

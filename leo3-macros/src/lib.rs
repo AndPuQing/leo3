@@ -47,6 +47,84 @@ pub fn leanfn(attr: TokenStream, input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Derive macro for automatic `IntoLean` trait implementation.
+///
+/// Automatically generates an implementation of the `IntoLean` trait for converting
+/// Rust types into Lean constructors.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use leo3::prelude::*;
+///
+/// #[derive(IntoLean)]
+/// struct Point {
+///     x: u64,
+///     y: u64,
+/// }
+/// ```
+///
+/// This will generate an `IntoLean` implementation that converts the struct into
+/// a Lean constructor with tag 0 and two fields.
+///
+/// # Supported Types
+///
+/// - Structs with named fields
+/// - Structs with unnamed fields (tuple structs)
+/// - Enums with unit variants
+/// - Enums with tuple/struct variants
+/// - Generic types (with appropriate trait bounds)
+///
+/// # Requirements
+///
+/// All field types must implement `IntoLean<'l>`.
+#[proc_macro_derive(IntoLean)]
+pub fn derive_into_lean(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as syn::DeriveInput);
+    leo3_macros_backend::derive::expand_into_lean(ast)
+        .unwrap_or_compile_error()
+        .into()
+}
+
+/// Derive macro for automatic `FromLean` trait implementation.
+///
+/// Automatically generates an implementation of the `FromLean` trait for extracting
+/// Rust types from Lean constructors.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use leo3::prelude::*;
+///
+/// #[derive(FromLean)]
+/// struct Point {
+///     x: u64,
+///     y: u64,
+/// }
+/// ```
+///
+/// This will generate a `FromLean` implementation that extracts the struct from
+/// a Lean constructor with tag 0 and two fields.
+///
+/// # Supported Types
+///
+/// - Structs with named fields
+/// - Structs with unnamed fields (tuple structs)
+/// - Enums with unit variants
+/// - Enums with tuple/struct variants
+/// - Generic types (with appropriate trait bounds)
+///
+/// # Requirements
+///
+/// All field types must implement `FromLean<'l>`.
+#[proc_macro_derive(FromLean)]
+pub fn derive_from_lean(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as syn::DeriveInput);
+    leo3_macros_backend::derive::expand_from_lean(ast)
+        .unwrap_or_compile_error()
+        .into()
+}
+
 /// A proc macro used to expose Rust structs as Lean4 classes.
 ///
 /// # Example

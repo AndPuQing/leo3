@@ -89,7 +89,7 @@ pub mod prelude {
     };
 
     #[cfg(feature = "macros")]
-    pub use leo3_macros::{leanclass, leanfn, leanmodule};
+    pub use leo3_macros::{leanclass, leanfn, leanmodule, FromLean, IntoLean};
 }
 
 /// Initialize the Lean runtime for standalone use.
