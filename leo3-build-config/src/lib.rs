@@ -246,12 +246,27 @@ fn emit_link_config(config: &LeanConfig) {
     // Link against leanshared or lean
     println!("cargo:rustc-link-lib=dylib=leanshared");
 
+    // On Windows, link additional system libraries required by Lean
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    if target_os == "windows" {
+        // Windows Socket library (required by Lean's networking functionality)
+        println!("cargo:rustc-link-lib=dylib=Ws2_32");
+        // Windows BCrypt library (required by Lean's cryptographic functionality)
+        println!("cargo:rustc-link-lib=dylib=Bcrypt");
+        // User Environment library
+        println!("cargo:rustc-link-lib=dylib=Userenv");
+    }
+
     // Add rpath so binaries can find the library at runtime
-    // This is necessary for tests and executables
-    println!(
-        "cargo:rustc-link-arg=-Wl,-rpath,{}",
-        config.lean_lib_dir.display()
-    );
+    // This is necessary for tests and executables on Unix-like systems
+    // Note: Windows uses PATH environment variable instead of rpath
+    if target_os != "windows" {
+        // On Unix-like systems (Linux, macOS), use rpath
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+            config.lean_lib_dir.display()
+        );
+    }
 
     // Add include path for bindgen (future use)
     println!("cargo:include={}", config.lean_include_dir.display());
