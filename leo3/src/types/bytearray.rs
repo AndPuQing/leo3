@@ -144,7 +144,7 @@ impl LeanByteArray {
         }
     }
 
-    /// Convert the byte array to a Rust Vec<u8>.
+    /// Convert the byte array to a Rust `Vec<u8>`.
     ///
     /// # Example
     ///

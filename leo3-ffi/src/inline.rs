@@ -2,7 +2,7 @@
 //!
 //! Lean4's C API defines many functions as `static inline` in lean.h,
 //! which means they don't exist as linkable symbols. Following PyO3's
-//! approach, we manually re-implement these in Rust with #[inline] attributes.
+//! approach, we manually re-implement these in Rust with `#[inline]` attributes.
 //!
 //! These implementations are based on Lean4 v4.25.2 headers.
 
