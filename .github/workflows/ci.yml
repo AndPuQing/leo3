@@ -57,6 +57,35 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
+
+      # Install Lean4 via elan
+      - name: Install elan
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-pc-windows-msvc.zip -o elan.zip
+            unzip elan.zip
+            ./elan-init.exe -y --default-toolchain none
+            rm -f elan-init.exe elan.zip
+            echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
+          else
+            echo "::group::Elan Installation Output"
+            set -o pipefail
+            curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+            rm -f elan-init
+            echo "$HOME/.elan/bin" >> $GITHUB_PATH
+            "$HOME"/.elan/bin/lean --version
+            "$HOME"/.elan/bin/lake --version
+            echo "::endgroup::"
+          fi
+
+      - name: Install Lean4
+        shell: bash
+        run: |
+          elan toolchain install leanprover/lean4:v4.25.2
+          elan default leanprover/lean4:v4.25.2
+          lean --version
+
       - name: Run tests
         run: cargo test --locked --all-features --workspace
 
@@ -84,6 +113,24 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
+
+      # Install Lean4 via elan
+      - name: Install elan
+        run: |
+          echo "::group::Elan Installation Output"
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          rm -f elan-init
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          "$HOME"/.elan/bin/lean --version
+          "$HOME"/.elan/bin/lake --version
+          echo "::endgroup::"
+
+      - name: Install Lean4
+        run: |
+          elan toolchain install leanprover/lean4:v4.25.2
+          elan default leanprover/lean4:v4.25.2
+          lean --version
 
       - name: Collect coverage data (including doctests)
         run: |
