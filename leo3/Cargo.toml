@@ -24,6 +24,11 @@ leo3-build-config = { workspace = true }
 
 [dev-dependencies]
 trybuild = "1.0"
+criterion.workspace = true
+
+[[bench]]
+name = "array_conversion"
+harness = false
 
 [features]
 default = ["macros"]
