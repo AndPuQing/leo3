@@ -79,6 +79,9 @@ pub use marker::Lean;
 pub mod prelude {
     pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
 
+    // Re-export conversion traits
+    pub use crate::conversion::{FromLean, IntoLean};
+
     // Re-export commonly used types
     pub use crate::types::{
         LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanInt, LeanList, LeanNat,
