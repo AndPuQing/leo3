@@ -119,12 +119,6 @@ jobs:
           "$HOME"/.elan/bin/lake --version
           echo "::endgroup::"
 
-      - name: Install Lean4
-        run: |
-          elan toolchain install leanprover/lean4:v4.25.2
-          elan default leanprover/lean4:v4.25.2
-          lean --version
-
       - name: Collect coverage data (including doctests)
         run: |
           cargo llvm-cov --no-report nextest
