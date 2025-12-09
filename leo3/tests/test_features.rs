@@ -15,10 +15,10 @@ fn test_no_features() {
         let n = LeanNat::from_usize(lean, 42)?;
         assert_eq!(LeanNat::to_usize(&n)?, 42);
 
-        let s = LeanString::new(lean, "test")?;
-        assert_eq!(LeanString::to_str(&s)?, "test");
+        let s = LeanString::mk(lean, "test")?;
+        assert_eq!(LeanString::cstr(&s)?, "test");
 
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
         assert_eq!(LeanArray::size(&arr), 0);
 
         Ok(())

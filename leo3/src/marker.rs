@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 ///
 /// fn process_data<'l>(lean: Lean<'l>) -> LeanResult<()> {
 ///     // Create Lean objects using the token
-///     let s = LeanString::new(lean, "Hello");
+///     let s = LeanString::mk(lean, "Hello");
 ///     Ok(())
 /// }
 /// ```

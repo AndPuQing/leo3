@@ -115,20 +115,20 @@ fn test_string_refcount() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let s1 = LeanString::new(lean, "Hello, World!")?;
+        let s1 = LeanString::mk(lean, "Hello, World!")?;
 
         // Clone string
         let s2 = s1.clone();
 
         // Both should be equal
         assert!(LeanString::eq(&s1, &s2));
-        assert_eq!(LeanString::to_str(&s1)?, LeanString::to_str(&s2)?);
+        assert_eq!(LeanString::cstr(&s1)?, LeanString::cstr(&s2)?);
 
         // Drop one
         drop(s2);
 
         // s1 should still be valid
-        assert_eq!(LeanString::to_str(&s1)?, "Hello, World!");
+        assert_eq!(LeanString::cstr(&s1)?, "Hello, World!");
 
         Ok(())
     });
@@ -141,7 +141,7 @@ fn test_array_refcount() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Add elements
         for i in 1..=3 {
@@ -174,11 +174,11 @@ fn test_nested_refcount() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create nested structure: array of strings
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
-        let s1 = LeanString::new(lean, "First")?;
-        let s2 = LeanString::new(lean, "Second")?;
-        let s3 = LeanString::new(lean, "Third")?;
+        let s1 = LeanString::mk(lean, "First")?;
+        let s2 = LeanString::mk(lean, "Second")?;
+        let s3 = LeanString::mk(lean, "Third")?;
 
         // Keep clones of strings
         let s1_clone = s1.clone();
@@ -190,15 +190,15 @@ fn test_nested_refcount() {
         arr = LeanArray::push(arr, s3.cast())?;
 
         // Clones should still be valid
-        assert_eq!(LeanString::to_str(&s1_clone)?, "First");
-        assert_eq!(LeanString::to_str(&s2_clone)?, "Second");
+        assert_eq!(LeanString::cstr(&s1_clone)?, "First");
+        assert_eq!(LeanString::cstr(&s2_clone)?, "Second");
 
         // Drop array (should not invalidate our clones)
         drop(arr);
 
         // Clones should still work
-        assert_eq!(LeanString::to_str(&s1_clone)?, "First");
-        assert_eq!(LeanString::to_str(&s2_clone)?, "Second");
+        assert_eq!(LeanString::cstr(&s1_clone)?, "First");
+        assert_eq!(LeanString::cstr(&s2_clone)?, "Second");
 
         Ok(())
     });
@@ -286,8 +286,8 @@ fn test_string_operations_refcount() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let s1 = LeanString::new(lean, "Hello, ")?;
-        let s2 = LeanString::new(lean, "World!")?;
+        let s1 = LeanString::mk(lean, "Hello, ")?;
+        let s2 = LeanString::mk(lean, "World!")?;
 
         // Keep clones
         let s1_clone = s1.clone();
@@ -297,10 +297,10 @@ fn test_string_operations_refcount() {
         let s3 = LeanString::append(s1, &s2)?;
 
         // s1_clone and s2_clone and s2 should still be valid
-        assert_eq!(LeanString::to_str(&s1_clone)?, "Hello, ");
-        assert_eq!(LeanString::to_str(&s2_clone)?, "World!");
-        assert_eq!(LeanString::to_str(&s2)?, "World!");
-        assert_eq!(LeanString::to_str(&s3)?, "Hello, World!");
+        assert_eq!(LeanString::cstr(&s1_clone)?, "Hello, ");
+        assert_eq!(LeanString::cstr(&s2_clone)?, "World!");
+        assert_eq!(LeanString::cstr(&s2)?, "World!");
+        assert_eq!(LeanString::cstr(&s3)?, "Hello, World!");
 
         Ok(())
     });
@@ -313,7 +313,7 @@ fn test_array_operations_refcount() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Clone empty array
         let arr_clone1 = arr.clone();

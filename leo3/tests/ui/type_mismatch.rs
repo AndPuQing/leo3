@@ -9,7 +9,7 @@ fn main() {
         let n = LeanNat::from_usize(lean, 42).unwrap();
 
         // Try to use a Nat where a String is expected
-        let _ = LeanString::to_str(&n);
+        let _ = LeanString::cstr(&n);
 
         Ok::<(), LeanError>(())
     });

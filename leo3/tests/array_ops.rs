@@ -10,9 +10,9 @@ fn test_array_creation() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
-        assert!(LeanArray::is_empty(&arr));
+        assert!(LeanArray::isEmpty(&arr));
         assert_eq!(LeanArray::size(&arr), 0);
 
         Ok(())
@@ -26,14 +26,14 @@ fn test_array_push() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Push a natural number
         let n = LeanNat::from_usize(lean, 42)?;
         let arr = LeanArray::push(arr, n.cast())?;
 
         assert_eq!(LeanArray::size(&arr), 1);
-        assert!(!LeanArray::is_empty(&arr));
+        assert!(!LeanArray::isEmpty(&arr));
 
         Ok(())
     });
@@ -46,7 +46,7 @@ fn test_array_push_multiple() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Push multiple elements
         for i in 0..5 {
@@ -67,7 +67,7 @@ fn test_array_get() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Push elements 10, 20, 30
         for i in 1..=3 {
@@ -101,7 +101,7 @@ fn test_array_set() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Create array with [10, 20, 30]
         for i in 1..=3 {
@@ -127,7 +127,7 @@ fn test_array_set_out_of_bounds() {
     leo3::prepare_freethreaded_lean();
 
     let result = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Try to set element at index 0 in empty array - should return error
         let n = LeanNat::from_usize(lean, 42)?;
@@ -149,7 +149,7 @@ fn test_array_pop() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Push three elements
         for i in 1..=3 {
@@ -178,7 +178,7 @@ fn test_array_pop_empty() {
     leo3::prepare_freethreaded_lean();
 
     let result = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Try to pop from empty array - should return error
         let result = LeanArray::pop(arr);
@@ -199,7 +199,7 @@ fn test_array_swap() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Create array with [10, 20, 30]
         for i in 1..=3 {
@@ -225,7 +225,7 @@ fn test_array_swap_out_of_bounds() {
     leo3::prepare_freethreaded_lean();
 
     let result = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Create array with one element
         let n = LeanNat::from_usize(lean, 42)?;
@@ -250,11 +250,11 @@ fn test_array_with_strings() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Push string elements
-        let s1 = LeanString::new(lean, "Hello")?;
-        let s2 = LeanString::new(lean, "World")?;
+        let s1 = LeanString::mk(lean, "Hello")?;
+        let s2 = LeanString::mk(lean, "World")?;
 
         arr = LeanArray::push(arr, s1.cast())?;
         arr = LeanArray::push(arr, s2.cast())?;
@@ -272,11 +272,11 @@ fn test_array_mixed_types() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Lean arrays can hold mixed types (all are lean_object*)
         let n = LeanNat::from_usize(lean, 42)?;
-        let s = LeanString::new(lean, "Hello")?;
+        let s = LeanString::mk(lean, "Hello")?;
 
         arr = LeanArray::push(arr, n.cast())?;
         arr = LeanArray::push(arr, s.cast())?;
@@ -295,14 +295,14 @@ fn test_array_nested() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create inner array
-        let mut inner = LeanArray::new(lean)?;
+        let mut inner = LeanArray::empty(lean)?;
         let n1 = LeanNat::from_usize(lean, 1)?;
         let n2 = LeanNat::from_usize(lean, 2)?;
         inner = LeanArray::push(inner, n1.cast())?;
         inner = LeanArray::push(inner, n2.cast())?;
 
         // Create outer array containing inner array
-        let mut outer = LeanArray::new(lean)?;
+        let mut outer = LeanArray::empty(lean)?;
         outer = LeanArray::push(outer, inner.cast())?;
 
         assert_eq!(LeanArray::size(&outer), 1);
@@ -319,7 +319,7 @@ fn test_array_operations_sequence() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Test a sequence of operations
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Push [1, 2, 3, 4, 5]
         for i in 1..=5 {

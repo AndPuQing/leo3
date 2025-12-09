@@ -43,7 +43,7 @@ where
 macro_rules! assert_lean_nat_eq {
     ($a:expr, $b:expr) => {
         assert!(
-            LeanNat::eq(&$a, &$b),
+            LeanNat::decEq(&$a, &$b),
             "Lean nat assertion failed: left != right"
         );
     };
@@ -77,7 +77,7 @@ macro_rules! assert_lean_nat_value {
 macro_rules! assert_lean_string_value {
     ($string:expr, $expected:expr) => {
         assert_eq!(
-            LeanString::to_str(&$string).expect("Failed to convert to str"),
+            LeanString::cstr(&$string).expect("Failed to convert to str"),
             $expected,
             "Lean string value mismatch"
         );

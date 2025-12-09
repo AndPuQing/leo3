@@ -130,7 +130,7 @@ fn test_nat_modulo() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let a = LeanNat::from_usize(lean, 47)?;
         let b = LeanNat::from_usize(lean, 5)?;
-        let remainder = LeanNat::modulo(a, b)?;
+        let remainder = LeanNat::mod_(a, b)?;
 
         assert_eq!(LeanNat::to_usize(&remainder)?, 2);
 
@@ -183,8 +183,8 @@ fn test_nat_equality() {
         let b = LeanNat::from_usize(lean, 42)?;
         let c = LeanNat::from_usize(lean, 43)?;
 
-        assert!(LeanNat::eq(&a, &b));
-        assert!(!LeanNat::eq(&a, &c));
+        assert!(LeanNat::decEq(&a, &b));
+        assert!(!LeanNat::decEq(&a, &c));
 
         Ok(())
     });
@@ -200,9 +200,9 @@ fn test_nat_less_than() {
         let a = LeanNat::from_usize(lean, 10)?;
         let b = LeanNat::from_usize(lean, 42)?;
 
-        assert!(LeanNat::lt(&a, &b));
-        assert!(!LeanNat::lt(&b, &a));
-        assert!(!LeanNat::lt(&a, &a));
+        assert!(LeanNat::decLt(&a, &b));
+        assert!(!LeanNat::decLt(&b, &a));
+        assert!(!LeanNat::decLt(&a, &a));
 
         Ok(())
     });
@@ -219,9 +219,9 @@ fn test_nat_less_than_or_equal() {
         let b = LeanNat::from_usize(lean, 42)?;
         let c = LeanNat::from_usize(lean, 10)?;
 
-        assert!(LeanNat::le(&a, &b));
-        assert!(!LeanNat::le(&b, &a));
-        assert!(LeanNat::le(&a, &c));
+        assert!(LeanNat::decLe(&a, &b));
+        assert!(!LeanNat::decLe(&b, &a));
+        assert!(LeanNat::decLe(&a, &c));
 
         Ok(())
     });

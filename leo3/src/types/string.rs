@@ -41,15 +41,6 @@ impl LeanString {
         }
     }
 
-    /// Create a new Lean string from a Rust string.
-    ///
-    /// **Deprecated**: Use [`mk`](Self::mk) instead. While there's no exact Lean4
-    /// equivalent (strings are literals), `mk` is more aligned with other constructors.
-    #[deprecated(since = "0.2.0", note = "use `mk` instead for consistency")]
-    pub fn new<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
-        Self::mk(lean, s)
-    }
-
     /// Get the string as a C-style string pointer (null-terminated).
     ///
     /// # Lean4 Reference
@@ -69,14 +60,6 @@ impl LeanString {
             cstr.to_str()
                 .map_err(|e| LeanError::conversion(&format!("Invalid UTF-8: {}", e)))
         }
-    }
-
-    /// Get the string as a Rust `&str`.
-    ///
-    /// **Deprecated**: Use [`cstr`](Self::cstr) instead to align with C API naming.
-    #[deprecated(since = "0.2.0", note = "use `cstr` instead to match C API naming")]
-    pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
-        Self::cstr(obj)
     }
 
     /// Get the UTF-8 length of the string (number of characters).
@@ -103,14 +86,6 @@ impl LeanString {
     #[allow(non_snake_case)]
     pub fn isEmpty<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::len(obj) == 0
-    }
-
-    /// Check if the string is empty.
-    ///
-    /// **Deprecated**: Use [`isEmpty`](Self::isEmpty) instead to align with Lean4 naming.
-    #[deprecated(since = "0.2.0", note = "use `isEmpty` instead to match Lean4 naming")]
-    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::isEmpty(obj)
     }
 
     /// Append a UTF-32 character to the string.

@@ -54,10 +54,10 @@ fn test_basic_string_creation() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create a Lean string
-        let s = LeanString::new(lean, "Hello, Lean!")?;
+        let s = LeanString::mk(lean, "Hello, Lean!")?;
 
         // Read it back
-        assert_eq!(LeanString::to_str(&s)?, "Hello, Lean!");
+        assert_eq!(LeanString::cstr(&s)?, "Hello, Lean!");
         assert_eq!(LeanString::len(&s), 12);
 
         Ok(())
@@ -72,10 +72,10 @@ fn test_basic_array_creation() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create an empty array
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Check it's empty
-        assert!(LeanArray::is_empty(&arr));
+        assert!(LeanArray::isEmpty(&arr));
         assert_eq!(LeanArray::size(&arr), 0);
 
         Ok(())

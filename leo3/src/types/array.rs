@@ -42,14 +42,6 @@ impl LeanArray {
         }
     }
 
-    /// Create a new empty Lean array.
-    ///
-    /// **Deprecated**: Use [`empty`](Self::empty) instead to align with Lean4's `Array.empty`.
-    #[deprecated(since = "0.2.0", note = "use `empty` instead to match Lean4 naming")]
-    pub fn new<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
-        Self::empty(lean)
-    }
-
     /// Get the size of the array.
     ///
     /// # Example
@@ -69,14 +61,6 @@ impl LeanArray {
     #[allow(non_snake_case)]
     pub fn isEmpty<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::size(obj) == 0
-    }
-
-    /// Check if the array is empty.
-    ///
-    /// **Deprecated**: Use [`isEmpty`](Self::isEmpty) instead to align with Lean4's `Array.isEmpty`.
-    #[deprecated(since = "0.2.0", note = "use `isEmpty` instead to match Lean4 naming")]
-    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::isEmpty(obj)
     }
 
     /// Push an element to the end of the array.
@@ -226,21 +210,6 @@ impl LeanArray {
     ) -> LeanResult<LeanBound<'l, Self>> {
         let ptr = ffi::array::lean_array_mk(list.into_ptr());
         Ok(LeanBound::from_owned_ptr(lean, ptr))
-    }
-
-    /// Create an array from a Lean list.
-    ///
-    /// **Deprecated**: Use [`mk`](Self::mk) instead to align with Lean4's `Array.mk`.
-    ///
-    /// # Safety
-    ///
-    /// The list object must be a valid Lean list.
-    #[deprecated(since = "0.2.0", note = "use `mk` instead to match Lean4 naming")]
-    pub unsafe fn from_list<'l>(
-        lean: Lean<'l>,
-        list: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::mk(lean, list)
     }
 
     /// Convert the array to a Lean list.

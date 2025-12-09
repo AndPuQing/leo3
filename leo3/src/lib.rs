@@ -131,8 +131,8 @@ pub fn prepare_freethreaded_lean() {
 ///
 /// ```rust,ignore
 /// leo3::with_lean(|lean| {
-///     let s = LeanString::new(lean, "Hello, Lean!");
-///     println!("{}", s.to_str()?);
+///     let s = LeanString::mk(lean, "Hello, Lean!");
+///     println!("{}", s.cstr()?);
 ///     Ok(())
 /// })
 /// ```

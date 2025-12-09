@@ -91,20 +91,20 @@ fn test_string_from_str() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Empty string
-        let s = LeanString::new(lean, "")?;
-        assert_eq!(LeanString::to_str(&s)?, "");
+        let s = LeanString::mk(lean, "")?;
+        assert_eq!(LeanString::cstr(&s)?, "");
 
         // Simple ASCII
-        let s = LeanString::new(lean, "Hello")?;
-        assert_eq!(LeanString::to_str(&s)?, "Hello");
+        let s = LeanString::mk(lean, "Hello")?;
+        assert_eq!(LeanString::cstr(&s)?, "Hello");
 
         // With punctuation
-        let s = LeanString::new(lean, "Hello, World!")?;
-        assert_eq!(LeanString::to_str(&s)?, "Hello, World!");
+        let s = LeanString::mk(lean, "Hello, World!")?;
+        assert_eq!(LeanString::cstr(&s)?, "Hello, World!");
 
         // With newlines
-        let s = LeanString::new(lean, "Line 1\nLine 2")?;
-        assert_eq!(LeanString::to_str(&s)?, "Line 1\nLine 2");
+        let s = LeanString::mk(lean, "Line 1\nLine 2")?;
+        assert_eq!(LeanString::cstr(&s)?, "Line 1\nLine 2");
 
         Ok(())
     });
@@ -127,8 +127,8 @@ fn test_string_to_str() {
         ];
 
         for &s in &test_strings {
-            let lean_str = LeanString::new(lean, s)?;
-            assert_eq!(LeanString::to_str(&lean_str)?, s);
+            let lean_str = LeanString::mk(lean, s)?;
+            assert_eq!(LeanString::cstr(&lean_str)?, s);
         }
 
         Ok(())
@@ -143,17 +143,17 @@ fn test_string_unicode() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Various Unicode strings
-        let s = LeanString::new(lean, "こんにちは")?; // Japanese
-        assert_eq!(LeanString::to_str(&s)?, "こんにちは");
+        let s = LeanString::mk(lean, "こんにちは")?; // Japanese
+        assert_eq!(LeanString::cstr(&s)?, "こんにちは");
 
-        let s = LeanString::new(lean, "你好")?; // Chinese
-        assert_eq!(LeanString::to_str(&s)?, "你好");
+        let s = LeanString::mk(lean, "你好")?; // Chinese
+        assert_eq!(LeanString::cstr(&s)?, "你好");
 
-        let s = LeanString::new(lean, "Здравствуй")?; // Russian
-        assert_eq!(LeanString::to_str(&s)?, "Здравствуй");
+        let s = LeanString::mk(lean, "Здравствуй")?; // Russian
+        assert_eq!(LeanString::cstr(&s)?, "Здравствуй");
 
-        let s = LeanString::new(lean, "🦀🔥")?; // Emoji
-        assert_eq!(LeanString::to_str(&s)?, "🦀🔥");
+        let s = LeanString::mk(lean, "🦀🔥")?; // Emoji
+        assert_eq!(LeanString::cstr(&s)?, "🦀🔥");
 
         Ok(())
     });
@@ -167,12 +167,12 @@ fn test_string_lengths() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // ASCII - byte length == char length
-        let s = LeanString::new(lean, "Hello")?;
+        let s = LeanString::mk(lean, "Hello")?;
         assert_eq!(LeanString::len(&s), 5);
         assert_eq!(LeanString::byte_size(&s), 6);
 
         // Empty
-        let s = LeanString::new(lean, "")?;
+        let s = LeanString::mk(lean, "")?;
         assert_eq!(LeanString::len(&s), 0);
         assert_eq!(LeanString::byte_size(&s), 1);
 
@@ -194,9 +194,9 @@ fn test_array_empty() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
-        assert!(LeanArray::is_empty(&arr));
+        assert!(LeanArray::isEmpty(&arr));
         assert_eq!(LeanArray::size(&arr), 0);
 
         Ok(())
@@ -210,7 +210,7 @@ fn test_array_with_nats() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Add natural numbers
         for i in 0..10 {
@@ -237,12 +237,12 @@ fn test_array_with_strings() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         let strings = ["first", "second", "third", "fourth", "fifth"];
 
         for s in &strings {
-            let lean_str = LeanString::new(lean, s)?;
+            let lean_str = LeanString::mk(lean, s)?;
             arr = LeanArray::push(arr, lean_str.cast())?;
         }
 
@@ -259,16 +259,16 @@ fn test_array_mixed_types() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
 
         // Add different types (all cast to LeanAny)
         let n = LeanNat::from_usize(lean, 42)?;
         arr = LeanArray::push(arr, n.cast())?;
 
-        let s = LeanString::new(lean, "Hello")?;
+        let s = LeanString::mk(lean, "Hello")?;
         arr = LeanArray::push(arr, s.cast())?;
 
-        let inner_arr = LeanArray::new(lean)?;
+        let inner_arr = LeanArray::empty(lean)?;
         arr = LeanArray::push(arr, inner_arr.cast())?;
 
         assert_eq!(LeanArray::size(&arr), 3);
@@ -306,7 +306,7 @@ fn test_cast_string_to_any() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let s: LeanBound<LeanString> = LeanString::new(lean, "test")?;
+        let s: LeanBound<LeanString> = LeanString::mk(lean, "test")?;
         let any: LeanBound<LeanAny> = s.cast();
 
         drop(any);
@@ -322,7 +322,7 @@ fn test_cast_array_to_any() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let arr: LeanBound<LeanArray> = LeanArray::new(lean)?;
+        let arr: LeanBound<LeanArray> = LeanArray::empty(lean)?;
         let any: LeanBound<LeanAny> = arr.cast();
 
         drop(any);
@@ -359,11 +359,11 @@ fn test_string_unbind_bind() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let s = LeanString::new(lean, "Test")?;
+        let s = LeanString::mk(lean, "Test")?;
         let s_ref = s.unbind();
         let s2 = s_ref.bind(lean);
 
-        assert_eq!(LeanString::to_str(&s2)?, "Test");
+        assert_eq!(LeanString::cstr(&s2)?, "Test");
 
         Ok(())
     });
@@ -376,7 +376,7 @@ fn test_array_unbind_bind() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let mut arr = LeanArray::new(lean)?;
+        let mut arr = LeanArray::empty(lean)?;
         let n = LeanNat::from_usize(lean, 1)?;
         arr = LeanArray::push(arr, n.cast())?;
 
@@ -401,7 +401,7 @@ fn test_string_with_null_byte_fails() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Strings with null bytes should fail to create
-        let result = LeanString::new(lean, "Hello\0World");
+        let result = LeanString::mk(lean, "Hello\0World");
         assert!(result.is_err());
 
         Ok(())
@@ -415,7 +415,7 @@ fn test_array_out_of_bounds_get() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Getting from empty array should return None
         assert!(LeanArray::get(&arr, lean, 0).is_none());
@@ -432,7 +432,7 @@ fn test_array_out_of_bounds_set_panics() {
     leo3::prepare_freethreaded_lean();
 
     let result = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
         let n = LeanNat::from_usize(lean, 1)?;
 
         // Setting out of bounds should return an error
@@ -450,7 +450,7 @@ fn test_array_pop_empty_panics() {
     leo3::prepare_freethreaded_lean();
 
     let result = leo3::with_lean(|lean| {
-        let arr = LeanArray::new(lean)?;
+        let arr = LeanArray::empty(lean)?;
 
         // Popping from empty array should return an error
         let result = LeanArray::pop(arr);

@@ -180,17 +180,6 @@ impl LeanNat {
         }
     }
 
-    /// Modulo operation.
-    ///
-    /// **Deprecated**: Use [`mod_`](Self::mod_) instead to align with Lean4's `Nat.mod`.
-    #[deprecated(since = "0.2.0", note = "use `mod_` instead to match Lean4 naming")]
-    pub fn modulo<'l>(
-        a: LeanBound<'l, Self>,
-        b: LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::mod_(a, b)
-    }
-
     /// Power operation (exponentiation).
     ///
     /// # Example
@@ -250,14 +239,6 @@ impl LeanNat {
         unsafe { lean_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
     }
 
-    /// Compare two natural numbers for equality.
-    ///
-    /// **Deprecated**: Use [`decEq`](Self::decEq) instead to align with Lean4's `Nat.decEq`.
-    #[deprecated(since = "0.2.0", note = "use `decEq` instead to match Lean4 naming")]
-    pub fn eq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::decEq(a, b)
-    }
-
     /// Compare two natural numbers for less-than (decidable less-than).
     ///
     /// # Lean4 Reference
@@ -275,14 +256,6 @@ impl LeanNat {
         unsafe { lean_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
     }
 
-    /// Compare two natural numbers for less-than.
-    ///
-    /// **Deprecated**: Use [`decLt`](Self::decLt) instead to align with Lean4's `Nat.decLt`.
-    #[deprecated(since = "0.2.0", note = "use `decLt` instead to match Lean4 naming")]
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::decLt(a, b)
-    }
-
     /// Compare two natural numbers for less-than-or-equal (decidable ≤).
     ///
     /// # Lean4 Reference
@@ -290,14 +263,6 @@ impl LeanNat {
     #[allow(non_snake_case)]
     pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { lean_nat_dec_le(a.as_ptr(), b.as_ptr()) }
-    }
-
-    /// Compare two natural numbers for less-than-or-equal.
-    ///
-    /// **Deprecated**: Use [`decLe`](Self::decLe) instead to align with Lean4's `Nat.decLe`.
-    #[deprecated(since = "0.2.0", note = "use `decLe` instead to match Lean4 naming")]
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::decLe(a, b)
     }
 }
 

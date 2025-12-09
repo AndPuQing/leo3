@@ -1,16 +1,8 @@
-warning: use of deprecated associated function `leo3::types::LeanString::to_str`: use `cstr` instead to match C API naming
-  --> tests/ui/type_mismatch.rs:12:29
-   |
-12 |         let _ = LeanString::to_str(&n);
-   |                             ^^^^^^
-   |
-   = note: `#[warn(deprecated)]` on by default
-
 error[E0308]: mismatched types
   --> tests/ui/type_mismatch.rs:12:36
    |
-12 |         let _ = LeanString::to_str(&n);
-   |                 ------------------ ^^ expected `&LeanBound<'_, LeanString>`, found `&LeanBound<'_, LeanNat>`
+12 |         let _ = LeanString::cstr(&n);
+   |                 ---------------- ^^ expected `&LeanBound<'_, LeanString>`, found `&LeanBound<'_, LeanNat>`
    |                 |
    |                 arguments to this function are incorrect
    |
@@ -19,5 +11,5 @@ error[E0308]: mismatched types
 note: associated function defined here
   --> src/types/string.rs
    |
-   |     pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
-   |            ^^^^^^
+   |     pub fn cstr<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
+   |            ^^^^
