@@ -140,9 +140,14 @@ Leo3 adapts PyO3's architecture for Lean4:
 
 ## Roadmap
 
+### Completed ✅
+- [x] `#[leanfn]` macro implementation
+- [x] String parameter passing (String, &str ↔ LeanString)
+- [x] Basic type conversions (u8, u16, u32, u64, usize, bool)
+- [x] Array parameter passing (Vec<T> ↔ LeanArray)
+
 ### In Progress 🚧
 - [ ] Complete FFI bindings (more Lean API functions)
-- [ ] Array parameter passing (Vec, arrays ↔ LeanArray)
 - [ ] Error handling improvements
 
 ### Planned 📋

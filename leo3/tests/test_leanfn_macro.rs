@@ -42,6 +42,30 @@ fn do_nothing(x: u64) {
     let _ = x;
 }
 
+// Test function with Vec<u64> parameter
+#[leanfn]
+fn sum_vec(numbers: Vec<u64>) -> u64 {
+    numbers.iter().sum()
+}
+
+// Test function returning Vec<u64>
+#[leanfn]
+fn range_vec(n: u64) -> Vec<u64> {
+    (0..n).collect()
+}
+
+// Test function with Vec<String>
+#[leanfn]
+fn join_strings(strings: Vec<String>) -> String {
+    strings.join(", ")
+}
+
+// Test function that processes a Vec and returns a Vec
+#[leanfn]
+fn double_all(numbers: Vec<u64>) -> Vec<u64> {
+    numbers.into_iter().map(|n| n * 2).collect()
+}
+
 #[test]
 #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_leanfn_double() {
@@ -183,4 +207,130 @@ fn test_rust_side_call() {
     assert_eq!(greet("Rust".to_string()), "Hello, Rust!");
     assert!(!negate(true));
     assert_eq!(describe_number(42, true), "positive 42");
+
+    // Test Vec functions
+    assert_eq!(sum_vec(vec![1, 2, 3, 4]), 10);
+    assert_eq!(range_vec(5), vec![0, 1, 2, 3, 4]);
+    assert_eq!(join_strings(vec!["a".to_string(), "b".to_string()]), "a, b");
+    assert_eq!(double_all(vec![1, 2, 3]), vec![2, 4, 6]);
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_vec_sum() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        // Create a LeanArray with [10, 20, 30]
+        let mut arr = LeanArray::empty(lean)?;
+        let n1 = LeanNat::from_usize(lean, 10)?;
+        let n2 = LeanNat::from_usize(lean, 20)?;
+        let n3 = LeanNat::from_usize(lean, 30)?;
+
+        arr = LeanArray::push(arr, n1.cast())?;
+        arr = LeanArray::push(arr, n2.cast())?;
+        arr = LeanArray::push(arr, n3.cast())?;
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_sum_vec::__ffi_sum_vec(arr.into_ptr());
+            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanNat::to_usize(&result)?, 60);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_vec_return() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        let n = LeanNat::from_usize(lean, 5)?;
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_range_vec::__ffi_range_vec(n.into_ptr());
+            let result: LeanBound<LeanArray> = LeanBound::from_owned_ptr(lean, result_ptr);
+
+            // Verify array has 5 elements: [0, 1, 2, 3, 4]
+            assert_eq!(LeanArray::size(&result), 5);
+
+            for i in 0..5 {
+                let elem = LeanArray::get(&result, lean, i).unwrap();
+                let nat: LeanBound<LeanNat> = elem.cast();
+                assert_eq!(LeanNat::to_usize(&nat)?, i);
+            }
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_vec_strings() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        // Create array of strings ["hello", "world"]
+        let mut arr = LeanArray::empty(lean)?;
+        let s1 = LeanString::mk(lean, "hello")?;
+        let s2 = LeanString::mk(lean, "world")?;
+
+        arr = LeanArray::push(arr, s1.cast())?;
+        arr = LeanArray::push(arr, s2.cast())?;
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_join_strings::__ffi_join_strings(arr.into_ptr());
+            let result: LeanBound<LeanString> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanString::cstr(&result)?, "hello, world");
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_vec_transform() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        // Create array [1, 2, 3]
+        let mut arr = LeanArray::empty(lean)?;
+        for i in 1..=3 {
+            let n = LeanNat::from_usize(lean, i)?;
+            arr = LeanArray::push(arr, n.cast())?;
+        }
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_double_all::__ffi_double_all(arr.into_ptr());
+            let result: LeanBound<LeanArray> = LeanBound::from_owned_ptr(lean, result_ptr);
+
+            // Should return [2, 4, 6]
+            assert_eq!(LeanArray::size(&result), 3);
+
+            let expected = vec![2, 4, 6];
+            for (i, &expected_val) in expected.iter().enumerate() {
+                let elem = LeanArray::get(&result, lean, i).unwrap();
+                let nat: LeanBound<LeanNat> = elem.cast();
+                assert_eq!(LeanNat::to_usize(&nat)?, expected_val);
+            }
+        }
+
+        Ok(())
+    })
+    .unwrap();
 }

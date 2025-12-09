@@ -3,9 +3,9 @@
 //! This module provides traits for converting between Rust values and Lean objects.
 
 use crate::err::LeanResult;
-use crate::instance::LeanBound;
+use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
-use crate::types::{LeanBool, LeanNat, LeanString};
+use crate::types::{LeanArray, LeanBool, LeanNat, LeanString};
 
 /// Trait for types that can be converted from Rust to Lean.
 ///
@@ -182,5 +182,48 @@ impl<'l> IntoLean<'l> for &str {
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
         LeanString::mk(lean, self)
+    }
+}
+
+// Vec<T> ↔ LeanArray
+impl<'l, T> IntoLean<'l> for Vec<T>
+where
+    T: IntoLean<'l> + 'l,
+{
+    type Target = LeanArray;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let mut arr = LeanArray::empty(lean)?;
+
+        for item in self {
+            let lean_item = item.into_lean(lean)?;
+            let any_item: LeanBound<'l, LeanAny> = lean_item.cast();
+            arr = LeanArray::push(arr, any_item)?;
+        }
+
+        Ok(arr)
+    }
+}
+
+impl<'l, T> FromLean<'l> for Vec<T>
+where
+    T: FromLean<'l> + 'l,
+{
+    type Source = LeanArray;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let lean = obj.lean_token();
+        let size = LeanArray::size(obj);
+        let mut result = Vec::with_capacity(size);
+
+        for i in 0..size {
+            let elem = LeanArray::get(obj, lean, i)
+                .ok_or_else(|| crate::err::LeanError::runtime("Index out of bounds"))?;
+            let typed_elem: LeanBound<'l, T::Source> = elem.cast();
+            let rust_item = T::from_lean(&typed_elem)?;
+            result.push(rust_item);
+        }
+
+        Ok(result)
     }
 }
