@@ -640,9 +640,9 @@ extern "C" {
 
 // Import the big int functions from the int module
 use crate::int::{
-    lean_big_int64_to_int, lean_int_big_add, lean_int_big_div, lean_int_big_ediv,
-    lean_int_big_emod, lean_int_big_eq, lean_int_big_le, lean_int_big_lt, lean_int_big_mod,
-    lean_int_big_mul, lean_int_big_neg, lean_int_big_sub,
+    lean_big_int64_to_int, lean_big_size_t_to_int, lean_int_big_add, lean_int_big_div,
+    lean_int_big_ediv, lean_int_big_emod, lean_int_big_eq, lean_int_big_le, lean_int_big_lt,
+    lean_int_big_mod, lean_int_big_mul, lean_int_big_neg, lean_int_big_sub,
 };
 
 // Constants for small int range
@@ -699,6 +699,31 @@ pub unsafe fn lean_scalar_to_int(a: b_lean_obj_arg) -> i32 {
         lean_unbox(a) as i32
     } else {
         ((a as isize) >> 1) as i32
+    }
+}
+
+/// Convert a Lean Nat to a Lean Int.
+///
+/// This is the runtime implementation of `Int.ofNat`.
+/// For small nats that fit in the small int range, returns the same pointer.
+/// For larger values, converts to appropriate int representation.
+///
+/// # Safety
+/// - `a` must be a valid Nat object (consumed)
+#[inline]
+pub unsafe fn lean_nat_to_int(a: lean_obj_arg) -> lean_obj_res {
+    if lean_is_scalar(a) {
+        let v = lean_unbox(a);
+        if v <= LEAN_MAX_SMALL_INT as usize {
+            // Small nat that fits in small int range - return as-is
+            a
+        } else {
+            // Nat is scalar but too large for small int - convert to big int
+            lean_big_size_t_to_int(v)
+        }
+    } else {
+        // Big nat - return as-is (big nat and big positive int have same representation)
+        a
     }
 }
 

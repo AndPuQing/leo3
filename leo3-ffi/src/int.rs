@@ -11,6 +11,11 @@ extern "C" {
     /// This is called when the value doesn't fit in small int range.
     pub fn lean_big_int64_to_int(n: i64) -> lean_obj_res;
 
+    /// Convert a size_t to a Lean Int (for large values).
+    ///
+    /// This is called when the value doesn't fit in small int range.
+    pub fn lean_big_size_t_to_int(n: usize) -> lean_obj_res;
+
     /// Negate a large integer
     pub fn lean_int_big_neg(a: b_lean_obj_arg) -> lean_obj_res;
 

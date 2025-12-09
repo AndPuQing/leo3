@@ -68,9 +68,7 @@ impl LeanInt {
         nat: LeanBound<'l, LeanNat>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Int.ofNat is constructor 0 with 1 field (the Nat value)
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, nat.into_ptr());
+            let ptr = ffi::inline::lean_nat_to_int(nat.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
