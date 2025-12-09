@@ -3,7 +3,11 @@
 //! This crate provides the proc macro attributes for Leo3. The actual implementation
 //! is in `leo3-macros-backend`.
 
-use leo3_macros_backend::{build_lean_function, LeanFunctionOptions};
+use leo3_macros_backend::{
+    build_lean_function,
+    derive::{expand_from_lean, expand_into_lean},
+    LeanFunctionOptions,
+};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -86,9 +90,7 @@ pub fn leanfn(attr: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_derive(IntoLean, attributes(lean))]
 pub fn derive_into_lean(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
-    leo3_macros_backend::derive::expand_into_lean(ast)
-        .unwrap_or_compile_error()
-        .into()
+    expand_into_lean(ast).unwrap_or_compile_error().into()
 }
 
 /// Derive macro for automatic `FromLean` trait implementation.
@@ -135,9 +137,7 @@ pub fn derive_into_lean(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(FromLean, attributes(lean))]
 pub fn derive_from_lean(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as syn::DeriveInput);
-    leo3_macros_backend::derive::expand_from_lean(ast)
-        .unwrap_or_compile_error()
-        .into()
+    expand_from_lean(ast).unwrap_or_compile_error().into()
 }
 
 /// A proc macro used to expose Rust structs as Lean4 classes.
