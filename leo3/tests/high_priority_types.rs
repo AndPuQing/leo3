@@ -9,8 +9,8 @@ use leo3::prelude::*;
 #[test]
 fn test_float_creation() {
     leo3::with_lean(|lean| -> LeanResult<()> {
-        let f = LeanFloat::from_f64(lean, 3.14159)?;
-        assert_eq!(LeanFloat::to_f64(&f), 3.14159);
+        let f = LeanFloat::from_f64(lean, std::f64::consts::PI)?;
+        assert_eq!(LeanFloat::to_f64(&f), std::f64::consts::PI);
 
         let zero = LeanFloat::zero(lean)?;
         assert_eq!(LeanFloat::to_f64(&zero), 0.0);
@@ -28,14 +28,14 @@ fn test_float_special_values() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let inf = LeanFloat::infinity(lean)?;
         assert!(LeanFloat::isInf(&inf));
-        assert!(LeanFloat::isFinite(&inf) == false);
+        assert!(!LeanFloat::isFinite(&inf));
 
         let neg_inf = LeanFloat::neg_infinity(lean)?;
         assert!(LeanFloat::isInf(&neg_inf));
 
         let nan = LeanFloat::nan(lean)?;
         assert!(LeanFloat::isNaN(&nan));
-        assert!(LeanFloat::isFinite(&nan) == false);
+        assert!(!LeanFloat::isFinite(&nan));
 
         Ok(())
     })

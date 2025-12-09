@@ -13,7 +13,7 @@ fn test_prod_mk() {
         let a = LeanNat::from_usize(lean, 42)?;
         let b = LeanNat::from_usize(lean, 100)?;
 
-        let pair = LeanProd::mk(lean, a.cast(), b.cast())?;
+        let _pair = LeanProd::mk(lean, a.cast(), b.cast())?;
 
         // Just verify we can create a pair
         Ok(())
@@ -31,7 +31,7 @@ fn test_prod_fst() {
         let b = LeanNat::from_usize(lean, 100)?;
 
         let pair = LeanProd::mk(lean, a.cast(), b.cast())?;
-        let first = LeanProd::fst(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
 
         // Verify we can get the first element
         Ok(())
@@ -49,7 +49,7 @@ fn test_prod_snd() {
         let b = LeanNat::from_usize(lean, 100)?;
 
         let pair = LeanProd::mk(lean, a.cast(), b.cast())?;
-        let second = LeanProd::snd(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         // Verify we can get the second element
         Ok(())
@@ -68,8 +68,8 @@ fn test_prod_with_strings() {
 
         let pair = LeanProd::mk(lean, s1.cast(), s2.cast())?;
 
-        let first = LeanProd::fst(lean, &pair);
-        let second = LeanProd::snd(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         // Verify we can create and access string pairs
         Ok(())
@@ -88,8 +88,8 @@ fn test_prod_with_mixed_types() {
 
         let pair = LeanProd::mk(lean, n.cast(), s.cast())?;
 
-        let first = LeanProd::fst(lean, &pair);
-        let second = LeanProd::snd(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         // Verify we can create pairs with different types
         Ok(())
@@ -110,8 +110,8 @@ fn test_prod_swap() {
         let swapped = LeanProd::swap(lean, pair)?;
 
         // After swapping, first should be 2, second should be 1
-        let first = LeanProd::fst(lean, &swapped);
-        let second = LeanProd::snd(lean, &swapped);
+        let _first = LeanProd::fst(lean, &swapped);
+        let _second = LeanProd::snd(lean, &swapped);
 
         // Verify swap worked
         Ok(())
@@ -134,10 +134,10 @@ fn test_prod_nested() {
         let outer_pair = LeanProd::mk(lean, inner_pair.cast(), c.cast())?;
 
         // Get first element (which is a pair)
-        let first = LeanProd::fst(lean, &outer_pair);
+        let _first = LeanProd::fst(lean, &outer_pair);
 
         // Get second element (which is a nat)
-        let second = LeanProd::snd(lean, &outer_pair);
+        let _second = LeanProd::snd(lean, &outer_pair);
 
         Ok(())
     });
@@ -155,8 +155,8 @@ fn test_prod_with_bool() {
 
         let pair = LeanProd::mk(lean, b.cast(), n.cast())?;
 
-        let first = LeanProd::fst(lean, &pair);
-        let second = LeanProd::snd(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         Ok(())
     });
@@ -175,8 +175,8 @@ fn test_prod_with_option() {
 
         let pair = LeanProd::mk(lean, opt.cast(), s.cast())?;
 
-        let first = LeanProd::fst(lean, &pair);
-        let second = LeanProd::snd(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         Ok(())
     });
@@ -200,8 +200,8 @@ fn test_prod_with_list() {
         // Create pair (list, nat)
         let pair = LeanProd::mk(lean, list.cast(), n.cast())?;
 
-        let first = LeanProd::fst(lean, &pair);
-        let second = LeanProd::snd(lean, &pair);
+        let _first = LeanProd::fst(lean, &pair);
+        let _second = LeanProd::snd(lean, &pair);
 
         Ok(())
     });
@@ -222,8 +222,8 @@ fn test_prod_triple_via_nesting() {
         let inner = LeanProd::mk(lean, b.cast(), c.cast())?;
         let triple = LeanProd::mk(lean, a.cast(), inner.cast())?;
 
-        let first = LeanProd::fst(lean, &triple);
-        let rest = LeanProd::snd(lean, &triple);
+        let _first = LeanProd::fst(lean, &triple);
+        let _rest = LeanProd::snd(lean, &triple);
 
         Ok(())
     });
@@ -242,7 +242,7 @@ fn test_prod_identity_swap() {
 
         let pair = LeanProd::mk(lean, a.cast(), b.cast())?;
         let swapped_once = LeanProd::swap(lean, pair)?;
-        let swapped_twice = LeanProd::swap(lean, swapped_once)?;
+        let _swapped_twice = LeanProd::swap(lean, swapped_once)?;
 
         // Original order should be restored
         Ok(())

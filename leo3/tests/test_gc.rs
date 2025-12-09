@@ -7,26 +7,6 @@
 
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-
-/// Helper to track drop calls
-struct DropCounter {
-    counter: Arc<AtomicUsize>,
-}
-
-impl DropCounter {
-    fn new(counter: Arc<AtomicUsize>) -> Self {
-        counter.fetch_add(1, Ordering::SeqCst);
-        Self { counter }
-    }
-}
-
-impl Drop for DropCounter {
-    fn drop(&mut self) {
-        self.counter.fetch_sub(1, Ordering::SeqCst);
-    }
-}
 
 #[test]
 fn test_basic_refcount() {

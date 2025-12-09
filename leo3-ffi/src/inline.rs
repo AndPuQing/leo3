@@ -667,7 +667,7 @@ const LEAN_MIN_SMALL_INT: i64 = if std::mem::size_of::<*const ()>() == 8 {
 /// - Always safe to call
 #[inline]
 pub unsafe fn lean_int64_to_int(n: i64) -> lean_obj_res {
-    if likely(LEAN_MIN_SMALL_INT <= n && n <= LEAN_MAX_SMALL_INT) {
+    if likely((LEAN_MIN_SMALL_INT..=LEAN_MAX_SMALL_INT).contains(&n)) {
         lean_box(n as usize)
     } else {
         lean_big_int64_to_int(n)

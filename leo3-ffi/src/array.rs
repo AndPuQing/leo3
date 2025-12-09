@@ -190,7 +190,7 @@ pub unsafe fn lean_ensure_exclusive_array(a: lean_obj_arg) -> lean_obj_res {
 pub unsafe fn lean_array_uset(a: lean_obj_arg, i: size_t, v: lean_obj_arg) -> lean_obj_res {
     let r = lean_ensure_exclusive_array(a);
     let slot = lean_array_cptr(r).add(i);
-    crate::object::lean_dec(*slot as *mut lean_object);
+    crate::object::lean_dec(*slot);
     *slot = v;
     r
 }
@@ -218,7 +218,7 @@ pub unsafe fn lean_array_pop(a: lean_obj_arg) -> lean_obj_res {
         return r;
     }
     let last = lean_array_cptr(r).add(sz - 1);
-    crate::object::lean_dec(*last as *mut lean_object);
+    crate::object::lean_dec(*last);
     lean_array_set_size(r, sz - 1);
     r
 }

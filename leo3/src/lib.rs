@@ -77,7 +77,6 @@ pub use marker::Lean;
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    //! Commonly used items for Leo3 users.
     pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
 
     // Re-export commonly used types

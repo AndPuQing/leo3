@@ -12,7 +12,7 @@ fn test_bool_true() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let b = LeanBool::mk(lean, true)?;
 
-        assert_eq!(LeanBool::toBool(&b), true);
+        assert!(LeanBool::toBool(&b));
 
         Ok(())
     });
@@ -27,7 +27,7 @@ fn test_bool_false() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let b = LeanBool::mk(lean, false)?;
 
-        assert_eq!(LeanBool::toBool(&b), false);
+        assert!(!LeanBool::toBool(&b));
 
         Ok(())
     });
@@ -43,7 +43,7 @@ fn test_bool_not_true() {
         let b = LeanBool::mk(lean, true)?;
         let not_b = LeanBool::not(b)?;
 
-        assert_eq!(LeanBool::toBool(&not_b), false);
+        assert!(!LeanBool::toBool(&not_b));
 
         Ok(())
     });
@@ -59,7 +59,7 @@ fn test_bool_not_false() {
         let b = LeanBool::mk(lean, false)?;
         let not_b = LeanBool::not(b)?;
 
-        assert_eq!(LeanBool::toBool(&not_b), true);
+        assert!(LeanBool::toBool(&not_b));
 
         Ok(())
     });
@@ -75,7 +75,7 @@ fn test_bool_and_true_true() {
         let a = LeanBool::mk(lean, true)?;
         let b = LeanBool::mk(lean, true)?;
 
-        assert_eq!(LeanBool::and(&a, &b), true);
+        assert!(LeanBool::and(&a, &b));
 
         Ok(())
     });
@@ -91,7 +91,7 @@ fn test_bool_and_true_false() {
         let a = LeanBool::mk(lean, true)?;
         let b = LeanBool::mk(lean, false)?;
 
-        assert_eq!(LeanBool::and(&a, &b), false);
+        assert!(!LeanBool::and(&a, &b));
 
         Ok(())
     });
@@ -107,7 +107,7 @@ fn test_bool_and_false_true() {
         let a = LeanBool::mk(lean, false)?;
         let b = LeanBool::mk(lean, true)?;
 
-        assert_eq!(LeanBool::and(&a, &b), false);
+        assert!(!LeanBool::and(&a, &b));
 
         Ok(())
     });
@@ -123,7 +123,7 @@ fn test_bool_and_false_false() {
         let a = LeanBool::mk(lean, false)?;
         let b = LeanBool::mk(lean, false)?;
 
-        assert_eq!(LeanBool::and(&a, &b), false);
+        assert!(!LeanBool::and(&a, &b));
 
         Ok(())
     });
@@ -139,7 +139,7 @@ fn test_bool_or_true_true() {
         let a = LeanBool::mk(lean, true)?;
         let b = LeanBool::mk(lean, true)?;
 
-        assert_eq!(LeanBool::or(&a, &b), true);
+        assert!(LeanBool::or(&a, &b));
 
         Ok(())
     });
@@ -155,7 +155,7 @@ fn test_bool_or_true_false() {
         let a = LeanBool::mk(lean, true)?;
         let b = LeanBool::mk(lean, false)?;
 
-        assert_eq!(LeanBool::or(&a, &b), true);
+        assert!(LeanBool::or(&a, &b));
 
         Ok(())
     });
@@ -171,7 +171,7 @@ fn test_bool_or_false_true() {
         let a = LeanBool::mk(lean, false)?;
         let b = LeanBool::mk(lean, true)?;
 
-        assert_eq!(LeanBool::or(&a, &b), true);
+        assert!(LeanBool::or(&a, &b));
 
         Ok(())
     });
@@ -187,7 +187,7 @@ fn test_bool_or_false_false() {
         let a = LeanBool::mk(lean, false)?;
         let b = LeanBool::mk(lean, false)?;
 
-        assert_eq!(LeanBool::or(&a, &b), false);
+        assert!(!LeanBool::or(&a, &b));
 
         Ok(())
     });
@@ -204,7 +204,7 @@ fn test_bool_double_negation() {
         let not_b = LeanBool::not(b)?;
         let not_not_b = LeanBool::not(not_b)?;
 
-        assert_eq!(LeanBool::toBool(&not_not_b), true);
+        assert!(LeanBool::toBool(&not_not_b));
 
         Ok(())
     });
@@ -230,7 +230,7 @@ fn test_bool_complex_expression() {
         let right_bool = LeanBool::mk(lean, right)?;
 
         let result = LeanBool::or(&left_bool, &right_bool);
-        assert_eq!(result, true);
+        assert!(result);
 
         Ok(())
     });
