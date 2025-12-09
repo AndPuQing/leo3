@@ -37,7 +37,7 @@ pub mod nat;
 pub mod object;
 pub mod string;
 
-// Inline function implementations (PyO3-style)
+// Inline function implementations
 pub mod inline;
 
 // Re-export commonly used types from object module

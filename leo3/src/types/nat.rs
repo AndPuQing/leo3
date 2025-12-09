@@ -1,5 +1,7 @@
 //! Lean natural number type wrapper.
 
+use leo3_ffi::inline::{lean_nat_add, lean_nat_dec_eq, lean_nat_dec_le, lean_nat_dec_lt, lean_nat_div, lean_nat_mod, lean_nat_mul, lean_nat_sub, lean_usize_of_nat, lean_usize_to_nat};
+
 use crate::err::{LeanError, LeanResult};
 use crate::ffi;
 use crate::instance::LeanBound;
@@ -30,7 +32,7 @@ impl LeanNat {
     /// ```
     pub fn from_usize<'l>(lean: Lean<'l>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let ptr = ffi::nat::leo3_usize_to_nat(n);
+            let ptr = lean_usize_to_nat(n);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -48,7 +50,7 @@ impl LeanNat {
     pub fn to_usize<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<usize> {
         unsafe {
             if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
-                Ok(ffi::nat::leo3_nat_to_usize(obj.as_ptr()))
+                Ok(lean_usize_of_nat(obj.as_ptr()))
             } else {
                 Err(LeanError::conversion("Natural number too large for usize"))
             }
@@ -83,7 +85,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::leo3_nat_add(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_add(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -104,7 +106,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::leo3_nat_sub(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_sub(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -125,7 +127,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::leo3_nat_mul(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_mul(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -146,7 +148,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::leo3_nat_div(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_div(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -170,7 +172,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::leo3_nat_mod(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_mod(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -242,7 +244,7 @@ impl LeanNat {
     /// ```
     #[allow(non_snake_case)]
     pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::leo3_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
+        unsafe { lean_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
     }
 
     /// Compare two natural numbers for equality.
@@ -267,7 +269,7 @@ impl LeanNat {
     /// ```
     #[allow(non_snake_case)]
     pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::leo3_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
+        unsafe { lean_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
     }
 
     /// Compare two natural numbers for less-than.
@@ -284,7 +286,7 @@ impl LeanNat {
     /// Corresponds to `Nat.decLe` in Lean4.
     #[allow(non_snake_case)]
     pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::nat::leo3_nat_dec_le(a.as_ptr(), b.as_ptr()) }
+        unsafe { lean_nat_dec_le(a.as_ptr(), b.as_ptr()) }
     }
 
     /// Compare two natural numbers for less-than-or-equal.

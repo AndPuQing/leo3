@@ -5,15 +5,6 @@
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 use libc::size_t;
 
-// Re-export inline functions with leo3_ prefix for backwards compatibility
-pub use crate::inline::{
-    lean_nat_add as leo3_nat_add, lean_nat_dec_eq as leo3_nat_dec_eq,
-    lean_nat_dec_le as leo3_nat_dec_le, lean_nat_dec_lt as leo3_nat_dec_lt,
-    lean_nat_div as leo3_nat_div, lean_nat_mod as leo3_nat_mod, lean_nat_mul as leo3_nat_mul,
-    lean_nat_sub as leo3_nat_sub, lean_usize_of_nat as leo3_nat_to_usize,
-    lean_usize_to_nat as leo3_usize_to_nat,
-};
-
 /// Check if nat fits in usize (i.e., is a scalar)
 ///
 /// # Safety
@@ -40,29 +31,25 @@ extern "C" {
 
 // Inline helper functions
 
-/// Convert boxed usize to natural number
+/// Box a usize value into a Lean USize object
 ///
-/// This is typically already in the right format (boxed)
-#[inline]
-pub unsafe fn lean_box_usize(n: size_t) -> lean_obj_res {
-    crate::inline::lean_box(n)
-}
-
-/// Convert natural number to boxed usize (if it fits)
+/// Note: USize in Lean is NOT the same as Nat. It's always a constructor
+/// object (tag 0) with the size_t value stored in scalar data.
 ///
 /// # Safety
-/// - `o` must be a valid nat object
-/// - Panics if number doesn't fit in usize
+/// - Always safe to call
+#[inline]
+pub unsafe fn lean_box_usize(n: size_t) -> lean_obj_res {
+    let r = crate::lean_alloc_ctor(0, 0, std::mem::size_of::<size_t>() as u32);
+    crate::inline::lean_ctor_set_usize(r, 0, n);
+    r
+}
+
+/// Unbox a Lean USize object to a size_t value
+///
+/// # Safety
+/// - `o` must be a valid USize object (constructor with tag 0)
 #[inline]
 pub unsafe fn lean_unbox_usize(o: b_lean_obj_arg) -> size_t {
-    if crate::inline::lean_is_scalar(o) {
-        crate::inline::lean_unbox(o)
-    } else {
-        // Large nat, try to convert
-        if leo3_nat_is_small(o) {
-            crate::inline::lean_usize_of_nat(o)
-        } else {
-            panic!("Natural number too large for usize")
-        }
-    }
+    crate::inline::lean_ctor_get_usize(o, 0)
 }

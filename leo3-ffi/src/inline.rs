@@ -1059,6 +1059,34 @@ pub unsafe fn lean_ctor_set_uint64(o: lean_obj_arg, offset: c_uint, v: u64) {
     *(lean_ctor_scalar_cptr(o).add(offset as usize) as *mut u64) = v;
 }
 
+/// Get usize scalar from constructor
+///
+/// Note: The index `i` is into the object array, not a byte offset.
+/// The function accesses scalar storage after the object pointers.
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `i` must be >= lean_ctor_num_objs(o)
+#[inline]
+pub unsafe fn lean_ctor_get_usize(o: b_lean_obj_arg, i: c_uint) -> size_t {
+    debug_assert!(i as u8 >= lean_ctor_num_objs(o));
+    *(lean_ctor_obj_cptr(o as *mut lean_object).add(i as usize) as *const size_t)
+}
+
+/// Set usize scalar in constructor
+///
+/// Note: The index `i` is into the object array, not a byte offset.
+/// The function accesses scalar storage after the object pointers.
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `i` must be >= lean_ctor_num_objs(o)
+#[inline]
+pub unsafe fn lean_ctor_set_usize(o: lean_obj_arg, i: c_uint, v: size_t) {
+    debug_assert!(i as u8 >= lean_ctor_num_objs(o));
+    *(lean_ctor_obj_cptr(o).add(i as usize) as *mut size_t) = v;
+}
+
 // ============================================================================
 // ByteArray Functions
 // ============================================================================
