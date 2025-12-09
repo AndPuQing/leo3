@@ -16,18 +16,22 @@ pub struct LeanString {
 impl LeanString {
     /// Create a new Lean string from a Rust string.
     ///
+    /// # Lean4 Reference
+    /// Corresponds to string literal construction in Lean4.
+    /// Uses C API `lean_mk_string`.
+    ///
     /// # Example
     ///
     /// ```rust,ignore
     /// use leo3::prelude::*;
     ///
     /// leo3::with_lean(|lean| {
-    ///     let s = LeanString::new(lean, "Hello, Lean!")?;
-    ///     println!("{}", LeanString::to_str(&s)?);
+    ///     let s = LeanString::mk(lean, "Hello, Lean!")?;
+    ///     println!("{}", LeanString::cstr(&s)?);
     ///     Ok(())
     /// })
     /// ```
-    pub fn new<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn mk<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
         let c_str = std::ffi::CString::new(s)
             .map_err(|_| LeanError::conversion("String contains null byte"))?;
 
@@ -37,15 +41,28 @@ impl LeanString {
         }
     }
 
-    /// Get the string as a Rust `&str`.
+    /// Create a new Lean string from a Rust string.
+    ///
+    /// **Deprecated**: Use [`mk`](Self::mk) instead. While there's no exact Lean4
+    /// equivalent (strings are literals), `mk` is more aligned with other constructors.
+    #[deprecated(since = "0.2.0", note = "use `mk` instead for consistency")]
+    pub fn new<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
+        Self::mk(lean, s)
+    }
+
+    /// Get the string as a C-style string pointer (null-terminated).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `String.data` in Lean4 (conceptually).
+    /// Uses C API `lean_string_cstr`.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s = LeanString::new(lean, "Hello")?;
-    /// assert_eq!(LeanString::to_str(&s)?, "Hello");
+    /// let s = LeanString::mk(lean, "Hello")?;
+    /// assert_eq!(LeanString::cstr(&s)?, "Hello");
     /// ```
-    pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
+    pub fn cstr<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
         unsafe {
             let c_str = ffi::string::leo3_string_cstr(obj.as_ptr());
             let cstr = CStr::from_ptr(c_str);
@@ -54,12 +71,20 @@ impl LeanString {
         }
     }
 
+    /// Get the string as a Rust `&str`.
+    ///
+    /// **Deprecated**: Use [`cstr`](Self::cstr) instead to align with C API naming.
+    #[deprecated(since = "0.2.0", note = "use `cstr` instead to match C API naming")]
+    pub fn to_str<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
+        Self::cstr(obj)
+    }
+
     /// Get the UTF-8 length of the string (number of characters).
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s = LeanString::new(lean, "Hello")?;
+    /// let s = LeanString::mk(lean, "Hello")?;
     /// assert_eq!(LeanString::len(&s), 5);
     /// ```
     pub fn len<'l>(obj: &LeanBound<'l, Self>) -> usize {
@@ -72,8 +97,20 @@ impl LeanString {
     }
 
     /// Check if the string is empty.
-    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `String.isEmpty` pattern in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isEmpty<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::len(obj) == 0
+    }
+
+    /// Check if the string is empty.
+    ///
+    /// **Deprecated**: Use [`isEmpty`](Self::isEmpty) instead to align with Lean4 naming.
+    #[deprecated(since = "0.2.0", note = "use `isEmpty` instead to match Lean4 naming")]
+    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::isEmpty(obj)
     }
 
     /// Append a UTF-32 character to the string.
@@ -81,9 +118,9 @@ impl LeanString {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s = LeanString::new(lean, "Hello")?;
+    /// let s = LeanString::mk(lean, "Hello")?;
     /// let s = LeanString::push(s, '!' as u32)?;
-    /// assert_eq!(LeanString::to_str(&s)?, "Hello!");
+    /// assert_eq!(LeanString::cstr(&s)?, "Hello!");
     /// ```
     pub fn push<'l>(s: LeanBound<'l, Self>, c: u32) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
@@ -98,10 +135,10 @@ impl LeanString {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s1 = LeanString::new(lean, "Hello, ")?;
-    /// let s2 = LeanString::new(lean, "World!")?;
+    /// let s1 = LeanString::mk(lean, "Hello, ")?;
+    /// let s2 = LeanString::mk(lean, "World!")?;
     /// let result = LeanString::append(s1, &s2)?;
-    /// assert_eq!(LeanString::to_str(&result)?, "Hello, World!");
+    /// assert_eq!(LeanString::cstr(&result)?, "Hello, World!");
     /// ```
     pub fn append<'l>(
         s1: LeanBound<'l, Self>,
@@ -119,8 +156,8 @@ impl LeanString {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s1 = LeanString::new(lean, "hello")?;
-    /// let s2 = LeanString::new(lean, "hello")?;
+    /// let s1 = LeanString::mk(lean, "hello")?;
+    /// let s2 = LeanString::mk(lean, "hello")?;
     /// assert!(LeanString::eq(&s1, &s2));
     /// ```
     pub fn eq<'l>(s1: &LeanBound<'l, Self>, s2: &LeanBound<'l, Self>) -> bool {
@@ -139,9 +176,9 @@ impl LeanString {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let s = LeanString::new(lean, "Hello, World!")?;
+    /// let s = LeanString::mk(lean, "Hello, World!")?;
     /// let sub = LeanString::substring(lean, &s, 0, 5)?;
-    /// assert_eq!(LeanString::to_str(&sub)?, "Hello");
+    /// assert_eq!(LeanString::cstr(&sub)?, "Hello");
     /// ```
     pub fn substring<'l>(
         lean: Lean<'l>,
@@ -196,7 +233,7 @@ impl LeanString {
 // Implement Display for convenient printing (requires to_str conversion)
 impl<'l> std::fmt::Debug for LeanBound<'l, LeanString> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match LeanString::to_str(self) {
+        match LeanString::cstr(self) {
             Ok(s) => write!(f, "LeanString({:?})", s),
             Err(_) => write!(f, "LeanString(<invalid UTF-8>)"),
         }

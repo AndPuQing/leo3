@@ -13,7 +13,13 @@ pub struct LeanArray {
 }
 
 impl LeanArray {
-    /// Create a new empty Lean array.
+    /// Create an empty Lean array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.empty` in Lean4.
+    /// ```lean
+    /// def Array.empty : Array α := emptyWithCapacity 0
+    /// ```
     ///
     /// # Example
     ///
@@ -21,12 +27,12 @@ impl LeanArray {
     /// use leo3::prelude::*;
     ///
     /// leo3::with_lean(|lean| {
-    ///     let arr = LeanArray::new(lean)?;
-    ///     assert!(LeanArray::is_empty(&arr));
+    ///     let arr = LeanArray::empty(lean)?;
+    ///     assert!(LeanArray::isEmpty(&arr));
     ///     Ok(())
     /// })
     /// ```
-    pub fn new<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn empty<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             // Create an empty array by converting from an empty list (nil)
             // In Lean, this is represented as constructor 0 with no fields
@@ -36,12 +42,20 @@ impl LeanArray {
         }
     }
 
+    /// Create a new empty Lean array.
+    ///
+    /// **Deprecated**: Use [`empty`](Self::empty) instead to align with Lean4's `Array.empty`.
+    #[deprecated(since = "0.2.0", note = "use `empty` instead to match Lean4 naming")]
+    pub fn new<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        Self::empty(lean)
+    }
+
     /// Get the size of the array.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let arr = LeanArray::new(lean)?;
+    /// let arr = LeanArray::empty(lean)?;
     /// assert_eq!(LeanArray::size(&arr), 0);
     /// ```
     pub fn size<'l>(obj: &LeanBound<'l, Self>) -> usize {
@@ -49,8 +63,20 @@ impl LeanArray {
     }
 
     /// Check if the array is empty.
-    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.isEmpty` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isEmpty<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::size(obj) == 0
+    }
+
+    /// Check if the array is empty.
+    ///
+    /// **Deprecated**: Use [`isEmpty`](Self::isEmpty) instead to align with Lean4's `Array.isEmpty`.
+    #[deprecated(since = "0.2.0", note = "use `isEmpty` instead to match Lean4 naming")]
+    pub fn is_empty<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::isEmpty(obj)
     }
 
     /// Push an element to the end of the array.
@@ -58,7 +84,7 @@ impl LeanArray {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let arr = LeanArray::new(lean)?;
+    /// let arr = LeanArray::empty(lean)?;
     /// let elem = LeanNat::from_usize(lean, 42)?;
     /// let arr = LeanArray::push(arr, elem.unbind())?;
     /// assert_eq!(LeanArray::size(&arr), 1);
@@ -143,7 +169,7 @@ impl LeanArray {
     /// let arr = LeanArray::pop(arr)?;
     /// ```
     pub fn pop<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        if Self::is_empty(&arr) {
+        if Self::isEmpty(&arr) {
             return Err(LeanError::runtime("Cannot pop from empty array"));
         }
 
@@ -184,15 +210,37 @@ impl LeanArray {
 
     /// Create an array from a Lean list.
     ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.mk` in Lean4.
+    /// ```lean
+    /// structure Array (α : Type u) where
+    ///   mk :: toList : List α
+    /// ```
+    ///
     /// # Safety
     ///
     /// The list object must be a valid Lean list.
-    pub unsafe fn from_list<'l>(
+    pub unsafe fn mk<'l>(
         lean: Lean<'l>,
         list: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         let ptr = ffi::array::lean_array_mk(list.into_ptr());
         Ok(LeanBound::from_owned_ptr(lean, ptr))
+    }
+
+    /// Create an array from a Lean list.
+    ///
+    /// **Deprecated**: Use [`mk`](Self::mk) instead to align with Lean4's `Array.mk`.
+    ///
+    /// # Safety
+    ///
+    /// The list object must be a valid Lean list.
+    #[deprecated(since = "0.2.0", note = "use `mk` instead to match Lean4 naming")]
+    pub unsafe fn from_list<'l>(
+        lean: Lean<'l>,
+        list: LeanBound<'l, LeanAny>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::mk(lean, list)
     }
 
     /// Convert the array to a Lean list.

@@ -153,15 +153,18 @@ impl LeanNat {
 
     /// Modulo operation.
     ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.mod` in Lean4 (also `%` operator).
+    ///
     /// # Example
     ///
     /// ```rust,ignore
     /// let a = LeanNat::from_usize(lean, 47)?;
     /// let b = LeanNat::from_usize(lean, 5)?;
-    /// let remainder = LeanNat::modulo(a, b)?;
+    /// let remainder = LeanNat::mod_(a, b)?;
     /// assert_eq!(LeanNat::to_usize(&remainder)?, 2);
     /// ```
-    pub fn modulo<'l>(
+    pub fn mod_<'l>(
         a: LeanBound<'l, Self>,
         b: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
@@ -170,6 +173,17 @@ impl LeanNat {
             let ptr = ffi::nat::leo3_nat_mod(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
+    }
+
+    /// Modulo operation.
+    ///
+    /// **Deprecated**: Use [`mod_`](Self::mod_) instead to align with Lean4's `Nat.mod`.
+    #[deprecated(since = "0.2.0", note = "use `mod_` instead to match Lean4 naming")]
+    pub fn modulo<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::mod_(a, b)
     }
 
     /// Power operation (exponentiation).
@@ -214,35 +228,71 @@ impl LeanNat {
         }
     }
 
-    /// Compare two natural numbers for equality.
+    /// Compare two natural numbers for equality (decidable equality).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.decEq` in Lean4.
     ///
     /// # Example
     ///
     /// ```rust,ignore
     /// let a = LeanNat::from_usize(lean, 42)?;
     /// let b = LeanNat::from_usize(lean, 42)?;
-    /// assert!(LeanNat::eq(&a, &b));
+    /// assert!(LeanNat::decEq(&a, &b));
     /// ```
-    pub fn eq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+    #[allow(non_snake_case)]
+    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { ffi::nat::leo3_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
     }
 
-    /// Compare two natural numbers for less-than.
+    /// Compare two natural numbers for equality.
+    ///
+    /// **Deprecated**: Use [`decEq`](Self::decEq) instead to align with Lean4's `Nat.decEq`.
+    #[deprecated(since = "0.2.0", note = "use `decEq` instead to match Lean4 naming")]
+    pub fn eq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::decEq(a, b)
+    }
+
+    /// Compare two natural numbers for less-than (decidable less-than).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.decLt` in Lean4.
     ///
     /// # Example
     ///
     /// ```rust,ignore
     /// let a = LeanNat::from_usize(lean, 10)?;
     /// let b = LeanNat::from_usize(lean, 42)?;
-    /// assert!(LeanNat::lt(&a, &b));
+    /// assert!(LeanNat::decLt(&a, &b));
     /// ```
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+    #[allow(non_snake_case)]
+    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { ffi::nat::leo3_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
     }
 
-    /// Compare two natural numbers for less-than-or-equal.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+    /// Compare two natural numbers for less-than.
+    ///
+    /// **Deprecated**: Use [`decLt`](Self::decLt) instead to align with Lean4's `Nat.decLt`.
+    #[deprecated(since = "0.2.0", note = "use `decLt` instead to match Lean4 naming")]
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::decLt(a, b)
+    }
+
+    /// Compare two natural numbers for less-than-or-equal (decidable ≤).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.decLe` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { ffi::nat::leo3_nat_dec_le(a.as_ptr(), b.as_ptr()) }
+    }
+
+    /// Compare two natural numbers for less-than-or-equal.
+    ///
+    /// **Deprecated**: Use [`decLe`](Self::decLe) instead to align with Lean4's `Nat.decLe`.
+    #[deprecated(since = "0.2.0", note = "use `decLe` instead to match Lean4 naming")]
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::decLe(a, b)
     }
 }
 
