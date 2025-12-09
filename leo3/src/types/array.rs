@@ -220,6 +220,75 @@ impl LeanArray {
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
+
+    /// Create an array with pre-allocated capacity.
+    ///
+    /// This is useful for building arrays when you know the final size upfront.
+    /// The array is created with size 0 but with capacity for `capacity` elements.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let arr = LeanArray::with_capacity(lean, 100)?;
+    /// // arr.size() == 0, but has space for 100 elements
+    /// ```
+    pub fn with_capacity<'l>(lean: Lean<'l>, capacity: usize) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            // Create empty array
+            let nil_ptr = ffi::lean_alloc_ctor(0, 0, 0);
+            let mut ptr = ffi::array::lean_array_mk(nil_ptr);
+
+            // Expand capacity to accommodate requested size
+            // We need to expand multiple times to reach the desired capacity
+            if capacity > 0 {
+                // Lean doubles capacity with each expansion
+                // Start by expanding once to get initial capacity
+                ptr = ffi::array::lean_copy_expand_array(ptr, true);
+
+                // Keep expanding until we have enough capacity
+                while ffi::array::lean_array_capacity(ptr) < capacity {
+                    ptr = ffi::array::lean_copy_expand_array(ptr, true);
+                }
+            }
+
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Push an element to the array without checking if a reallocation is needed.
+    ///
+    /// This is faster than `push` when you've pre-allocated capacity.
+    ///
+    /// # Safety
+    ///
+    /// The array must have sufficient capacity (size < capacity).
+    /// Use `with_capacity` to ensure this.
+    pub unsafe fn push_unchecked<'l>(
+        arr: LeanBound<'l, Self>,
+        elem: LeanBound<'l, LeanAny>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = arr.lean_token();
+        let ptr = arr.as_ptr();
+        let size = ffi::array::lean_array_size(ptr);
+        let capacity = ffi::array::lean_array_capacity(ptr);
+
+        debug_assert!(
+            size < capacity,
+            "push_unchecked called without sufficient capacity"
+        );
+
+        // Ensure exclusive ownership
+        let ptr = ffi::array::lean_ensure_exclusive_array(arr.into_ptr());
+
+        // Set element at current size position
+        let data_ptr = ffi::array::lean_array_cptr(ptr);
+        *data_ptr.add(size) = elem.into_ptr();
+
+        // Increment size
+        ffi::array::lean_array_set_size(ptr, size + 1);
+
+        Ok(LeanBound::from_owned_ptr(lean, ptr))
+    }
 }
 
 // Implement Debug for convenient printing

@@ -66,6 +66,12 @@ fn double_all(numbers: Vec<u64>) -> Vec<u64> {
     numbers.into_iter().map(|n| n * 2).collect()
 }
 
+// Test function with large array (for performance testing)
+#[leanfn]
+fn sum_large_vec(numbers: Vec<u64>) -> u64 {
+    numbers.iter().sum()
+}
+
 #[test]
 #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_leanfn_double() {
@@ -213,6 +219,7 @@ fn test_rust_side_call() {
     assert_eq!(range_vec(5), vec![0, 1, 2, 3, 4]);
     assert_eq!(join_strings(vec!["a".to_string(), "b".to_string()]), "a, b");
     assert_eq!(double_all(vec![1, 2, 3]), vec![2, 4, 6]);
+    assert_eq!(sum_large_vec((0..1000).collect()), 499500);
 }
 
 #[test]
@@ -328,6 +335,37 @@ fn test_leanfn_vec_transform() {
                 let nat: LeanBound<LeanNat> = elem.cast();
                 assert_eq!(LeanNat::to_usize(&nat)?, expected_val);
             }
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_large_vec() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        // Create a large array with 1000 elements
+        let size = 1000;
+        let mut arr = LeanArray::empty(lean)?;
+
+        for i in 0..size {
+            let n = LeanNat::from_usize(lean, i)?;
+            arr = LeanArray::push(arr, n.cast())?;
+        }
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_sum_large_vec::__ffi_sum_large_vec(arr.into_ptr());
+            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
+
+            // Sum of 0..1000 is 999*1000/2 = 499500
+            let expected: usize = (0..size).sum();
+            assert_eq!(LeanNat::to_usize(&result)?, expected);
         }
 
         Ok(())

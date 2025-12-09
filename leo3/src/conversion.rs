@@ -193,12 +193,21 @@ where
     type Target = LeanArray;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        let mut arr = LeanArray::empty(lean)?;
+        // Optimized implementation: pre-allocate capacity to avoid reallocations
+        let len = self.len();
 
+        if len == 0 {
+            return LeanArray::empty(lean);
+        }
+
+        // Pre-allocate array with exact capacity needed
+        let mut arr = LeanArray::with_capacity(lean, len)?;
+
+        // Use push_unchecked for better performance (no capacity checks)
         for item in self {
             let lean_item = item.into_lean(lean)?;
             let any_item: LeanBound<'l, LeanAny> = lean_item.cast();
-            arr = LeanArray::push(arr, any_item)?;
+            arr = unsafe { LeanArray::push_unchecked(arr, any_item)? };
         }
 
         Ok(arr)
@@ -214,8 +223,11 @@ where
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
         let lean = obj.lean_token();
         let size = LeanArray::size(obj);
+
+        // Pre-allocate Vec with exact capacity
         let mut result = Vec::with_capacity(size);
 
+        // Direct element access without intermediate allocations
         for i in 0..size {
             let elem = LeanArray::get(obj, lean, i)
                 .ok_or_else(|| crate::err::LeanError::runtime("Index out of bounds"))?;
