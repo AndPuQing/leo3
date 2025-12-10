@@ -2843,24 +2843,13 @@ pub unsafe fn lean_isize_complement(a: size_t) -> size_t {
 #[inline(always)]
 pub unsafe fn lean_isize_shift_left(a1: size_t, a2: size_t) -> size_t {
     let lhs = a1 as isize;
-    #[cfg(target_pointer_width = "64")]
-    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
-    #[cfg(target_pointer_width = "32")]
-    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
-    (lhs.wrapping_shl(shift)) as size_t
+    lhs.wrapping_shl(a2 as u32) as size_t
 }
 
 #[inline(always)]
 pub unsafe fn lean_isize_shift_right(a1: size_t, a2: size_t) -> size_t {
     let lhs = a1 as isize;
-
-    #[cfg(target_pointer_width = "64")]
-    let shift = (a2 & 63) as u32;
-
-    #[cfg(target_pointer_width = "32")]
-    let shift = (a2 & 31) as u32;
-
-    lhs.wrapping_shr(shift) as size_t
+    lhs.wrapping_shr(a2 as u32) as size_t
 }
 
 #[inline(always)]
