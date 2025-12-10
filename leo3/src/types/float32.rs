@@ -326,10 +326,6 @@ impl LeanFloat32 {
         }
     }
 
-    // ========================================================================
-    // Conversion to unsigned integers
-    // ========================================================================
-
     /// Convert Float32 to UInt8 (with bounds checking).
     ///
     /// # Lean4 Reference
@@ -375,10 +371,6 @@ impl LeanFloat32 {
         unsafe { ffi::inline::lean_float32_to_usize(Self::to_f32(obj)) }
     }
 
-    // ========================================================================
-    // Conversion to signed integers
-    // ========================================================================
-
     /// Convert Float32 to Int8 (with NaN check and bounds clamping).
     ///
     /// # Lean4 Reference
@@ -423,10 +415,6 @@ impl LeanFloat32 {
     pub fn toISize<'l>(obj: &LeanBound<'l, Self>) -> isize {
         unsafe { ffi::inline::lean_float32_to_isize(Self::to_f32(obj)) }
     }
-
-    // ========================================================================
-    // Decidable comparison methods
-    // ========================================================================
 
     /// Decidable less than comparison.
     ///
