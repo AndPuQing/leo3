@@ -1,5 +1,12 @@
 # Leo3: Rust Bindings for Lean4
 
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/AndPuQing/leo3/ci.yml?style=flat-square&logo=github)
+![Crates.io Version](https://img.shields.io/crates/v/leo3?style=flat-square&logo=rust)
+![Crates.io Downloads (recent)](https://img.shields.io/crates/dr/leo3?style=flat-square)
+[![dependency status](https://deps.rs/repo/github/AndPuQing/leo3/status.svg?style=flat-square)](https://deps.rs/repo/github/AndPuQing/leo3)
+![Crates.io License](https://img.shields.io/crates/l/leo3?style=flat-square) ![Crates.io Size](https://img.shields.io/crates/size/leo3?style=flat-square)
+
+
 Leo3 provides safe, ergonomic Rust bindings to the Lean4 theorem prover, inspired by [PyO3](https://github.com/PyO3/pyo3)'s architecture for Python-Rust bindings.
 
 ## Project Status
