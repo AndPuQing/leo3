@@ -9,5 +9,5 @@ description = "Validation tool for leo3-ffi bindings against Lean4 headers"
 leo3-ffi = { path = "../leo3-ffi" }
 
 [build-dependencies]
-bindgen = "0.70"
+bindgen = "0.72"
 leo3-build-config = { path = "../leo3-build-config" }
