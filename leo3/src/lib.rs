@@ -79,8 +79,11 @@ pub use marker::Lean;
 pub mod prelude {
     pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
 
-    // Re-export conversion traits
+    // Re-export conversion traits and macros
     pub use crate::conversion::{FromLean, IntoLean};
+
+    // Re-export smart conversion macros for automatic optimization
+    pub use crate::{from_lean, to_lean};
 
     // Re-export commonly used types
     pub use crate::types::{

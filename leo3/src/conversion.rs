@@ -7,6 +7,33 @@ use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::types::{LeanArray, LeanBool, LeanByteArray, LeanNat, LeanString};
 
+/// Macro for automatic conversion dispatch. For Vec<u8> and &[u8], uses optimized
+/// bulk memcpy. For other types, delegates to IntoLean trait.
+#[macro_export]
+macro_rules! to_lean {
+    ($vec:expr, $lean:expr, Vec<u8>) => {
+        $crate::conversion::vec_u8_into_lean($vec, $lean)
+    };
+    ($slice:expr, $lean:expr, &[u8]) => {
+        $crate::conversion::slice_u8_into_lean($slice, $lean)
+    };
+    ($value:expr, $lean:expr) => {
+        $crate::conversion::IntoLean::into_lean($value, $lean)
+    };
+}
+
+/// Macro for automatic conversion from Lean. For Vec<u8>, uses optimized conversion.
+/// For other types, delegates to FromLean trait.
+#[macro_export]
+macro_rules! from_lean {
+    ($obj:expr, Vec<u8>) => {
+        Ok::<Vec<u8>, $crate::err::LeanError>($crate::conversion::vec_u8_from_lean($obj))
+    };
+    ($obj:expr, $ty:ty) => {
+        <$ty as $crate::conversion::FromLean>::from_lean($obj)
+    };
+}
+
 /// Trait for types that can be converted from Rust to Lean.
 ///
 /// # Example
@@ -192,6 +219,10 @@ where
 {
     type Target = LeanArray;
 
+    /// Convert a `Vec<T>` to a `LeanArray`.
+    ///
+    /// Note: For `Vec<u8>`, consider using `vec_u8_into_lean()` or the `to_lean!` macro
+    /// for better performance via bulk memcpy.
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
         // Optimized implementation: pre-allocate capacity to avoid reallocations
         let len = self.len();
