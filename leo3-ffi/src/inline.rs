@@ -1992,16 +1992,15 @@ pub unsafe fn lean_uint16_xor(a1: u16, a2: u16) -> u16 {
 pub unsafe fn lean_uint16_complement(a: u16) -> u16 {
     !a
 }
-
 #[inline(always)]
 pub unsafe fn lean_uint16_shift_left(a1: u16, a2: u16) -> u16 {
-    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    let shift = (a2 & 0xF) as u32;
     a1.wrapping_shl(shift)
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint16_shift_right(a1: u16, a2: u16) -> u16 {
-    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    let shift = (a2 & 0xF) as u32;
     a1.wrapping_shr(shift)
 }
 
