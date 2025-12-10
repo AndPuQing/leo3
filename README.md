@@ -166,7 +166,7 @@ Leo3 adapts PyO3's architecture for Lean4:
 ### Completed ✅
 - [x] `#[leanfn]` macro implementation
 - [x] String parameter passing (String, &str ↔ LeanString)
-- [x] Basic type conversions (u8, u16, u32, u64, usize, bool)
+- [x] Unsigned integer conversions (u8, u16, u32, u64, usize ↔ UInt8, UInt16, UInt32, UInt64, USize)
 - [x] Array parameter passing (Vec<T> ↔ LeanArray)
 - [x] Signed integer conversions (i8, i16, i32, i64, isize ↔ Int8, Int16, Int32, Int64, ISize)
 - [x] Floating-point conversions (f32, f64 ↔ LeanFloat)

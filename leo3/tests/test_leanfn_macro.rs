@@ -78,15 +78,15 @@ fn test_leanfn_double() {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
-        // Create Lean Nat
-        let input = LeanNat::from_usize(lean, 21)?;
+        // Create Lean UInt64
+        let input = LeanUInt64::mk(lean, 21)?;
 
         // Call via FFI (simulating Lean calling us)
         // Access FFI function via internal name
         unsafe {
             let result_ptr = __leo3_leanfn_double::__ffi_double(input.into_ptr());
-            let result = LeanBound::from_owned_ptr(lean, result_ptr);
-            assert_eq!(LeanNat::to_usize(&result)?, 42);
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 42);
         }
 
         Ok(())
@@ -100,15 +100,15 @@ fn test_leanfn_with_name() {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
-        let a = LeanNat::from_usize(lean, 10)?;
-        let b = LeanNat::from_usize(lean, 32)?;
+        let a = LeanUInt64::mk(lean, 10)?;
+        let b = LeanUInt64::mk(lean, 32)?;
 
         unsafe {
             // Function is exported as "my_add" (different from rust name "add")
             // So it's available at top level
             let result_ptr = my_add(a.into_ptr(), b.into_ptr());
             let result = LeanBound::from_owned_ptr(lean, result_ptr);
-            assert_eq!(LeanNat::to_usize(&result)?, 42);
+            assert_eq!(LeanUInt64::to_u64(&result), 42);
         }
 
         Ok(())
@@ -165,7 +165,7 @@ fn test_leanfn_mixed_types() {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
-        let n = LeanNat::from_usize(lean, 42)?;
+        let n = LeanUInt64::mk(lean, 42)?;
         let positive = LeanBool::mk(lean, true)?;
 
         unsafe {
@@ -188,13 +188,13 @@ fn test_leanfn_unit_return() {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
-        let input = LeanNat::from_usize(lean, 42)?;
+        let input = LeanUInt64::mk(lean, 42)?;
 
         unsafe {
             let result_ptr = __leo3_leanfn_do_nothing::__ffi_do_nothing(input.into_ptr());
             // Unit return should be a constructor with tag 0 and 0 fields
-            // Using LeanNat as a placeholder type since we just check the pointer
-            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
+            // Using LeanUInt64 as a placeholder type since we just check the pointer
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
             // Just verify it doesn't crash
             assert!(!result.as_ptr().is_null());
         }
@@ -232,9 +232,9 @@ fn test_leanfn_vec_sum() {
 
         // Create a LeanArray with [10, 20, 30]
         let mut arr = LeanArray::empty(lean)?;
-        let n1 = LeanNat::from_usize(lean, 10)?;
-        let n2 = LeanNat::from_usize(lean, 20)?;
-        let n3 = LeanNat::from_usize(lean, 30)?;
+        let n1 = LeanUInt64::mk(lean, 10)?;
+        let n2 = LeanUInt64::mk(lean, 20)?;
+        let n3 = LeanUInt64::mk(lean, 30)?;
 
         arr = LeanArray::push(arr, n1.cast())?;
         arr = LeanArray::push(arr, n2.cast())?;
@@ -242,8 +242,8 @@ fn test_leanfn_vec_sum() {
 
         unsafe {
             let result_ptr = __leo3_leanfn_sum_vec::__ffi_sum_vec(arr.into_ptr());
-            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
-            assert_eq!(LeanNat::to_usize(&result)?, 60);
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 60);
         }
 
         Ok(())
@@ -259,7 +259,7 @@ fn test_leanfn_vec_return() {
     leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
         use leo3::types::LeanArray;
 
-        let n = LeanNat::from_usize(lean, 5)?;
+        let n = LeanUInt64::mk(lean, 5)?;
 
         unsafe {
             let result_ptr = __leo3_leanfn_range_vec::__ffi_range_vec(n.into_ptr());
@@ -270,8 +270,8 @@ fn test_leanfn_vec_return() {
 
             for i in 0..5 {
                 let elem = LeanArray::get(&result, lean, i).unwrap();
-                let nat: LeanBound<LeanNat> = elem.cast();
-                assert_eq!(LeanNat::to_usize(&nat)?, i);
+                let uint: LeanBound<LeanUInt64> = elem.cast();
+                assert_eq!(LeanUInt64::to_u64(&uint), i as u64);
             }
         }
 
@@ -318,7 +318,7 @@ fn test_leanfn_vec_transform() {
         // Create array [1, 2, 3]
         let mut arr = LeanArray::empty(lean)?;
         for i in 1..=3 {
-            let n = LeanNat::from_usize(lean, i)?;
+            let n = LeanUInt64::mk(lean, i)?;
             arr = LeanArray::push(arr, n.cast())?;
         }
 
@@ -332,8 +332,8 @@ fn test_leanfn_vec_transform() {
             let expected = [2, 4, 6];
             for (i, &expected_val) in expected.iter().enumerate() {
                 let elem = LeanArray::get(&result, lean, i).unwrap();
-                let nat: LeanBound<LeanNat> = elem.cast();
-                assert_eq!(LeanNat::to_usize(&nat)?, expected_val);
+                let uint: LeanBound<LeanUInt64> = elem.cast();
+                assert_eq!(LeanUInt64::to_u64(&uint), expected_val);
             }
         }
 
@@ -355,17 +355,17 @@ fn test_leanfn_large_vec() {
         let mut arr = LeanArray::empty(lean)?;
 
         for i in 0..size {
-            let n = LeanNat::from_usize(lean, i)?;
+            let n = LeanUInt64::mk(lean, i)?;
             arr = LeanArray::push(arr, n.cast())?;
         }
 
         unsafe {
             let result_ptr = __leo3_leanfn_sum_large_vec::__ffi_sum_large_vec(arr.into_ptr());
-            let result: LeanBound<LeanNat> = LeanBound::from_owned_ptr(lean, result_ptr);
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
 
             // Sum of 0..1000 is 999*1000/2 = 499500
-            let expected: usize = (0..size).sum();
-            assert_eq!(LeanNat::to_usize(&result)?, expected);
+            let expected: u64 = (0..size).sum();
+            assert_eq!(LeanUInt64::to_u64(&result), expected);
         }
 
         Ok(())

@@ -7,7 +7,8 @@ use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::types::{
     LeanArray, LeanBool, LeanByteArray, LeanExcept, LeanFloat, LeanISize, LeanInt16, LeanInt32,
-    LeanInt64, LeanInt8, LeanNat, LeanOption, LeanString,
+    LeanInt64, LeanInt8, LeanOption, LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8,
+    LeanUSize,
 };
 
 /// Macro for automatic conversion dispatch. For Vec<u8> and &[u8], uses optimized
@@ -77,94 +78,88 @@ pub trait FromLean<'l>: Sized {
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self>;
 }
 
-// u64 ↔ LeanNat
+// u64 ↔ LeanUInt64
 impl<'l> IntoLean<'l> for u64 {
-    type Target = LeanNat;
+    type Target = LeanUInt64;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanNat::from_usize(lean, self as usize)
+        LeanUInt64::mk(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for u64 {
-    type Source = LeanNat;
+    type Source = LeanUInt64;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        LeanNat::to_usize(obj).map(|n| n as u64)
+        Ok(LeanUInt64::to_u64(obj))
     }
 }
 
-// usize ↔ LeanNat
+// usize ↔ LeanUSize
 impl<'l> IntoLean<'l> for usize {
-    type Target = LeanNat;
+    type Target = LeanUSize;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanNat::from_usize(lean, self)
+        LeanUSize::mk(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for usize {
-    type Source = LeanNat;
+    type Source = LeanUSize;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        LeanNat::to_usize(obj)
+        Ok(LeanUSize::to_usize(obj))
     }
 }
 
-// u32 ↔ LeanNat
+// u32 ↔ LeanUInt32
 impl<'l> IntoLean<'l> for u32 {
-    type Target = LeanNat;
+    type Target = LeanUInt32;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanNat::from_usize(lean, self as usize)
+        LeanUInt32::mk(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for u32 {
-    type Source = LeanNat;
+    type Source = LeanUInt32;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        LeanNat::to_usize(obj).and_then(|n| {
-            u32::try_from(n).map_err(|_| crate::err::LeanError::conversion("Nat too large for u32"))
-        })
+        Ok(LeanUInt32::to_u32(obj))
     }
 }
 
-// u16 ↔ LeanNat
+// u16 ↔ LeanUInt16
 impl<'l> IntoLean<'l> for u16 {
-    type Target = LeanNat;
+    type Target = LeanUInt16;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanNat::from_usize(lean, self as usize)
+        LeanUInt16::mk(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for u16 {
-    type Source = LeanNat;
+    type Source = LeanUInt16;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        LeanNat::to_usize(obj).and_then(|n| {
-            u16::try_from(n).map_err(|_| crate::err::LeanError::conversion("Nat too large for u16"))
-        })
+        Ok(LeanUInt16::to_u16(obj))
     }
 }
 
-// u8 ↔ LeanNat
+// u8 ↔ LeanUInt8
 impl<'l> IntoLean<'l> for u8 {
-    type Target = LeanNat;
+    type Target = LeanUInt8;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanNat::from_usize(lean, self as usize)
+        LeanUInt8::mk(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for u8 {
-    type Source = LeanNat;
+    type Source = LeanUInt8;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        LeanNat::to_usize(obj).and_then(|n| {
-            u8::try_from(n).map_err(|_| crate::err::LeanError::conversion("Nat too large for u8"))
-        })
+        Ok(LeanUInt8::to_u8(obj))
     }
 }
 

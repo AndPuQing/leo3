@@ -586,8 +586,8 @@ fn test_iter_into_lean() {
         // Verify elements (spot check)
         for i in 0..5 {
             let elem = LeanArray::get(&arr, lean, i).unwrap();
-            let nat: LeanBound<LeanNat> = elem.cast();
-            let value = LeanNat::to_usize(&nat)?;
+            let uint: LeanBound<LeanUSize> = elem.cast();
+            let value = LeanUSize::to_usize(&uint);
             assert_eq!(value, i * 2);
         }
 
@@ -611,8 +611,8 @@ fn test_slice_into_lean() {
         // Verify elements
         for (i, &expected) in data.iter().enumerate() {
             let elem = LeanArray::get(&arr, lean, i).unwrap();
-            let nat: LeanBound<LeanNat> = elem.cast();
-            let value = LeanNat::to_usize(&nat)? as u64;
+            let uint: LeanBound<LeanUInt64> = elem.cast();
+            let value = LeanUInt64::to_u64(&uint);
             assert_eq!(value, expected);
         }
 
