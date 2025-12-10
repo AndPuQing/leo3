@@ -951,8 +951,6 @@ impl LeanUInt32 {
         }
     }
 
-    // Conversions to/from arbitrary precision types
-
     /// Convert to LeanInt (arbitrary precision integer).
     pub fn toInt<'l>(
         obj: &LeanBound<'l, Self>,
@@ -1011,8 +1009,6 @@ impl LeanUInt32 {
         Self::ofNat(lean, nat)
     }
 
-    // Comparison operations (non-decidable versions)
-
     /// Less than or equal comparison.
     pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { lean_uint32_dec_le(Self::to_u32(a), Self::to_u32(b)) }
@@ -1022,8 +1018,6 @@ impl LeanUInt32 {
     pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { lean_uint32_dec_lt(Self::to_u32(a), Self::to_u32(b)) }
     }
-
-    // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
     pub fn toFloat<'l>(
@@ -1048,8 +1042,6 @@ impl LeanUInt32 {
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
-
-    // UInt conversions
 
     /// Convert to LeanUInt8.
     pub fn toUInt8<'l>(
