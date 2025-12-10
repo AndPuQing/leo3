@@ -1483,15 +1483,7 @@ pub unsafe fn lean_float_to_uint32(a: f64) -> u32 {
 /// Convert Float to UInt64
 #[inline]
 pub unsafe fn lean_float_to_uint64(a: f64) -> u64 {
-    if 0.0 <= a {
-        if a < 18446744073709551616.0 {
-            a as u64
-        } else {
-            u64::MAX
-        }
-    } else {
-        0
-    }
+    a as u64
 }
 
 /// Convert Float to USize
@@ -1507,19 +1499,11 @@ pub unsafe fn lean_float_to_usize(a: f64) -> usize {
 /// Convert Float to Int8
 #[inline]
 pub unsafe fn lean_float_to_int8(a: f64) -> i8 {
-    let result: i8;
     if crate::float::lean_float_isnan(a) != 0 {
-        result = 0;
-    } else if -129.0 < a {
-        if a < 128.0 {
-            result = a as i8;
-        } else {
-            result = i8::MAX;
-        }
+        0
     } else {
-        result = i8::MIN;
+        a.clamp(i8::MIN as f64, i8::MAX as f64) as i8
     }
-    result
 }
 
 /// Convert Float to Int16
