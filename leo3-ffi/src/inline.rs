@@ -2090,13 +2090,13 @@ pub unsafe fn lean_uint32_complement(a: u32) -> u32 {
 
 #[inline(always)]
 pub unsafe fn lean_uint32_shift_left(a1: u32, a2: u32) -> u32 {
-    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    let shift = a2 & 31;
     a1.wrapping_shl(shift)
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint32_shift_right(a1: u32, a2: u32) -> u32 {
-    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    let shift = a2 & 31;
     a1.wrapping_shr(shift)
 }
 
@@ -2122,7 +2122,7 @@ pub unsafe fn lean_uint32_dec_le(a1: u32, a2: u32) -> bool {
 
 #[inline(always)]
 pub unsafe fn lean_uint32_is_valid_char(a: u32) -> bool {
-    a < 0xD800 || (0xE000..=0x10FFFF).contains(&a)
+    (a < 0xD800) || (0xE000..=0x10FFFF).contains(&a)
 }
 
 #[inline(always)]
