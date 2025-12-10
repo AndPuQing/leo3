@@ -1654,6 +1654,115 @@ pub unsafe fn lean_isize_to_float(a: isize) -> f64 {
 }
 
 // ============================================================================
+// UInt to UInt conversions (static inline from lean.h)
+// ============================================================================
+
+// UInt8 conversions
+#[inline]
+pub unsafe fn lean_uint8_to_uint16(a: u8) -> u16 {
+    a as u16
+}
+
+#[inline]
+pub unsafe fn lean_uint8_to_uint32(a: u8) -> u32 {
+    a as u32
+}
+
+#[inline]
+pub unsafe fn lean_uint8_to_uint64(a: u8) -> u64 {
+    a as u64
+}
+
+#[inline]
+pub unsafe fn lean_uint8_to_usize(a: u8) -> usize {
+    a as usize
+}
+
+// UInt16 conversions
+#[inline]
+pub unsafe fn lean_uint16_to_uint8(a: u16) -> u8 {
+    a as u8
+}
+
+#[inline]
+pub unsafe fn lean_uint16_to_uint32(a: u16) -> u32 {
+    a as u32
+}
+
+#[inline]
+pub unsafe fn lean_uint16_to_uint64(a: u16) -> u64 {
+    a as u64
+}
+
+#[inline]
+pub unsafe fn lean_uint16_to_usize(a: u16) -> usize {
+    a as usize
+}
+
+// UInt32 conversions
+#[inline]
+pub unsafe fn lean_uint32_to_uint8(a: u32) -> u8 {
+    a as u8
+}
+
+#[inline]
+pub unsafe fn lean_uint32_to_uint16(a: u32) -> u16 {
+    a as u16
+}
+
+#[inline]
+pub unsafe fn lean_uint32_to_uint64(a: u32) -> u64 {
+    a as u64
+}
+
+#[inline]
+pub unsafe fn lean_uint32_to_usize(a: u32) -> usize {
+    a as usize
+}
+
+// UInt64 conversions
+#[inline]
+pub unsafe fn lean_uint64_to_uint8(a: u64) -> u8 {
+    a as u8
+}
+
+#[inline]
+pub unsafe fn lean_uint64_to_uint16(a: u64) -> u16 {
+    a as u16
+}
+
+#[inline]
+pub unsafe fn lean_uint64_to_uint32(a: u64) -> u32 {
+    a as u32
+}
+
+#[inline]
+pub unsafe fn lean_uint64_to_usize(a: u64) -> usize {
+    a as usize
+}
+
+// USize conversions
+#[inline]
+pub unsafe fn lean_usize_to_uint8(a: usize) -> u8 {
+    a as u8
+}
+
+#[inline]
+pub unsafe fn lean_usize_to_uint16(a: usize) -> u16 {
+    a as u16
+}
+
+#[inline]
+pub unsafe fn lean_usize_to_uint32(a: usize) -> u32 {
+    a as u32
+}
+
+#[inline]
+pub unsafe fn lean_usize_to_uint64(a: usize) -> u64 {
+    a as u64
+}
+
+// ============================================================================
 // Float arithmetic operations (static inline from lean.h)
 // ============================================================================
 

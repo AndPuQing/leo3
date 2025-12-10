@@ -271,6 +271,35 @@ impl LeanUInt8 {
         }
     }
 
+    /// Create from LeanNat with explicit truncation (same as ofNat).
+    pub fn ofNatTruncate<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    /// Create from LeanNat with proof that value is less than size.
+    /// In FFI context, this is the same as ofNat since we can't verify the proof.
+    pub fn ofNatLT<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    // Comparison operations (non-decidable versions)
+
+    /// Less than or equal comparison.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint8_dec_le(Self::to_u8(a), Self::to_u8(b)) }
+    }
+
+    /// Less than comparison.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint8_dec_lt(Self::to_u8(a), Self::to_u8(b)) }
+    }
+
     // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
@@ -282,6 +311,64 @@ impl LeanUInt8 {
             let val = Self::to_u8(obj) as f64;
             let ptr = ffi::inline::lean_box_float(val);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let val = lean_uint8_to_float32(Self::to_u8(obj));
+            let ptr = ffi::inline::lean_box_float32(val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    // UInt conversions
+
+    /// Convert to LeanUInt16.
+    pub fn toUInt16<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt16>> {
+        unsafe {
+            let val = lean_uint8_to_uint16(Self::to_u8(obj));
+            LeanUInt16::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt32.
+    pub fn toUInt32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt32>> {
+        unsafe {
+            let val = lean_uint8_to_uint32(Self::to_u8(obj));
+            LeanUInt32::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt64.
+    pub fn toUInt64<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt64>> {
+        unsafe {
+            let val = lean_uint8_to_uint64(Self::to_u8(obj));
+            LeanUInt64::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUSize.
+    pub fn toUSize<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUSize>> {
+        unsafe {
+            let val = lean_uint8_to_usize(Self::to_u8(obj));
+            LeanUSize::mk(lean, val)
         }
     }
 
@@ -546,6 +633,35 @@ impl LeanUInt16 {
         }
     }
 
+    /// Create from LeanNat with explicit truncation (same as ofNat).
+    pub fn ofNatTruncate<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    /// Create from LeanNat with proof that value is less than size.
+    /// In FFI context, this is the same as ofNat since we can't verify the proof.
+    pub fn ofNatLT<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    // Comparison operations (non-decidable versions)
+
+    /// Less than or equal comparison.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint16_dec_le(Self::to_u16(a), Self::to_u16(b)) }
+    }
+
+    /// Less than comparison.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint16_dec_lt(Self::to_u16(a), Self::to_u16(b)) }
+    }
+
     // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
@@ -557,6 +673,64 @@ impl LeanUInt16 {
             let val = Self::to_u16(obj) as f64;
             let ptr = ffi::inline::lean_box_float(val);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let val = lean_uint16_to_float32(Self::to_u16(obj));
+            let ptr = ffi::inline::lean_box_float32(val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    // UInt conversions
+
+    /// Convert to LeanUInt8.
+    pub fn toUInt8<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt8>> {
+        unsafe {
+            let val = lean_uint16_to_uint8(Self::to_u16(obj));
+            LeanUInt8::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt32.
+    pub fn toUInt32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt32>> {
+        unsafe {
+            let val = lean_uint16_to_uint32(Self::to_u16(obj));
+            LeanUInt32::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt64.
+    pub fn toUInt64<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt64>> {
+        unsafe {
+            let val = lean_uint16_to_uint64(Self::to_u16(obj));
+            LeanUInt64::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUSize.
+    pub fn toUSize<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUSize>> {
+        unsafe {
+            let val = lean_uint16_to_usize(Self::to_u16(obj));
+            LeanUSize::mk(lean, val)
         }
     }
 
@@ -820,6 +994,35 @@ impl LeanUInt32 {
         }
     }
 
+    /// Create from LeanNat with explicit truncation (same as ofNat).
+    pub fn ofNatTruncate<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    /// Create from LeanNat with proof that value is less than size.
+    /// In FFI context, this is the same as ofNat since we can't verify the proof.
+    pub fn ofNatLT<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    // Comparison operations (non-decidable versions)
+
+    /// Less than or equal comparison.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint32_dec_le(Self::to_u32(a), Self::to_u32(b)) }
+    }
+
+    /// Less than comparison.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint32_dec_lt(Self::to_u32(a), Self::to_u32(b)) }
+    }
+
     // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
@@ -831,6 +1034,64 @@ impl LeanUInt32 {
             let val = Self::to_u32(obj) as f64;
             let ptr = ffi::inline::lean_box_float(val);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let val = lean_uint32_to_float32(Self::to_u32(obj));
+            let ptr = ffi::inline::lean_box_float32(val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    // UInt conversions
+
+    /// Convert to LeanUInt8.
+    pub fn toUInt8<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt8>> {
+        unsafe {
+            let val = lean_uint32_to_uint8(Self::to_u32(obj));
+            LeanUInt8::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt16.
+    pub fn toUInt16<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt16>> {
+        unsafe {
+            let val = lean_uint32_to_uint16(Self::to_u32(obj));
+            LeanUInt16::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt64.
+    pub fn toUInt64<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt64>> {
+        unsafe {
+            let val = lean_uint32_to_uint64(Self::to_u32(obj));
+            LeanUInt64::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUSize.
+    pub fn toUSize<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUSize>> {
+        unsafe {
+            let val = lean_uint32_to_usize(Self::to_u32(obj));
+            LeanUSize::mk(lean, val)
         }
     }
 
@@ -1100,6 +1361,35 @@ impl LeanUInt64 {
         }
     }
 
+    /// Create from LeanNat with explicit truncation (same as ofNat).
+    pub fn ofNatTruncate<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    /// Create from LeanNat with proof that value is less than size.
+    /// In FFI context, this is the same as ofNat since we can't verify the proof.
+    pub fn ofNatLT<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    // Comparison operations (non-decidable versions)
+
+    /// Less than or equal comparison.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint64_dec_le(Self::to_u64(a), Self::to_u64(b)) }
+    }
+
+    /// Less than comparison.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_uint64_dec_lt(Self::to_u64(a), Self::to_u64(b)) }
+    }
+
     // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
@@ -1111,6 +1401,64 @@ impl LeanUInt64 {
             let val = Self::to_u64(obj) as f64;
             let ptr = ffi::inline::lean_box_float(val);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let val = lean_uint64_to_float32(Self::to_u64(obj));
+            let ptr = ffi::inline::lean_box_float32(val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    // UInt conversions
+
+    /// Convert to LeanUInt8.
+    pub fn toUInt8<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt8>> {
+        unsafe {
+            let val = lean_uint64_to_uint8(Self::to_u64(obj));
+            LeanUInt8::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt16.
+    pub fn toUInt16<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt16>> {
+        unsafe {
+            let val = lean_uint64_to_uint16(Self::to_u64(obj));
+            LeanUInt16::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt32.
+    pub fn toUInt32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt32>> {
+        unsafe {
+            let val = lean_uint64_to_uint32(Self::to_u64(obj));
+            LeanUInt32::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUSize.
+    pub fn toUSize<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUSize>> {
+        unsafe {
+            let val = lean_uint64_to_usize(Self::to_u64(obj));
+            LeanUSize::mk(lean, val)
         }
     }
 
@@ -1398,6 +1746,35 @@ impl LeanUSize {
         }
     }
 
+    /// Create from LeanNat with explicit truncation (same as ofNat).
+    pub fn ofNatTruncate<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    /// Create from LeanNat with proof that value is less than size.
+    /// In FFI context, this is the same as ofNat since we can't verify the proof.
+    pub fn ofNatLT<'l>(
+        lean: Lean<'l>,
+        nat: &LeanBound<'l, crate::types::LeanNat>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        Self::ofNat(lean, nat)
+    }
+
+    // Comparison operations (non-decidable versions)
+
+    /// Less than or equal comparison.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_usize_dec_le(Self::to_usize(a), Self::to_usize(b)) }
+    }
+
+    /// Less than comparison.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_usize_dec_lt(Self::to_usize(a), Self::to_usize(b)) }
+    }
+
     // Float conversions
 
     /// Convert to LeanFloat (64-bit float).
@@ -1409,6 +1786,64 @@ impl LeanUSize {
             let val = Self::to_usize(obj) as f64;
             let ptr = ffi::inline::lean_box_float(val);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let val = lean_usize_to_float32(Self::to_usize(obj));
+            let ptr = ffi::inline::lean_box_float32(val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    // UInt conversions
+
+    /// Convert to LeanUInt8.
+    pub fn toUInt8<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt8>> {
+        unsafe {
+            let val = lean_usize_to_uint8(Self::to_usize(obj));
+            LeanUInt8::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt16.
+    pub fn toUInt16<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt16>> {
+        unsafe {
+            let val = lean_usize_to_uint16(Self::to_usize(obj));
+            LeanUInt16::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt32.
+    pub fn toUInt32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt32>> {
+        unsafe {
+            let val = lean_usize_to_uint32(Self::to_usize(obj));
+            LeanUInt32::mk(lean, val)
+        }
+    }
+
+    /// Convert to LeanUInt64.
+    pub fn toUInt64<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, LeanUInt64>> {
+        unsafe {
+            let val = lean_usize_to_uint64(Self::to_usize(obj));
+            LeanUInt64::mk(lean, val)
         }
     }
 
