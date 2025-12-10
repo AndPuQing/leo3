@@ -1481,11 +1481,7 @@ pub unsafe fn lean_float_to_uint64(a: f64) -> u64 {
 /// Convert Float to USize
 #[inline]
 pub unsafe fn lean_float_to_usize(a: f64) -> usize {
-    if std::mem::size_of::<usize>() == std::mem::size_of::<u64>() {
-        lean_float_to_uint64(a) as usize
-    } else {
-        lean_float_to_uint32(a) as usize
-    }
+    a as usize
 }
 
 /// Convert Float to Int8
