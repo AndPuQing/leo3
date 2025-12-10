@@ -1,0 +1,97 @@
+{
+  semanticCommits: 'enabled',
+  commitMessageLowerCase: 'never',
+  configMigration: true,
+  dependencyDashboard: true,
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: [
+        '/Cargo.toml$/',
+        '/^\\.github/workflows/ci.yml$/',
+        '/^\\.github/workflows/cd.yml$/',
+      ],
+      matchStrings: [
+        'STABLE.*?(?<currentValue>\\d+\\.\\d+(\\.\\d+)?)',
+        '(?<currentValue>\\d+\\.\\d+(\\.\\d+)?).*?STABLE',
+      ],
+      depNameTemplate: 'STABLE',
+      packageNameTemplate: 'rust-lang/rust',
+      datasourceTemplate: 'github-releases',
+    },
+  ],
+  packageRules: [
+    {
+      commitMessageTopic: 'Rust Stable',
+      matchManagers: [
+        'custom.regex',
+      ],
+      matchPackageNames: [
+        'STABLE',
+      ],
+      extractVersion: '^(?<version>\\d+\\.\\d+)',
+      schedule: [
+        '* * * * *',
+      ],
+      automerge: true,
+    },
+    {
+      matchManagers: [
+        'cargo',
+      ],
+      matchDepTypes: [
+        'build-dependencies',
+        'dependencies',
+      ],
+      matchCurrentVersion: '>=0.1.0',
+      matchUpdateTypes: [
+        'patch',
+      ],
+      enabled: false,
+    },
+    {
+      matchManagers: [
+        'cargo',
+      ],
+      matchDepTypes: [
+        'build-dependencies',
+        'dependencies',
+      ],
+      matchCurrentVersion: '>=1.0.0',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      enabled: false,
+    },
+    {
+      matchManagers: [
+        'cargo',
+      ],
+      matchDepTypes: [
+        'dev-dependencies',
+      ],
+      matchCurrentVersion: '>=0.1.0',
+      matchUpdateTypes: [
+        'patch',
+      ],
+      automerge: true,
+      groupName: 'compatible (dev)',
+    },
+    {
+      matchManagers: [
+        'cargo',
+      ],
+      matchDepTypes: [
+        'dev-dependencies',
+      ],
+      matchCurrentVersion: '>=1.0.0',
+      matchUpdateTypes: [
+        'minor',
+        'patch',
+      ],
+      automerge: true,
+      groupName: 'compatible (dev)',
+    },
+  ],
+}
