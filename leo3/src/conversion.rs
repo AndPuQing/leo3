@@ -5,7 +5,10 @@
 use crate::err::LeanResult;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
-use crate::types::{LeanArray, LeanBool, LeanByteArray, LeanNat, LeanString};
+use crate::types::{
+    LeanArray, LeanBool, LeanByteArray, LeanExcept, LeanFloat, LeanISize, LeanInt16, LeanInt32,
+    LeanInt64, LeanInt8, LeanNat, LeanOption, LeanString,
+};
 
 /// Macro for automatic conversion dispatch. For Vec<u8> and &[u8], uses optimized
 /// bulk memcpy. For other types, delegates to IntoLean trait.
@@ -73,10 +76,6 @@ pub trait FromLean<'l>: Sized {
     /// Extract a Rust value from a Lean object.
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self>;
 }
-
-// =============================================================================
-// Implementations for primitive types
-// =============================================================================
 
 // u64 ↔ LeanNat
 impl<'l> IntoLean<'l> for u64 {
@@ -166,6 +165,125 @@ impl<'l> FromLean<'l> for u8 {
         LeanNat::to_usize(obj).and_then(|n| {
             u8::try_from(n).map_err(|_| crate::err::LeanError::conversion("Nat too large for u8"))
         })
+    }
+}
+
+// i8 ↔ LeanInt8
+impl<'l> IntoLean<'l> for i8 {
+    type Target = LeanInt8;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanInt8::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for i8 {
+    type Source = LeanInt8;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanInt8::to_i8(obj))
+    }
+}
+
+// i16 ↔ LeanInt16
+impl<'l> IntoLean<'l> for i16 {
+    type Target = LeanInt16;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanInt16::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for i16 {
+    type Source = LeanInt16;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanInt16::to_i16(obj))
+    }
+}
+
+// i32 ↔ LeanInt32
+impl<'l> IntoLean<'l> for i32 {
+    type Target = LeanInt32;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanInt32::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for i32 {
+    type Source = LeanInt32;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanInt32::to_i32(obj))
+    }
+}
+
+// i64 ↔ LeanInt64
+impl<'l> IntoLean<'l> for i64 {
+    type Target = LeanInt64;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanInt64::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for i64 {
+    type Source = LeanInt64;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanInt64::to_i64(obj))
+    }
+}
+
+// isize ↔ LeanISize
+impl<'l> IntoLean<'l> for isize {
+    type Target = LeanISize;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanISize::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for isize {
+    type Source = LeanISize;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanISize::to_isize(obj))
+    }
+}
+
+// f32 ↔ LeanFloat
+impl<'l> IntoLean<'l> for f32 {
+    type Target = LeanFloat;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanFloat::from_f32(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for f32 {
+    type Source = LeanFloat;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanFloat::to_f32(obj))
+    }
+}
+
+// f64 ↔ LeanFloat
+impl<'l> IntoLean<'l> for f64 {
+    type Target = LeanFloat;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanFloat::from_f64(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for f64 {
+    type Source = LeanFloat;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(LeanFloat::to_f64(obj))
     }
 }
 
@@ -268,6 +386,104 @@ where
         }
 
         Ok(result)
+    }
+}
+
+impl<'l, T> IntoLean<'l> for Option<T>
+where
+    T: IntoLean<'l> + 'l,
+{
+    type Target = LeanOption;
+
+    /// Convert a Rust `Option<T>` to a Lean `Option`.
+    ///
+    /// Maps `None` to `Option.none` and `Some(value)` to `Option.some value`.
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        match self {
+            None => LeanOption::none(lean),
+            Some(value) => {
+                let lean_value = value.into_lean(lean)?;
+                let any_value: LeanBound<'l, LeanAny> = lean_value.cast();
+                LeanOption::some(lean, any_value)
+            }
+        }
+    }
+}
+
+impl<'l, T> FromLean<'l> for Option<T>
+where
+    T: FromLean<'l> + 'l,
+{
+    type Source = LeanOption;
+
+    /// Convert a Lean `Option` to a Rust `Option<T>`.
+    ///
+    /// Maps `Option.none` to `None` and `Option.some value` to `Some(value)`.
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let lean = obj.lean_token();
+        match LeanOption::get(lean, obj) {
+            None => Ok(None),
+            Some(any_value) => {
+                let typed_value: LeanBound<'l, T::Source> = any_value.cast();
+                let rust_value = T::from_lean(&typed_value)?;
+                Ok(Some(rust_value))
+            }
+        }
+    }
+}
+
+impl<'l, T, E> IntoLean<'l> for Result<T, E>
+where
+    T: IntoLean<'l> + 'l,
+    E: IntoLean<'l> + 'l,
+{
+    type Target = LeanExcept;
+
+    /// Convert a Rust `Result<T, E>` to a Lean `Except`.
+    ///
+    /// Maps `Err(error)` to `Except.error` and `Ok(value)` to `Except.ok`.
+    ///
+    /// Note: Lean's `Except ε α` has the error type (ε) first, unlike Rust's `Result<T, E>`.
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        match self {
+            Err(error) => {
+                let lean_error = error.into_lean(lean)?;
+                let any_error: LeanBound<'l, LeanAny> = lean_error.cast();
+                LeanExcept::error(lean, any_error)
+            }
+            Ok(value) => {
+                let lean_value = value.into_lean(lean)?;
+                let any_value: LeanBound<'l, LeanAny> = lean_value.cast();
+                LeanExcept::ok(lean, any_value)
+            }
+        }
+    }
+}
+
+impl<'l, T, E> FromLean<'l> for Result<T, E>
+where
+    T: FromLean<'l> + 'l,
+    E: FromLean<'l> + 'l,
+{
+    type Source = LeanExcept;
+
+    /// Convert a Lean `Except` to a Rust `Result<T, E>`.
+    ///
+    /// Maps `Except.error` to `Err(error)` and `Except.ok` to `Ok(value)`.
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let lean = obj.lean_token();
+        match LeanExcept::toRustResult(lean, obj) {
+            Err(any_error) => {
+                let typed_error: LeanBound<'l, E::Source> = any_error.cast();
+                let rust_error = E::from_lean(&typed_error)?;
+                Ok(Err(rust_error))
+            }
+            Ok(any_value) => {
+                let typed_value: LeanBound<'l, T::Source> = any_value.cast();
+                let rust_value = T::from_lean(&typed_value)?;
+                Ok(Ok(rust_value))
+            }
+        }
     }
 }
 

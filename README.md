@@ -55,9 +55,11 @@ Both handle reference counting automatically.
 
 ### Type System
 
-Lean types are wrapped in safe Rust types:
+Lean types are wrapped in safe Rust types with automatic conversions:
 
 ```rust
+use leo3::conversion::{IntoLean, FromLean};
+
 // Strings
 let s = LeanString::new(lean, "Hello")?;
 let rust_str = LeanString::to_str(&s)?;
@@ -66,9 +68,30 @@ let rust_str = LeanString::to_str(&s)?;
 let n = LeanNat::from_usize(lean, 42)?;
 let value = LeanNat::to_usize(&n)?;
 
-// Arrays
-let arr = LeanArray::new(lean)?;
-let size = LeanArray::size(&arr);
+// Signed integers (i8, i16, i32, i64, isize)
+let rust_int: i32 = -42;
+let lean_int = rust_int.into_lean(lean)?;
+let back: i32 = FromLean::from_lean(&lean_int)?;
+
+// Floating-point (f32, f64)
+let rust_float: f64 = 3.14159;
+let lean_float = rust_float.into_lean(lean)?;
+let back: f64 = FromLean::from_lean(&lean_float)?;
+
+// Option<T>
+let rust_opt: Option<u64> = Some(42);
+let lean_opt = rust_opt.into_lean(lean)?;
+let back: Option<u64> = FromLean::from_lean(&lean_opt)?;
+
+// Result<T, E>
+let rust_result: Result<i32, String> = Ok(42);
+let lean_result = rust_result.into_lean(lean)?;
+let back: Result<i32, String> = FromLean::from_lean(&lean_result)?;
+
+// Arrays and vectors
+let vec = vec![1, 2, 3, 4, 5];
+let lean_arr = vec.into_lean(lean)?;
+let back: Vec<i32> = FromLean::from_lean(&lean_arr)?;
 ```
 
 ## Installation
@@ -145,6 +168,10 @@ Leo3 adapts PyO3's architecture for Lean4:
 - [x] String parameter passing (String, &str ↔ LeanString)
 - [x] Basic type conversions (u8, u16, u32, u64, usize, bool)
 - [x] Array parameter passing (Vec<T> ↔ LeanArray)
+- [x] Signed integer conversions (i8, i16, i32, i64, isize ↔ Int8, Int16, Int32, Int64, ISize)
+- [x] Floating-point conversions (f32, f64 ↔ LeanFloat)
+- [x] Option type conversions (Option<T> ↔ LeanOption)
+- [x] Result type conversions (Result<T, E> ↔ LeanExcept)
 
 ### In Progress 🚧
 - [ ] Complete FFI bindings (more Lean API functions)
@@ -152,7 +179,6 @@ Leo3 adapts PyO3's architecture for Lean4:
 
 ### Planned 📋
 - [ ] IO monad support
-- [ ] Additional type conversions (i8, i16, i32, i64, f32, f64, Option, Result)
 - [ ] `#[leanclass]` for Rust structs as Lean classes
 - [ ] `#[leanmodule]` for module creation
 - [ ] Proof object support
