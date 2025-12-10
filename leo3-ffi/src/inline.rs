@@ -1263,107 +1263,31 @@ pub unsafe fn lean_float32_to_usize(a: f32) -> usize {
 /// Convert Float32 to Int8
 #[inline]
 pub unsafe fn lean_float32_to_int8(a: f32) -> i8 {
-    let result: i8;
-    if crate::float::lean_float32_isnan(a) != 0 {
-        result = 0;
-    } else if -129.0 < a {
-        if a < 128.0 {
-            result = a as i8;
-        } else {
-            result = i8::MAX;
-        }
-    } else {
-        result = i8::MIN;
-    }
-    result
+    a as i8
 }
 
 /// Convert Float32 to Int16
 #[inline]
 pub unsafe fn lean_float32_to_int16(a: f32) -> i16 {
-    let result: i16;
-    if crate::float::lean_float32_isnan(a) != 0 {
-        result = 0;
-    } else if -32769.0 < a {
-        if a < 32768.0 {
-            result = a as i16;
-        } else {
-            result = i16::MAX;
-        }
-    } else {
-        result = i16::MIN;
-    }
-    result
+    a as i16
 }
 
 /// Convert Float32 to Int32
 #[inline]
 pub unsafe fn lean_float32_to_int32(a: f32) -> i32 {
-    let result: i32;
-    if crate::float::lean_float32_isnan(a) != 0 {
-        result = 0;
-    } else if -2147483649.0 < a {
-        if a < 2147483648.0 {
-            result = a as i32;
-        } else {
-            result = i32::MAX;
-        }
-    } else {
-        result = i32::MIN;
-    }
-    result
+    a as i32
 }
 
 /// Convert Float32 to Int64
 #[inline]
 pub unsafe fn lean_float32_to_int64(a: f32) -> i64 {
-    let result: i64;
-    if crate::float::lean_float32_isnan(a) != 0 {
-        result = 0;
-    } else if -9223372036854775809.0 < a {
-        if a < 9223372036854775808.0 {
-            result = a as i64;
-        } else {
-            result = i64::MAX;
-        }
-    } else {
-        result = i64::MIN;
-    }
-    result
+    a as i64
 }
 
 /// Convert Float32 to ISize
 #[inline]
 pub unsafe fn lean_float32_to_isize(a: f32) -> isize {
-    if std::mem::size_of::<isize>() == std::mem::size_of::<i64>() {
-        let result: i64;
-        if crate::float::lean_float32_isnan(a) != 0 {
-            result = 0;
-        } else if -9223372036854775809.0 < a {
-            if a < 9223372036854775808.0 {
-                result = a as i64;
-            } else {
-                result = i64::MAX;
-            }
-        } else {
-            result = i64::MIN;
-        }
-        result as isize
-    } else {
-        let result: i32;
-        if crate::float::lean_float32_isnan(a) != 0 {
-            result = 0;
-        } else if -2147483649.0 < a {
-            if a < 2147483648.0 {
-                result = a as i32;
-            } else {
-                result = i32::MAX;
-            }
-        } else {
-            result = i32::MIN;
-        }
-        result as isize
-    }
+    a as isize
 }
 
 /// Convert UInt8 to Float32
@@ -1392,7 +1316,7 @@ pub unsafe fn lean_uint64_to_float32(a: u64) -> f32 {
 
 /// Convert USize to Float32
 #[inline]
-pub unsafe fn lean_usize_to_float32(a: usize) -> f32 {
+pub fn lean_usize_to_float32(a: usize) -> f32 {
     a as f32
 }
 
@@ -1441,29 +1365,13 @@ pub unsafe fn lean_float32_to_float(a: f32) -> f64 {
 /// Convert Float to UInt8
 #[inline]
 pub unsafe fn lean_float_to_uint8(a: f64) -> u8 {
-    if 0.0 <= a {
-        if a < 256.0 {
-            a as u8
-        } else {
-            u8::MAX
-        }
-    } else {
-        0
-    }
+    a as u8
 }
 
 /// Convert Float to UInt16
 #[inline]
 pub unsafe fn lean_float_to_uint16(a: f64) -> u16 {
-    if 0.0 <= a {
-        if a < 65536.0 {
-            a as u16
-        } else {
-            u16::MAX
-        }
-    } else {
-        0
-    }
+    a as u16
 }
 
 /// Convert Float to UInt32
@@ -1493,89 +1401,25 @@ pub unsafe fn lean_float_to_int8(a: f64) -> i8 {
 /// Convert Float to Int16
 #[inline]
 pub unsafe fn lean_float_to_int16(a: f64) -> i16 {
-    let result: i16;
-    if crate::float::lean_float_isnan(a) != 0 {
-        result = 0;
-    } else if -32769.0 < a {
-        if a < 32768.0 {
-            result = a as i16;
-        } else {
-            result = i16::MAX;
-        }
-    } else {
-        result = i16::MIN;
-    }
-    result
+    a as i16
 }
 
 /// Convert Float to Int32
 #[inline]
 pub unsafe fn lean_float_to_int32(a: f64) -> i32 {
-    let result: i32;
-    if crate::float::lean_float_isnan(a) != 0 {
-        result = 0;
-    } else if -2147483649.0 < a {
-        if a < 2147483648.0 {
-            result = a as i32;
-        } else {
-            result = i32::MAX;
-        }
-    } else {
-        result = i32::MIN;
-    }
-    result
+    a as i32
 }
 
 /// Convert Float to Int64
 #[inline]
 pub unsafe fn lean_float_to_int64(a: f64) -> i64 {
-    let result: i64;
-    if crate::float::lean_float_isnan(a) != 0 {
-        result = 0;
-    } else if -9223372036854775809.0 < a {
-        if a < 9223372036854775808.0 {
-            result = a as i64;
-        } else {
-            result = i64::MAX;
-        }
-    } else {
-        result = i64::MIN;
-    }
-    result
+    a as i64
 }
 
 /// Convert Float to ISize
 #[inline]
 pub unsafe fn lean_float_to_isize(a: f64) -> isize {
-    if std::mem::size_of::<isize>() == std::mem::size_of::<i64>() {
-        let result: i64;
-        if crate::float::lean_float_isnan(a) != 0 {
-            result = 0;
-        } else if -9223372036854775809.0 < a {
-            if a < 9223372036854775808.0 {
-                result = a as i64;
-            } else {
-                result = i64::MAX;
-            }
-        } else {
-            result = i64::MIN;
-        }
-        result as isize
-    } else {
-        let result: i32;
-        if crate::float::lean_float_isnan(a) != 0 {
-            result = 0;
-        } else if -2147483649.0 < a {
-            if a < 2147483648.0 {
-                result = a as i32;
-            } else {
-                result = i32::MAX;
-            }
-        } else {
-            result = i32::MIN;
-        }
-        result as isize
-    }
+    a as isize
 }
 
 /// Convert UInt8 to Float
