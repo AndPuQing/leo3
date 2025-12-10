@@ -1,6 +1,9 @@
 //! FFI bindings for Lean4 floating-point operations
 //!
 //! This module provides low-level bindings to Lean4's Float (64-bit) and Float32 (32-bit) operations.
+//!
+//! Note: Basic arithmetic operations (add, sub, mul, div, negate) and comparisons (beq, decLt, decLe)
+//! are implemented as static inline functions in lean.h, so they are provided in the `inline` module instead.
 
 extern "C" {
     // ========================================================================
@@ -25,6 +28,12 @@ extern "C" {
     /// Extract mantissa and exponent (frexp)
     pub fn lean_float_frexp(a: f64) -> *mut crate::lean_object;
 
+    /// Convert bits to float (IEEE 754)
+    pub fn lean_float_of_bits(u: u64) -> f64;
+
+    /// Convert float to bits (IEEE 754)
+    pub fn lean_float_to_bits(d: f64) -> u64;
+
     // ========================================================================
     // Float32 (32-bit) operations
     // ========================================================================
@@ -47,45 +56,9 @@ extern "C" {
     /// Extract mantissa and exponent (frexp) for float32
     pub fn lean_float32_frexp(a: f32) -> *mut crate::lean_object;
 
-    // ========================================================================
-    // Float32 arithmetic operations
-    // ========================================================================
-
-    /// Add two float32 values
-    pub fn lean_float32_add(a: f32, b: f32) -> f32;
-
-    /// Subtract two float32 values
-    pub fn lean_float32_sub(a: f32, b: f32) -> f32;
-
-    /// Multiply two float32 values
-    pub fn lean_float32_mul(a: f32, b: f32) -> f32;
-
-    /// Divide two float32 values
-    pub fn lean_float32_div(a: f32, b: f32) -> f32;
-
-    /// Negate a float32 value
-    pub fn lean_float32_negate(a: f32) -> f32;
-
-    // ========================================================================
-    // Float32 comparison operations
-    // ========================================================================
-
-    /// Float32 equality comparison
-    pub fn lean_float32_beq(a: f32, b: f32) -> u8;
-
-    /// Float32 decidable less than comparison
-    pub fn lean_float32_decLt(a: f32, b: f32) -> u8;
-
-    /// Float32 decidable less than or equal comparison
-    pub fn lean_float32_decLe(a: f32, b: f32) -> u8;
-
-    // ========================================================================
-    // Float32 bits operations
-    // ========================================================================
-
-    /// Convert float32 to bits
-    pub fn lean_float32_to_bits(d: f32) -> u32;
-
-    /// Convert bits to float32
+    /// Convert bits to float32 (IEEE 754)
     pub fn lean_float32_of_bits(u: u32) -> f32;
+
+    /// Convert float32 to bits (IEEE 754)
+    pub fn lean_float32_to_bits(d: f32) -> u32;
 }

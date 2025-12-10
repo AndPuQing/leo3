@@ -56,7 +56,10 @@ impl LeanFloat {
     /// Corresponds to `Float.ofBits` in Lean4.
     #[allow(non_snake_case)]
     pub fn ofBits<'l>(lean: Lean<'l>, bits: u64) -> LeanResult<LeanBound<'l, Self>> {
-        Self::from_f64(lean, f64::from_bits(bits))
+        unsafe {
+            let val = ffi::float::lean_float_of_bits(bits);
+            Self::from_f64(lean, val)
+        }
     }
 
     /// Convert a Lean float to an f64.
@@ -77,7 +80,7 @@ impl LeanFloat {
     /// Corresponds to `Float.toBits` in Lean4.
     #[allow(non_snake_case)]
     pub fn toBits<'l>(obj: &LeanBound<'l, Self>) -> u64 {
-        Self::to_f64(obj).to_bits()
+        unsafe { ffi::float::lean_float_to_bits(Self::to_f64(obj)) }
     }
 
     /// Create a zero float.
@@ -144,6 +147,89 @@ impl LeanFloat {
         unsafe { ffi::float::lean_float_isinf(Self::to_f64(obj)) != 0 }
     }
 
+    // ========================================================================
+    // Creation from integers
+    // ========================================================================
+
+    /// Create a Float from an Int (LeanInt).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.ofInt` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn ofInt<'l>(
+        n: &LeanBound<'l, crate::types::LeanInt>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        // Convert LeanInt to f64 via i64 approximation for now
+        // In a full implementation, this would handle arbitrary precision
+        let val = crate::types::LeanInt::to_i64(n).unwrap_or(0);
+        Self::from_f64(lean, val as f64)
+    }
+
+    /// Create a Float from a Nat (LeanNat).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.ofNat` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn ofNat<'l>(
+        n: &LeanBound<'l, crate::types::LeanNat>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        // Convert LeanNat to f64 via usize approximation for now
+        // In a full implementation, this would handle arbitrary precision
+        let val = crate::types::LeanNat::to_usize(n).unwrap_or(0);
+        Self::from_f64(lean, val as f64)
+    }
+
+    /// Convert float to string.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toString` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toString<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanString>> {
+        unsafe {
+            let ptr = ffi::float::lean_float_to_string(Self::to_f64(obj));
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Scale a float by a power of 2 (multiply by 2^n).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.scaleB` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn scaleB<'l>(
+        obj: &LeanBound<'l, Self>,
+        n: &LeanBound<'l, crate::types::LeanInt>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let result = ffi::float::lean_float_scaleb(Self::to_f64(obj), n.as_ptr());
+            Self::from_f64(lean, result)
+        }
+    }
+
+    /// Extract mantissa and exponent (frexp).
+    ///
+    /// Returns a pair `(mantissa, exponent)` where the float is equal to
+    /// `mantissa * 2^exponent`, with mantissa in the range [0.5, 1.0).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.frExp` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn frExp<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanProd>> {
+        unsafe {
+            let ptr = ffi::float::lean_float_frexp(Self::to_f64(obj));
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
     /// Add two floats.
     ///
     /// # Lean4 Reference
@@ -153,8 +239,10 @@ impl LeanFloat {
         a: &LeanBound<'l, Self>,
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        let result = Self::to_f64(a) + Self::to_f64(b);
-        Self::from_f64(lean, result)
+        unsafe {
+            let result = ffi::inline::lean_float_add(Self::to_f64(a), Self::to_f64(b));
+            Self::from_f64(lean, result)
+        }
     }
 
     /// Subtract two floats.
@@ -166,8 +254,10 @@ impl LeanFloat {
         a: &LeanBound<'l, Self>,
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        let result = Self::to_f64(a) - Self::to_f64(b);
-        Self::from_f64(lean, result)
+        unsafe {
+            let result = ffi::inline::lean_float_sub(Self::to_f64(a), Self::to_f64(b));
+            Self::from_f64(lean, result)
+        }
     }
 
     /// Multiply two floats.
@@ -179,8 +269,10 @@ impl LeanFloat {
         a: &LeanBound<'l, Self>,
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        let result = Self::to_f64(a) * Self::to_f64(b);
-        Self::from_f64(lean, result)
+        unsafe {
+            let result = ffi::inline::lean_float_mul(Self::to_f64(a), Self::to_f64(b));
+            Self::from_f64(lean, result)
+        }
     }
 
     /// Divide two floats.
@@ -192,8 +284,10 @@ impl LeanFloat {
         a: &LeanBound<'l, Self>,
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        let result = Self::to_f64(a) / Self::to_f64(b);
-        Self::from_f64(lean, result)
+        unsafe {
+            let result = ffi::inline::lean_float_div(Self::to_f64(a), Self::to_f64(b));
+            Self::from_f64(lean, result)
+        }
     }
 
     /// Negate a float.
@@ -201,8 +295,10 @@ impl LeanFloat {
     /// # Lean4 Reference
     /// Corresponds to `Float.neg` or `-x` in Lean4.
     pub fn neg<'l>(lean: Lean<'l>, obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        let result = -Self::to_f64(&obj);
-        Self::from_f64(lean, result)
+        unsafe {
+            let result = ffi::inline::lean_float_negate(Self::to_f64(&obj));
+            Self::from_f64(lean, result)
+        }
     }
 
     /// Absolute value.
@@ -252,17 +348,133 @@ impl LeanFloat {
     ///
     /// Note: This uses bit-wise equality, so NaN != NaN.
     pub fn beq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f64(a) == Self::to_f64(b)
+        unsafe { ffi::inline::lean_float_beq(Self::to_f64(a), Self::to_f64(b)) != 0 }
     }
 
     /// Check if first float is less than second.
     pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f64(a) < Self::to_f64(b)
+        unsafe { ffi::inline::lean_float_decLt(Self::to_f64(a), Self::to_f64(b)) != 0 }
     }
 
     /// Check if first float is less than or equal to second.
     pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f64(a) <= Self::to_f64(b)
+        unsafe { ffi::inline::lean_float_decLe(Self::to_f64(a), Self::to_f64(b)) != 0 }
+    }
+
+    // ========================================================================
+    // Integer conversion methods
+    // ========================================================================
+
+    /// Convert Float to UInt8 (with bounds checking).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toUInt8` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUInt8<'l>(obj: &LeanBound<'l, Self>) -> u8 {
+        unsafe { ffi::inline::lean_float_to_uint8(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to UInt16 (with bounds checking).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toUInt16` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUInt16<'l>(obj: &LeanBound<'l, Self>) -> u16 {
+        unsafe { ffi::inline::lean_float_to_uint16(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to UInt32 (with bounds checking).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toUInt32` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUInt32<'l>(obj: &LeanBound<'l, Self>) -> u32 {
+        unsafe { ffi::inline::lean_float_to_uint32(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to UInt64 (with bounds checking).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toUInt64` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUInt64<'l>(obj: &LeanBound<'l, Self>) -> u64 {
+        unsafe { ffi::inline::lean_float_to_uint64(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to USize (with bounds checking).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toUSize` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUSize<'l>(obj: &LeanBound<'l, Self>) -> usize {
+        unsafe { ffi::inline::lean_float_to_usize(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to Int8 (with NaN check and bounds clamping).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toInt8` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toInt8<'l>(obj: &LeanBound<'l, Self>) -> i8 {
+        unsafe { ffi::inline::lean_float_to_int8(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to Int16 (with NaN check and bounds clamping).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toInt16` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toInt16<'l>(obj: &LeanBound<'l, Self>) -> i16 {
+        unsafe { ffi::inline::lean_float_to_int16(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to Int32 (with NaN check and bounds clamping).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toInt32` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toInt32<'l>(obj: &LeanBound<'l, Self>) -> i32 {
+        unsafe { ffi::inline::lean_float_to_int32(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to Int64 (with NaN check and bounds clamping).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toInt64` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toInt64<'l>(obj: &LeanBound<'l, Self>) -> i64 {
+        unsafe { ffi::inline::lean_float_to_int64(Self::to_f64(obj)) }
+    }
+
+    /// Convert Float to ISize (with NaN check and bounds clamping).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.toISize` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toISize<'l>(obj: &LeanBound<'l, Self>) -> isize {
+        unsafe { ffi::inline::lean_float_to_isize(Self::to_f64(obj)) }
+    }
+
+    // ========================================================================
+    // Decidable comparison methods
+    // ========================================================================
+
+    /// Decidable less than comparison.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.decLt` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { ffi::inline::lean_float_decLt(Self::to_f64(a), Self::to_f64(b)) != 0 }
+    }
+
+    /// Decidable less than or equal comparison.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Float.decLe` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { ffi::inline::lean_float_decLe(Self::to_f64(a), Self::to_f64(b)) != 0 }
     }
 }
 

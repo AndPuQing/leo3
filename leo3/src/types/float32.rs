@@ -144,7 +144,7 @@ impl LeanFloat32 {
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let result = ffi::float::lean_float32_add(Self::to_f32(a), Self::to_f32(b));
+            let result = ffi::inline::lean_float32_add(Self::to_f32(a), Self::to_f32(b));
             Self::from_f32(lean, result)
         }
     }
@@ -159,7 +159,7 @@ impl LeanFloat32 {
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let result = ffi::float::lean_float32_sub(Self::to_f32(a), Self::to_f32(b));
+            let result = ffi::inline::lean_float32_sub(Self::to_f32(a), Self::to_f32(b));
             Self::from_f32(lean, result)
         }
     }
@@ -174,7 +174,7 @@ impl LeanFloat32 {
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let result = ffi::float::lean_float32_mul(Self::to_f32(a), Self::to_f32(b));
+            let result = ffi::inline::lean_float32_mul(Self::to_f32(a), Self::to_f32(b));
             Self::from_f32(lean, result)
         }
     }
@@ -189,7 +189,7 @@ impl LeanFloat32 {
         b: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let result = ffi::float::lean_float32_div(Self::to_f32(a), Self::to_f32(b));
+            let result = ffi::inline::lean_float32_div(Self::to_f32(a), Self::to_f32(b));
             Self::from_f32(lean, result)
         }
     }
@@ -200,7 +200,7 @@ impl LeanFloat32 {
     /// Corresponds to `Float32.neg` or `-x` in Lean4.
     pub fn neg<'l>(lean: Lean<'l>, obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let result = ffi::float::lean_float32_negate(Self::to_f32(&obj));
+            let result = ffi::inline::lean_float32_negate(Self::to_f32(&obj));
             Self::from_f32(lean, result)
         }
     }
@@ -252,17 +252,17 @@ impl LeanFloat32 {
     ///
     /// Note: This uses bit-wise equality, so NaN != NaN.
     pub fn beq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f32(a) == Self::to_f32(b)
+        unsafe { ffi::inline::lean_float32_beq(Self::to_f32(a), Self::to_f32(b)) != 0 }
     }
 
     /// Check if first float is less than second.
     pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f32(a) < Self::to_f32(b)
+        unsafe { ffi::inline::lean_float32_decLt(Self::to_f32(a), Self::to_f32(b)) != 0 }
     }
 
     /// Check if first float is less than or equal to second.
     pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        Self::to_f32(a) <= Self::to_f32(b)
+        unsafe { ffi::inline::lean_float32_decLe(Self::to_f32(a), Self::to_f32(b)) != 0 }
     }
 
     /// Convert to LeanFloat (64-bit float).
@@ -434,7 +434,7 @@ impl LeanFloat32 {
     /// Corresponds to `Float32.decLt` in Lean4.
     #[allow(non_snake_case)]
     pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::float::lean_float32_decLt(Self::to_f32(a), Self::to_f32(b)) != 0 }
+        unsafe { ffi::inline::lean_float32_decLt(Self::to_f32(a), Self::to_f32(b)) != 0 }
     }
 
     /// Decidable less than or equal comparison.
@@ -443,7 +443,7 @@ impl LeanFloat32 {
     /// Corresponds to `Float32.decLe` in Lean4.
     #[allow(non_snake_case)]
     pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::float::lean_float32_decLe(Self::to_f32(a), Self::to_f32(b)) != 0 }
+        unsafe { ffi::inline::lean_float32_decLe(Self::to_f32(a), Self::to_f32(b)) != 0 }
     }
 }
 

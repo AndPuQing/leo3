@@ -1417,6 +1417,354 @@ pub unsafe fn lean_float32_to_float(a: f32) -> f64 {
     a as f64
 }
 
+// ========================================================================
+// Float (64-bit) conversion functions
+// ========================================================================
+
+/// Convert Float to UInt8
+#[inline]
+pub unsafe fn lean_float_to_uint8(a: f64) -> u8 {
+    if 0.0 <= a {
+        if a < 256.0 {
+            a as u8
+        } else {
+            u8::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float to UInt16
+#[inline]
+pub unsafe fn lean_float_to_uint16(a: f64) -> u16 {
+    if 0.0 <= a {
+        if a < 65536.0 {
+            a as u16
+        } else {
+            u16::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float to UInt32
+#[inline]
+pub unsafe fn lean_float_to_uint32(a: f64) -> u32 {
+    if 0.0 <= a {
+        if a < 4294967296.0 {
+            a as u32
+        } else {
+            u32::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float to UInt64
+#[inline]
+pub unsafe fn lean_float_to_uint64(a: f64) -> u64 {
+    if 0.0 <= a {
+        if a < 18446744073709551616.0 {
+            a as u64
+        } else {
+            u64::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float to USize
+#[inline]
+pub unsafe fn lean_float_to_usize(a: f64) -> usize {
+    if std::mem::size_of::<usize>() == std::mem::size_of::<u64>() {
+        lean_float_to_uint64(a) as usize
+    } else {
+        lean_float_to_uint32(a) as usize
+    }
+}
+
+/// Convert Float to Int8
+#[inline]
+pub unsafe fn lean_float_to_int8(a: f64) -> i8 {
+    let result: i8;
+    if crate::float::lean_float_isnan(a) != 0 {
+        result = 0;
+    } else if -129.0 < a {
+        if a < 128.0 {
+            result = a as i8;
+        } else {
+            result = i8::MAX;
+        }
+    } else {
+        result = i8::MIN;
+    }
+    result
+}
+
+/// Convert Float to Int16
+#[inline]
+pub unsafe fn lean_float_to_int16(a: f64) -> i16 {
+    let result: i16;
+    if crate::float::lean_float_isnan(a) != 0 {
+        result = 0;
+    } else if -32769.0 < a {
+        if a < 32768.0 {
+            result = a as i16;
+        } else {
+            result = i16::MAX;
+        }
+    } else {
+        result = i16::MIN;
+    }
+    result
+}
+
+/// Convert Float to Int32
+#[inline]
+pub unsafe fn lean_float_to_int32(a: f64) -> i32 {
+    let result: i32;
+    if crate::float::lean_float_isnan(a) != 0 {
+        result = 0;
+    } else if -2147483649.0 < a {
+        if a < 2147483648.0 {
+            result = a as i32;
+        } else {
+            result = i32::MAX;
+        }
+    } else {
+        result = i32::MIN;
+    }
+    result
+}
+
+/// Convert Float to Int64
+#[inline]
+pub unsafe fn lean_float_to_int64(a: f64) -> i64 {
+    let result: i64;
+    if crate::float::lean_float_isnan(a) != 0 {
+        result = 0;
+    } else if -9223372036854775809.0 < a {
+        if a < 9223372036854775808.0 {
+            result = a as i64;
+        } else {
+            result = i64::MAX;
+        }
+    } else {
+        result = i64::MIN;
+    }
+    result
+}
+
+/// Convert Float to ISize
+#[inline]
+pub unsafe fn lean_float_to_isize(a: f64) -> isize {
+    if std::mem::size_of::<isize>() == std::mem::size_of::<i64>() {
+        let result: i64;
+        if crate::float::lean_float_isnan(a) != 0 {
+            result = 0;
+        } else if -9223372036854775809.0 < a {
+            if a < 9223372036854775808.0 {
+                result = a as i64;
+            } else {
+                result = i64::MAX;
+            }
+        } else {
+            result = i64::MIN;
+        }
+        result as isize
+    } else {
+        let result: i32;
+        if crate::float::lean_float_isnan(a) != 0 {
+            result = 0;
+        } else if -2147483649.0 < a {
+            if a < 2147483648.0 {
+                result = a as i32;
+            } else {
+                result = i32::MAX;
+            }
+        } else {
+            result = i32::MIN;
+        }
+        result as isize
+    }
+}
+
+/// Convert UInt8 to Float
+#[inline]
+pub unsafe fn lean_uint8_to_float(a: u8) -> f64 {
+    a as f64
+}
+
+/// Convert UInt16 to Float
+#[inline]
+pub unsafe fn lean_uint16_to_float(a: u16) -> f64 {
+    a as f64
+}
+
+/// Convert UInt32 to Float
+#[inline]
+pub unsafe fn lean_uint32_to_float(a: u32) -> f64 {
+    a as f64
+}
+
+/// Convert UInt64 to Float
+#[inline]
+pub unsafe fn lean_uint64_to_float(a: u64) -> f64 {
+    a as f64
+}
+
+/// Convert USize to Float
+#[inline]
+pub unsafe fn lean_usize_to_float(a: usize) -> f64 {
+    a as f64
+}
+
+/// Convert Int8 to Float
+#[inline]
+pub unsafe fn lean_int8_to_float(a: i8) -> f64 {
+    a as f64
+}
+
+/// Convert Int16 to Float
+#[inline]
+pub unsafe fn lean_int16_to_float(a: i16) -> f64 {
+    a as f64
+}
+
+/// Convert Int32 to Float
+#[inline]
+pub unsafe fn lean_int32_to_float(a: i32) -> f64 {
+    a as f64
+}
+
+/// Convert Int64 to Float
+#[inline]
+pub unsafe fn lean_int64_to_float(a: i64) -> f64 {
+    a as f64
+}
+
+/// Convert ISize to Float
+#[inline]
+pub unsafe fn lean_isize_to_float(a: isize) -> f64 {
+    a as f64
+}
+
+// ============================================================================
+// Float arithmetic operations (static inline from lean.h)
+// ============================================================================
+
+/// Add two Float values
+#[inline]
+pub unsafe fn lean_float_add(a: f64, b: f64) -> f64 {
+    a + b
+}
+
+/// Subtract two Float values
+#[inline]
+pub unsafe fn lean_float_sub(a: f64, b: f64) -> f64 {
+    a - b
+}
+
+/// Multiply two Float values
+#[inline]
+pub unsafe fn lean_float_mul(a: f64, b: f64) -> f64 {
+    a * b
+}
+
+/// Divide two Float values
+#[inline]
+pub unsafe fn lean_float_div(a: f64, b: f64) -> f64 {
+    a / b
+}
+
+/// Negate a Float value
+#[inline]
+pub unsafe fn lean_float_negate(a: f64) -> f64 {
+    -a
+}
+
+// ============================================================================
+// Float comparison operations (static inline from lean.h)
+// ============================================================================
+
+/// Float equality comparison
+#[inline]
+pub unsafe fn lean_float_beq(a: f64, b: f64) -> u8 {
+    (a == b) as u8
+}
+
+/// Float decidable less than or equal comparison
+#[inline]
+pub unsafe fn lean_float_decLe(a: f64, b: f64) -> u8 {
+    (a <= b) as u8
+}
+
+/// Float decidable less than comparison
+#[inline]
+pub unsafe fn lean_float_decLt(a: f64, b: f64) -> u8 {
+    (a < b) as u8
+}
+
+// ============================================================================
+// Float32 arithmetic operations (static inline from lean.h)
+// ============================================================================
+
+/// Add two Float32 values
+#[inline]
+pub unsafe fn lean_float32_add(a: f32, b: f32) -> f32 {
+    a + b
+}
+
+/// Subtract two Float32 values
+#[inline]
+pub unsafe fn lean_float32_sub(a: f32, b: f32) -> f32 {
+    a - b
+}
+
+/// Multiply two Float32 values
+#[inline]
+pub unsafe fn lean_float32_mul(a: f32, b: f32) -> f32 {
+    a * b
+}
+
+/// Divide two Float32 values
+#[inline]
+pub unsafe fn lean_float32_div(a: f32, b: f32) -> f32 {
+    a / b
+}
+
+/// Negate a Float32 value
+#[inline]
+pub unsafe fn lean_float32_negate(a: f32) -> f32 {
+    -a
+}
+
+// ============================================================================
+// Float32 comparison operations (static inline from lean.h)
+// ============================================================================
+
+/// Float32 equality comparison
+#[inline]
+pub unsafe fn lean_float32_beq(a: f32, b: f32) -> u8 {
+    (a == b) as u8
+}
+
+/// Float32 decidable less than or equal comparison
+#[inline]
+pub unsafe fn lean_float32_decLe(a: f32, b: f32) -> u8 {
+    (a <= b) as u8
+}
+
+/// Float32 decidable less than comparison
+#[inline]
+pub unsafe fn lean_float32_decLt(a: f32, b: f32) -> u8 {
+    (a < b) as u8
+}
+
 // ============================================================================
 // Scalar Array (ByteArray) Functions
 // ============================================================================
