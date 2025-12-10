@@ -1469,15 +1469,7 @@ pub unsafe fn lean_float_to_uint16(a: f64) -> u16 {
 /// Convert Float to UInt32
 #[inline]
 pub unsafe fn lean_float_to_uint32(a: f64) -> u32 {
-    if 0.0 <= a {
-        if a < 4294967296.0 {
-            a as u32
-        } else {
-            u32::MAX
-        }
-    } else {
-        0
-    }
+    a as u32
 }
 
 /// Convert Float to UInt64
