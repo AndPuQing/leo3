@@ -453,15 +453,10 @@ impl LeanNat {
     #[allow(non_snake_case)]
     pub fn testBit<'l>(n: &LeanBound<'l, Self>, idx: &LeanBound<'l, Self>) -> bool {
         unsafe {
-            // Manual implementation: testBit n i = ((n >>> i) &&& 1) != 0
-            let shifted = ffi::nat::lean_nat_shift_right(n.as_ptr(), idx.as_ptr());
-            let one = lean_box(1);
-            let anded = ffi::nat::lean_nat_land(shifted, one);
-            let zero = lean_box(0);
-            let result = !lean_nat_dec_eq(anded, zero);
-            leo3_ffi::inline::lean_dec(anded);
-            leo3_ffi::inline::lean_dec(shifted);
-            result
+            let lean = n.lean_token();
+            let bool_obj = ffi::nat::lean_nat_test_bit(n.as_ptr(), idx.as_ptr());
+            let bool_bound = LeanBound::<crate::types::LeanBool>::from_owned_ptr(lean, bool_obj);
+            crate::types::LeanBool::toBool(&bool_bound)
         }
     }
 
