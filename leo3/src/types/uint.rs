@@ -376,12 +376,7 @@ impl LeanUInt8 {
 
     /// Compute floor(log2(n)). Returns 0 for n = 0.
     pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> u8 {
-        let val = Self::to_u8(obj);
-        if val == 0 {
-            0
-        } else {
-            7 - val.leading_zeros() as u8
-        }
+        unsafe { ffi::inline::lean_uint8_log2(Self::to_u8(obj)) }
     }
 }
 
@@ -738,12 +733,7 @@ impl LeanUInt16 {
 
     /// Compute floor(log2(n)). Returns 0 for n = 0.
     pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> u16 {
-        let val = Self::to_u16(obj);
-        if val == 0 {
-            0
-        } else {
-            15 - val.leading_zeros() as u16
-        }
+        unsafe { ffi::inline::lean_uint16_log2(Self::to_u16(obj)) }
     }
 }
 
@@ -1091,12 +1081,7 @@ impl LeanUInt32 {
 
     /// Compute floor(log2(n)). Returns 0 for n = 0.
     pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> u32 {
-        let val = Self::to_u32(obj);
-        if val == 0 {
-            0
-        } else {
-            31 - val.leading_zeros()
-        }
+        unsafe { ffi::inline::lean_uint32_log2(Self::to_u32(obj)) }
     }
 }
 
@@ -1458,12 +1443,7 @@ impl LeanUInt64 {
 
     /// Compute floor(log2(n)). Returns 0 for n = 0.
     pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> u64 {
-        let val = Self::to_u64(obj);
-        if val == 0 {
-            0
-        } else {
-            63 - val.leading_zeros() as u64
-        }
+        unsafe { ffi::inline::lean_uint64_log2(Self::to_u64(obj)) }
     }
 }
 
@@ -1843,12 +1823,7 @@ impl LeanUSize {
 
     /// Compute floor(log2(n)). Returns 0 for n = 0.
     pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        let val = Self::to_usize(obj);
-        if val == 0 {
-            0
-        } else {
-            (std::mem::size_of::<usize>() * 8 - 1) - val.leading_zeros() as usize
-        }
+        unsafe { ffi::inline::lean_usize_log2(Self::to_usize(obj)) }
     }
 }
 

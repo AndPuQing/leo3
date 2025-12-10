@@ -2119,6 +2119,15 @@ pub unsafe fn lean_uint8_dec_le(a1: u8, a2: u8) -> bool {
     a1 <= a2
 }
 
+#[inline(always)]
+pub unsafe fn lean_uint8_log2(a: u8) -> u8 {
+    if a == 0 {
+        0
+    } else {
+        7 - a.leading_zeros() as u8
+    }
+}
+
 // --- UInt16 Operations ---
 
 #[inline(always)]
@@ -2204,6 +2213,15 @@ pub unsafe fn lean_uint16_dec_lt(a1: u16, a2: u16) -> bool {
 #[inline(always)]
 pub unsafe fn lean_uint16_dec_le(a1: u16, a2: u16) -> bool {
     a1 <= a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_log2(a: u16) -> u16 {
+    if a == 0 {
+        0
+    } else {
+        15 - a.leading_zeros() as u16
+    }
 }
 
 // --- UInt32 Operations ---
@@ -2298,6 +2316,15 @@ pub unsafe fn lean_uint32_is_valid_char(a: u32) -> bool {
     a < 0xD800 || (0xE000..=0x10FFFF).contains(&a)
 }
 
+#[inline(always)]
+pub unsafe fn lean_uint32_log2(a: u32) -> u32 {
+    if a == 0 {
+        0
+    } else {
+        31 - a.leading_zeros()
+    }
+}
+
 // --- UInt64 Operations ---
 
 #[inline(always)]
@@ -2383,6 +2410,15 @@ pub unsafe fn lean_uint64_dec_lt(a1: u64, a2: u64) -> bool {
 #[inline(always)]
 pub unsafe fn lean_uint64_dec_le(a1: u64, a2: u64) -> bool {
     a1 <= a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_log2(a: u64) -> u64 {
+    if a == 0 {
+        0
+    } else {
+        63 - a.leading_zeros() as u64
+    }
 }
 
 // --- Conversion Functions: UInt to/from Nat ---
@@ -2538,6 +2574,15 @@ pub unsafe fn lean_usize_dec_lt(a1: size_t, a2: size_t) -> bool {
 #[inline(always)]
 pub unsafe fn lean_usize_dec_le(a1: size_t, a2: size_t) -> bool {
     a1 <= a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_log2(a: size_t) -> size_t {
+    if a == 0 {
+        0
+    } else {
+        (std::mem::size_of::<usize>() * 8 - 1) - a.leading_zeros() as usize
+    }
 }
 
 #[inline(always)]
