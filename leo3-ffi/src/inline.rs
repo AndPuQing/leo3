@@ -1763,6 +1763,115 @@ pub unsafe fn lean_usize_to_uint64(a: usize) -> u64 {
 }
 
 // ============================================================================
+// Int to Int conversions (static inline from lean.h)
+// ============================================================================
+
+// Int8 conversions
+#[inline]
+pub unsafe fn lean_int8_to_int16(a: u8) -> u16 {
+    (a as i8 as i16) as u16
+}
+
+#[inline]
+pub unsafe fn lean_int8_to_int32(a: u8) -> u32 {
+    (a as i8 as i32) as u32
+}
+
+#[inline]
+pub unsafe fn lean_int8_to_int64(a: u8) -> u64 {
+    (a as i8 as i64) as u64
+}
+
+#[inline]
+pub unsafe fn lean_int8_to_isize(a: u8) -> usize {
+    (a as i8 as isize) as usize
+}
+
+// Int16 conversions
+#[inline]
+pub unsafe fn lean_int16_to_int8(a: u16) -> u8 {
+    (a as i16 as i8) as u8
+}
+
+#[inline]
+pub unsafe fn lean_int16_to_int32(a: u16) -> u32 {
+    (a as i16 as i32) as u32
+}
+
+#[inline]
+pub unsafe fn lean_int16_to_int64(a: u16) -> u64 {
+    (a as i16 as i64) as u64
+}
+
+#[inline]
+pub unsafe fn lean_int16_to_isize(a: u16) -> usize {
+    (a as i16 as isize) as usize
+}
+
+// Int32 conversions
+#[inline]
+pub unsafe fn lean_int32_to_int8(a: u32) -> u8 {
+    (a as i32 as i8) as u8
+}
+
+#[inline]
+pub unsafe fn lean_int32_to_int16(a: u32) -> u16 {
+    (a as i32 as i16) as u16
+}
+
+#[inline]
+pub unsafe fn lean_int32_to_int64(a: u32) -> u64 {
+    (a as i32 as i64) as u64
+}
+
+#[inline]
+pub unsafe fn lean_int32_to_isize(a: u32) -> usize {
+    (a as i32 as isize) as usize
+}
+
+// Int64 conversions
+#[inline]
+pub unsafe fn lean_int64_to_int8(a: u64) -> u8 {
+    (a as i64 as i8) as u8
+}
+
+#[inline]
+pub unsafe fn lean_int64_to_int16(a: u64) -> u16 {
+    (a as i64 as i16) as u16
+}
+
+#[inline]
+pub unsafe fn lean_int64_to_int32(a: u64) -> u32 {
+    (a as i64 as i32) as u32
+}
+
+#[inline]
+pub unsafe fn lean_int64_to_isize(a: u64) -> usize {
+    (a as i64 as isize) as usize
+}
+
+// ISize conversions
+#[inline]
+pub unsafe fn lean_isize_to_int8(a: usize) -> u8 {
+    (a as isize as i8) as u8
+}
+
+#[inline]
+pub unsafe fn lean_isize_to_int16(a: usize) -> u16 {
+    (a as isize as i16) as u16
+}
+
+#[inline]
+pub unsafe fn lean_isize_to_int32(a: usize) -> u32 {
+    (a as isize as i32) as u32
+}
+
+#[inline]
+pub unsafe fn lean_isize_to_int64(a: usize) -> u64 {
+    (a as isize as i64) as u64
+}
+
+// ============================================================================
 // Float arithmetic operations (static inline from lean.h)
 // ============================================================================
 
