@@ -2191,13 +2191,13 @@ pub unsafe fn lean_uint64_complement(a: u64) -> u64 {
 
 #[inline(always)]
 pub unsafe fn lean_uint64_shift_left(a1: u64, a2: u64) -> u64 {
-    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    let shift = (a2 & 63) as u32; // smod 64
     a1.wrapping_shl(shift)
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint64_shift_right(a1: u64, a2: u64) -> u64 {
-    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    let shift = (a2 & 63) as u32; // smod 64
     a1.wrapping_shr(shift)
 }
 
