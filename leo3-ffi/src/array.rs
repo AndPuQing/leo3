@@ -38,6 +38,14 @@ extern "C" {
     /// - `v` must be a valid object (consumed)
     pub fn lean_array_push(a: lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
 
+    /// Create an array with n elements, all initialized to v
+    ///
+    /// # Safety
+    /// - `n` must be a boxed usize (or scalar nat)
+    /// - `v` must be a valid object
+    /// - All elements will share the same reference to `v` (reference count is incremented)
+    pub fn lean_mk_array(n: lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
+
     /// Get array element with panic on out of bounds
     ///
     /// # Safety
@@ -258,6 +266,62 @@ pub unsafe fn lean_array_fswap(
         crate::object::lean_unbox(i),
         crate::object::lean_unbox(j),
     )
+}
+
+/// Allocate an array with given size and capacity (low-level)
+///
+/// # Safety
+/// - This is a low-level function that allocates memory
+/// - The caller must initialize all elements up to `size`
+/// - `capacity` must be >= `size`
+#[inline]
+pub unsafe fn lean_alloc_array(size: size_t, capacity: size_t) -> lean_obj_res {
+    use crate::inline::lean_array_object;
+    use crate::LEAN_ARRAY;
+
+    let data_size = std::mem::size_of::<*mut lean_object>() * capacity;
+    let total_size = std::mem::size_of::<lean_array_object>() + data_size;
+
+    let ptr = crate::object::lean_alloc_object(total_size) as *mut lean_array_object;
+
+    // Initialize header (matching lean_set_st_header from lean.h)
+    (*ptr).m_header.m_rc = 1;
+    (*ptr).m_header.m_tag = LEAN_ARRAY;
+    (*ptr).m_header.m_other = 0;
+    (*ptr).m_header.m_cs_sz = 0;
+
+    (*ptr).m_size = size;
+    (*ptr).m_capacity = capacity;
+
+    ptr as *mut lean_object
+}
+
+/// Create an empty array with no capacity
+///
+/// # Safety
+/// - Returns a new empty array
+#[inline]
+pub unsafe fn lean_mk_empty_array() -> lean_obj_res {
+    lean_alloc_array(0, 0)
+}
+
+/// Create an empty array with pre-allocated capacity
+///
+/// # Safety
+/// - `capacity` must be a boxed usize (scalar value)
+#[inline]
+pub unsafe fn lean_mk_empty_array_with_capacity(capacity: b_lean_obj_arg) -> lean_obj_res {
+    use crate::object::{lean_is_scalar, lean_unbox};
+
+    // Declare extern panic function
+    extern "C" {
+        fn lean_internal_panic_out_of_memory() -> !;
+    }
+
+    if !lean_is_scalar(capacity) {
+        lean_internal_panic_out_of_memory()
+    }
+    lean_alloc_array(0, lean_unbox(capacity))
 }
 
 // Re-export inline implementation from inline module

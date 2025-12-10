@@ -34,15 +34,48 @@ impl LeanArray {
     /// ```
     pub fn empty<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Create an empty array by converting from an empty list (nil)
-            // In Lean, this is represented as constructor 0 with no fields
-            let nil_ptr = ffi::lean_alloc_ctor(0, 0, 0);
-            let ptr = ffi::array::lean_array_mk(nil_ptr);
+            let ptr = ffi::array::lean_mk_empty_array();
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Create an empty Lean array with pre-allocated capacity.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.emptyWithCapacity` in Lean4.
+    /// ```lean
+    /// @[extern "lean_mk_empty_array_with_capacity"]
+    /// def Array.emptyWithCapacity (c : @& Nat) : Array α
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use leo3::prelude::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let arr = LeanArray::emptyWithCapacity(lean, 100)?;
+    ///     assert_eq!(LeanArray::size(&arr), 0);
+    ///     assert_eq!(LeanArray::capacity(&arr), 100);
+    ///     Ok(())
+    /// })
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn emptyWithCapacity<'l>(
+        lean: Lean<'l>,
+        capacity: usize,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let cap_boxed = ffi::lean_box(capacity);
+            let ptr = ffi::array::lean_mk_empty_array_with_capacity(cap_boxed);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
 
     /// Get the size of the array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.size` in Lean4.
     ///
     /// # Example
     ///
@@ -52,6 +85,21 @@ impl LeanArray {
     /// ```
     pub fn size<'l>(obj: &LeanBound<'l, Self>) -> usize {
         unsafe { ffi::array::lean_array_size(obj.as_ptr()) }
+    }
+
+    /// Get the capacity of the array.
+    ///
+    /// The capacity is the number of elements that can be stored
+    /// without reallocation.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let arr = LeanArray::emptyWithCapacity(lean, 100)?;
+    /// assert_eq!(LeanArray::capacity(&arr), 100);
+    /// ```
+    pub fn capacity<'l>(obj: &LeanBound<'l, Self>) -> usize {
+        unsafe { ffi::array::lean_array_capacity(obj.as_ptr()) }
     }
 
     /// Check if the array is empty.
@@ -190,6 +238,86 @@ impl LeanArray {
             let ptr = ffi::array::lean_array_uswap(arr.into_ptr(), i, j);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
+    }
+
+    /// Create an array with `n` copies of the given value.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.replicate` in Lean4.
+    /// ```lean
+    /// @[extern "lean_mk_array"]
+    /// def Array.replicate (n : @& Nat) (v : α) : Array α
+    /// ```
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let val = LeanNat::from_usize(lean, 42)?;
+    /// let arr = LeanArray::replicate(lean, 10, val.unbind())?;
+    /// assert_eq!(LeanArray::size(&arr), 10);
+    /// ```
+    pub fn replicate<'l>(
+        lean: Lean<'l>,
+        n: usize,
+        value: LeanBound<'l, LeanAny>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let n_boxed = ffi::lean_box(n);
+            let ptr = ffi::array::lean_mk_array(n_boxed, value.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Get an element from the array with a default value if out of bounds.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.getD` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let default = LeanNat::from_usize(lean, 0)?;
+    /// let elem = LeanArray::getD(&arr, lean, 100, default.unbind())?;
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn getD<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+        index: usize,
+        default: LeanBound<'l, LeanAny>,
+    ) -> LeanResult<LeanBound<'l, LeanAny>> {
+        if index >= Self::size(obj) {
+            return Ok(default);
+        }
+
+        unsafe {
+            let ptr = ffi::array::lean_array_uget(obj.as_ptr(), index);
+            // Need to decrement the default value since we're not using it
+            ffi::lean_dec(default.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Get the last element of the array.
+    ///
+    /// Returns `None` if the array is empty.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.back?` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// if let Some(last) = LeanArray::back(&arr, lean) {
+    ///     // Process last element
+    /// }
+    /// ```
+    pub fn back<'l>(obj: &LeanBound<'l, Self>, lean: Lean<'l>) -> Option<LeanBound<'l, LeanAny>> {
+        let size = Self::size(obj);
+        if size == 0 {
+            return None;
+        }
+        Self::get(obj, lean, size - 1)
     }
 
     /// Create an array from a Lean list.
