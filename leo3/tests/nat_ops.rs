@@ -292,3 +292,274 @@ fn test_nat_fibonacci() {
 
     assert!(result.is_ok());
 }
+
+#[test]
+fn test_nat_pred() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 42)?;
+        let pred = LeanNat::pred(n)?;
+        assert_eq!(LeanNat::to_usize(&pred)?, 41);
+
+        // pred of 0 should be 0
+        let zero = LeanNat::from_usize(lean, 0)?;
+        let pred_zero = LeanNat::pred(zero)?;
+        assert_eq!(LeanNat::to_usize(&pred_zero)?, 0);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_log2() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 1024)?;
+        let log = LeanNat::log2(&n)?;
+        assert_eq!(LeanNat::to_usize(&log)?, 10);
+
+        let n2 = LeanNat::from_usize(lean, 8)?;
+        let log2 = LeanNat::log2(&n2)?;
+        assert_eq!(LeanNat::to_usize(&log2)?, 3);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_bitwise_and() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 5)?; // 0b0101
+        let b = LeanNat::from_usize(lean, 3)?; // 0b0011
+        let result = LeanNat::land(a, b)?;
+        assert_eq!(LeanNat::to_usize(&result)?, 1); // 0b0001
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_bitwise_or() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 5)?; // 0b0101
+        let b = LeanNat::from_usize(lean, 3)?; // 0b0011
+        let result = LeanNat::lor(a, b)?;
+        assert_eq!(LeanNat::to_usize(&result)?, 7); // 0b0111
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_bitwise_xor() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 5)?; // 0b0101
+        let b = LeanNat::from_usize(lean, 3)?; // 0b0011
+        let result = LeanNat::xor(a, b)?;
+        assert_eq!(LeanNat::to_usize(&result)?, 6); // 0b0110
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_shift_left() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 5)?;
+        let shift = LeanNat::from_usize(lean, 2)?;
+        let result = LeanNat::shiftLeft(n, shift)?;
+        assert_eq!(LeanNat::to_usize(&result)?, 20);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_shift_right() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 20)?;
+        let shift = LeanNat::from_usize(lean, 2)?;
+        let result = LeanNat::shiftRight(n, shift)?;
+        assert_eq!(LeanNat::to_usize(&result)?, 5);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_test_bit() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 5)?; // 0b0101
+        let idx0 = LeanNat::from_usize(lean, 0)?;
+        let idx1 = LeanNat::from_usize(lean, 1)?;
+        let idx2 = LeanNat::from_usize(lean, 2)?;
+
+        assert!(LeanNat::testBit(&n, &idx0)); // bit 0 is 1
+        assert!(!LeanNat::testBit(&n, &idx1)); // bit 1 is 0
+        assert!(LeanNat::testBit(&n, &idx2)); // bit 2 is 1
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_min_max() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 10)?;
+        let b = LeanNat::from_usize(lean, 42)?;
+
+        let min = LeanNat::min(&a, &b)?;
+        assert_eq!(LeanNat::to_usize(&min)?, 10);
+
+        let max = LeanNat::max(&a, &b)?;
+        assert_eq!(LeanNat::to_usize(&max)?, 42);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_lcm() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 12)?;
+        let b = LeanNat::from_usize(lean, 18)?;
+        let lcm = LeanNat::lcm(a, b)?;
+        assert_eq!(LeanNat::to_usize(&lcm)?, 36);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_boolean_comparisons() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let a = LeanNat::from_usize(lean, 10)?;
+        let b = LeanNat::from_usize(lean, 42)?;
+        let c = LeanNat::from_usize(lean, 10)?;
+
+        // beq
+        assert!(LeanNat::beq(&a, &c));
+        assert!(!LeanNat::beq(&a, &b));
+
+        // blt
+        assert!(LeanNat::blt(&a, &b));
+        assert!(!LeanNat::blt(&b, &a));
+        assert!(!LeanNat::blt(&a, &c));
+
+        // ble
+        assert!(LeanNat::ble(&a, &b));
+        assert!(!LeanNat::ble(&b, &a));
+        assert!(LeanNat::ble(&a, &c));
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_conversions() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n = LeanNat::from_usize(lean, 42)?;
+
+        assert_eq!(LeanNat::toUInt8(&n)?, 42u8);
+        assert_eq!(LeanNat::toUInt16(&n)?, 42u16);
+        assert_eq!(LeanNat::toUInt32(&n)?, 42u32);
+        assert_eq!(LeanNat::toUInt64(&n)?, 42u64);
+        assert_eq!(LeanNat::toUSize(&n)?, 42usize);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_is_power_of_two() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let pow2_1 = LeanNat::from_usize(lean, 1)?;
+        let pow2_2 = LeanNat::from_usize(lean, 2)?;
+        let pow2_8 = LeanNat::from_usize(lean, 8)?;
+        let pow2_16 = LeanNat::from_usize(lean, 16)?;
+        let not_pow2 = LeanNat::from_usize(lean, 5)?;
+        let zero = LeanNat::from_usize(lean, 0)?;
+
+        assert!(LeanNat::isPowerOfTwo(&pow2_1));
+        assert!(LeanNat::isPowerOfTwo(&pow2_2));
+        assert!(LeanNat::isPowerOfTwo(&pow2_8));
+        assert!(LeanNat::isPowerOfTwo(&pow2_16));
+        assert!(!LeanNat::isPowerOfTwo(&not_pow2));
+        assert!(!LeanNat::isPowerOfTwo(&zero));
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_next_power_of_two() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let n1 = LeanNat::from_usize(lean, 5)?;
+        let next1 = LeanNat::nextPowerOfTwo(n1)?;
+        assert_eq!(LeanNat::to_usize(&next1)?, 8);
+
+        let n2 = LeanNat::from_usize(lean, 8)?;
+        let next2 = LeanNat::nextPowerOfTwo(n2)?;
+        assert_eq!(LeanNat::to_usize(&next2)?, 8);
+
+        let n3 = LeanNat::from_usize(lean, 17)?;
+        let next3 = LeanNat::nextPowerOfTwo(n3)?;
+        assert_eq!(LeanNat::to_usize(&next3)?, 32);
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}

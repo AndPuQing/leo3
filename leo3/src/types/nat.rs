@@ -1,8 +1,9 @@
 //! Lean natural number type wrapper.
 
 use leo3_ffi::inline::{
-    lean_nat_add, lean_nat_dec_eq, lean_nat_dec_le, lean_nat_dec_lt, lean_nat_div, lean_nat_mod,
-    lean_nat_mul, lean_nat_sub, lean_usize_of_nat, lean_usize_to_nat,
+    lean_box, lean_nat_add, lean_nat_dec_eq, lean_nat_dec_le, lean_nat_dec_lt, lean_nat_div,
+    lean_nat_land, lean_nat_lor, lean_nat_lxor, lean_nat_mod, lean_nat_mul, lean_nat_sub,
+    lean_unbox, lean_usize_of_nat, lean_usize_to_nat,
 };
 
 use crate::err::{LeanError, LeanResult};
@@ -263,6 +264,487 @@ impl LeanNat {
     #[allow(non_snake_case)]
     pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { lean_nat_dec_le(a.as_ptr(), b.as_ptr()) }
+    }
+
+    /// Predecessor (n - 1, returns 0 for 0).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.pred` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 42)?;
+    /// let pred = LeanNat::pred(n)?;
+    /// assert_eq!(LeanNat::to_usize(&pred)?, 41);
+    /// ```
+    pub fn pred<'l>(n: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = n.lean_token();
+            let one = lean_box(1);
+            let ptr = lean_nat_sub(n.into_ptr(), one);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Logarithm base 2 (floor).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.log2` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 1024)?;
+    /// let log = LeanNat::log2(&n)?;
+    /// assert_eq!(LeanNat::to_usize(&log)?, 10);
+    /// ```
+    pub fn log2<'l>(n: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = n.lean_token();
+            let ptr = ffi::nat::lean_nat_log2(n.as_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Bitwise left shift.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.shiftLeft` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;
+    /// let shift = LeanNat::from_usize(lean, 2)?;
+    /// let result = LeanNat::shiftLeft(n, shift)?;
+    /// assert_eq!(LeanNat::to_usize(&result)?, 20);
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn shiftLeft<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            let ptr = ffi::nat::lean_nat_shiftl(a.into_ptr(), b.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Bitwise right shift.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.shiftRight` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 20)?;
+    /// let shift = LeanNat::from_usize(lean, 2)?;
+    /// let result = LeanNat::shiftRight(a, b)?;
+    /// assert_eq!(LeanNat::to_usize(&result)?, 5);
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn shiftRight<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            let ptr = ffi::nat::lean_nat_shiftr(a.as_ptr(), b.as_ptr());
+            // shiftr borrows, so we need to manually dec after
+            leo3_ffi::inline::lean_dec(a.into_ptr());
+            leo3_ffi::inline::lean_dec(b.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Bitwise XOR.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.xor` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 5)?;  // 0b0101
+    /// let b = LeanNat::from_usize(lean, 3)?;  // 0b0011
+    /// let result = LeanNat::xor(a, b)?;
+    /// assert_eq!(LeanNat::to_usize(&result)?, 6); // 0b0110
+    /// ```
+    pub fn xor<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            let ptr = lean_nat_lxor(a.into_ptr(), b.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Bitwise OR.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.lor` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 5)?;  // 0b0101
+    /// let b = LeanNat::from_usize(lean, 3)?;  // 0b0011
+    /// let result = LeanNat::lor(a, b)?;
+    /// assert_eq!(LeanNat::to_usize(&result)?, 7); // 0b0111
+    /// ```
+    pub fn lor<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            let ptr = lean_nat_lor(a.into_ptr(), b.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Bitwise AND.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.land` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 5)?;  // 0b0101
+    /// let b = LeanNat::from_usize(lean, 3)?;  // 0b0011
+    /// let result = LeanNat::land(a, b)?;
+    /// assert_eq!(LeanNat::to_usize(&result)?, 1); // 0b0001
+    /// ```
+    pub fn land<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            let ptr = lean_nat_land(a.into_ptr(), b.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Test if a specific bit is set.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.testBit` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;  // 0b0101
+    /// let idx = LeanNat::from_usize(lean, 2)?;
+    /// assert!(LeanNat::testBit(&n, &idx));
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn testBit<'l>(n: &LeanBound<'l, Self>, idx: &LeanBound<'l, Self>) -> bool {
+        unsafe {
+            // testBit n i = (n >>> i) &&& 1 != 0
+            let shifted = ffi::nat::lean_nat_shiftr(n.as_ptr(), idx.as_ptr());
+            let one = lean_box(1);
+            let anded = lean_nat_land(shifted, one);
+            let zero = lean_box(0);
+            let result = !lean_nat_dec_eq(anded, zero);
+            leo3_ffi::inline::lean_dec(anded);
+            result
+        }
+    }
+
+    /// Minimum of two natural numbers.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.min` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 10)?;
+    /// let b = LeanNat::from_usize(lean, 42)?;
+    /// let min = LeanNat::min(&a, &b)?;
+    /// assert_eq!(LeanNat::to_usize(&min)?, 10);
+    /// ```
+    pub fn min<'l>(
+        a: &LeanBound<'l, Self>,
+        b: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            if lean_nat_dec_le(a.as_ptr(), b.as_ptr()) {
+                let ptr = a.as_ptr();
+                leo3_ffi::inline::lean_inc(ptr);
+                Ok(LeanBound::from_owned_ptr(lean, ptr))
+            } else {
+                let ptr = b.as_ptr();
+                leo3_ffi::inline::lean_inc(ptr);
+                Ok(LeanBound::from_owned_ptr(lean, ptr))
+            }
+        }
+    }
+
+    /// Maximum of two natural numbers.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.max` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 10)?;
+    /// let b = LeanNat::from_usize(lean, 42)?;
+    /// let max = LeanNat::max(&a, &b)?;
+    /// assert_eq!(LeanNat::to_usize(&max)?, 42);
+    /// ```
+    pub fn max<'l>(
+        a: &LeanBound<'l, Self>,
+        b: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            if lean_nat_dec_le(a.as_ptr(), b.as_ptr()) {
+                let ptr = b.as_ptr();
+                leo3_ffi::inline::lean_inc(ptr);
+                Ok(LeanBound::from_owned_ptr(lean, ptr))
+            } else {
+                let ptr = a.as_ptr();
+                leo3_ffi::inline::lean_inc(ptr);
+                Ok(LeanBound::from_owned_ptr(lean, ptr))
+            }
+        }
+    }
+
+    /// Least Common Multiple.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.lcm` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 12)?;
+    /// let b = LeanNat::from_usize(lean, 18)?;
+    /// let lcm = LeanNat::lcm(a, b)?;
+    /// assert_eq!(LeanNat::to_usize(&lcm)?, 36);
+    /// ```
+    pub fn lcm<'l>(
+        a: LeanBound<'l, Self>,
+        b: LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = a.lean_token();
+            // lcm a b = a * b / gcd a b
+            let a_ptr = a.as_ptr();
+            let b_ptr = b.as_ptr();
+            leo3_ffi::inline::lean_inc(a_ptr);
+            leo3_ffi::inline::lean_inc(b_ptr);
+            let gcd_val = ffi::nat::lean_nat_gcd(a_ptr, b_ptr);
+            let product = lean_nat_mul(a.into_ptr(), b.into_ptr());
+            let ptr = lean_nat_div(product, gcd_val);
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Boolean equality comparison.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.beq` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 42)?;
+    /// let b = LeanNat::from_usize(lean, 42)?;
+    /// assert!(LeanNat::beq(&a, &b));
+    /// ```
+    pub fn beq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_nat_dec_eq(a.as_ptr(), b.as_ptr()) }
+    }
+
+    /// Boolean less-than-or-equal comparison.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.ble` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 10)?;
+    /// let b = LeanNat::from_usize(lean, 42)?;
+    /// assert!(LeanNat::ble(&a, &b));
+    /// ```
+    pub fn ble<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_nat_dec_le(a.as_ptr(), b.as_ptr()) }
+    }
+
+    /// Boolean less-than comparison.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.blt` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let a = LeanNat::from_usize(lean, 10)?;
+    /// let b = LeanNat::from_usize(lean, 42)?;
+    /// assert!(LeanNat::blt(&a, &b));
+    /// ```
+    pub fn blt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        unsafe { lean_nat_dec_lt(a.as_ptr(), b.as_ptr()) }
+    }
+
+    /// Convert to UInt8.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toUInt8` in Lean4.
+    ///
+    /// Returns an error if the number doesn't fit in u8.
+    #[allow(non_snake_case)]
+    pub fn toUInt8<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<u8> {
+        unsafe {
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                let val = lean_unbox(obj.as_ptr());
+                if val <= u8::MAX as usize {
+                    Ok(val as u8)
+                } else {
+                    Err(LeanError::conversion("Natural number too large for u8"))
+                }
+            } else {
+                Ok(leo3_ffi::nat::lean_uint8_of_big_nat(obj.as_ptr()))
+            }
+        }
+    }
+
+    /// Convert to UInt16.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toUInt16` in Lean4.
+    ///
+    /// Returns an error if the number doesn't fit in u16.
+    #[allow(non_snake_case)]
+    pub fn toUInt16<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<u16> {
+        unsafe {
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                let val = lean_unbox(obj.as_ptr());
+                if val <= u16::MAX as usize {
+                    Ok(val as u16)
+                } else {
+                    Err(LeanError::conversion("Natural number too large for u16"))
+                }
+            } else {
+                Ok(leo3_ffi::nat::lean_uint16_of_big_nat(obj.as_ptr()))
+            }
+        }
+    }
+
+    /// Convert to UInt32.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toUInt32` in Lean4.
+    ///
+    /// Returns an error if the number doesn't fit in u32.
+    #[allow(non_snake_case)]
+    pub fn toUInt32<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<u32> {
+        unsafe {
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                let val = lean_unbox(obj.as_ptr());
+                if val <= u32::MAX as usize {
+                    Ok(val as u32)
+                } else {
+                    Err(LeanError::conversion("Natural number too large for u32"))
+                }
+            } else {
+                Ok(leo3_ffi::nat::lean_uint32_of_big_nat(obj.as_ptr()))
+            }
+        }
+    }
+
+    /// Convert to UInt64.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toUInt64` in Lean4.
+    ///
+    /// Returns an error if the number doesn't fit in u64.
+    #[allow(non_snake_case)]
+    pub fn toUInt64<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<u64> {
+        unsafe {
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                Ok(lean_unbox(obj.as_ptr()) as u64)
+            } else {
+                Ok(leo3_ffi::nat::lean_uint64_of_big_nat(obj.as_ptr()))
+            }
+        }
+    }
+
+    /// Convert to USize.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toUSize` in Lean4.
+    ///
+    /// Returns an error if the number doesn't fit in usize.
+    /// This is the same as `to_usize` but follows Lean4 naming.
+    #[allow(non_snake_case)]
+    pub fn toUSize<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<usize> {
+        Self::to_usize(obj)
+    }
+
+    /// Check if power of two.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.isPowerOfTwo` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 8)?;
+    /// assert!(LeanNat::isPowerOfTwo(&n));
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn isPowerOfTwo<'l>(n: &LeanBound<'l, Self>) -> bool {
+        unsafe {
+            // A number is a power of two if n != 0 && (n & (n - 1)) == 0
+            let zero = lean_box(0);
+            if lean_nat_dec_eq(n.as_ptr(), zero) {
+                return false;
+            }
+            let one = lean_box(1);
+            let n_ptr = n.as_ptr();
+            leo3_ffi::inline::lean_inc(n_ptr);
+            let n_minus_1 = lean_nat_sub(n_ptr, one);
+            leo3_ffi::inline::lean_inc(n.as_ptr());
+            let anded = lean_nat_land(n.as_ptr(), n_minus_1);
+            let result = lean_nat_dec_eq(anded, lean_box(0));
+            leo3_ffi::inline::lean_dec(anded);
+            result
+        }
+    }
+
+    /// Get next power of two (returns smallest power of 2 that is >= n).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.nextPowerOfTwo` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;
+    /// let next = LeanNat::nextPowerOfTwo(n)?;
+    /// assert_eq!(LeanNat::to_usize(&next)?, 8);
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn nextPowerOfTwo<'l>(n: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let lean = n.lean_token();
+            // Use the native Lean implementation
+            let ptr = ffi::nat::lean_nat_next_power_of_two(n.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
     }
 }
 

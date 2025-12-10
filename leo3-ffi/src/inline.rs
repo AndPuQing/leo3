@@ -632,6 +632,48 @@ extern "C" {
     fn lean_nat_big_eq(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
     fn lean_nat_big_lt(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
     fn lean_nat_big_le(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
+    fn lean_nat_big_land(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
+    fn lean_nat_big_lor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
+    fn lean_nat_big_xor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
+}
+
+/// Bitwise AND for natural numbers
+///
+/// # Safety
+/// - Both arguments must be valid nat objects (borrowed)
+#[inline]
+pub unsafe fn lean_nat_land(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res {
+    if lean_is_scalar(a1) && lean_is_scalar(a2) {
+        lean_box(lean_unbox(a1) & lean_unbox(a2))
+    } else {
+        lean_nat_big_land(a1, a2)
+    }
+}
+
+/// Bitwise OR for natural numbers
+///
+/// # Safety
+/// - Both arguments must be valid nat objects (borrowed)
+#[inline]
+pub unsafe fn lean_nat_lor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res {
+    if lean_is_scalar(a1) && lean_is_scalar(a2) {
+        lean_box(lean_unbox(a1) | lean_unbox(a2))
+    } else {
+        lean_nat_big_lor(a1, a2)
+    }
+}
+
+/// Bitwise XOR for natural numbers
+///
+/// # Safety
+/// - Both arguments must be valid nat objects (borrowed)
+#[inline]
+pub unsafe fn lean_nat_lxor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res {
+    if lean_is_scalar(a1) && lean_is_scalar(a2) {
+        lean_box(lean_unbox(a1) ^ lean_unbox(a2))
+    } else {
+        lean_nat_big_xor(a1, a2)
+    }
 }
 
 // ============================================================================
@@ -1000,10 +1042,6 @@ pub unsafe fn lean_unbox_float(o: b_lean_obj_arg) -> f64 {
     *(o as *const f64)
 }
 
-// ============================================================================
-// Constructor Scalar Field Accessors (from lean.h)
-// ============================================================================
-
 /// Get uint8 scalar from constructor
 ///
 /// # Safety
@@ -1111,10 +1149,6 @@ pub unsafe fn lean_ctor_set_usize(o: lean_obj_arg, i: c_uint, v: size_t) {
     debug_assert!(i as u8 >= lean_ctor_num_objs(o));
     *(lean_ctor_obj_cptr(o).add(i as usize) as *mut size_t) = v;
 }
-
-// ============================================================================
-// ByteArray Functions
-// ============================================================================
 
 extern "C" {
     fn lean_internal_panic_out_of_memory() -> !;
@@ -1417,10 +1451,6 @@ pub unsafe fn lean_float32_to_float(a: f32) -> f64 {
     a as f64
 }
 
-// ========================================================================
-// Float (64-bit) conversion functions
-// ========================================================================
-
 /// Convert Float to UInt8
 #[inline]
 pub unsafe fn lean_float_to_uint8(a: f64) -> u8 {
@@ -1653,10 +1683,6 @@ pub unsafe fn lean_isize_to_float(a: isize) -> f64 {
     a as f64
 }
 
-// ============================================================================
-// UInt to UInt conversions (static inline from lean.h)
-// ============================================================================
-
 // UInt8 conversions
 #[inline]
 pub unsafe fn lean_uint8_to_uint16(a: u8) -> u16 {
@@ -1761,10 +1787,6 @@ pub unsafe fn lean_usize_to_uint32(a: usize) -> u32 {
 pub unsafe fn lean_usize_to_uint64(a: usize) -> u64 {
     a as u64
 }
-
-// ============================================================================
-// Int to Int conversions (static inline from lean.h)
-// ============================================================================
 
 // Int8 conversions
 #[inline]
@@ -1871,10 +1893,6 @@ pub unsafe fn lean_isize_to_int64(a: usize) -> u64 {
     (a as isize as i64) as u64
 }
 
-// ============================================================================
-// Float arithmetic operations (static inline from lean.h)
-// ============================================================================
-
 /// Add two Float values
 #[inline]
 pub unsafe fn lean_float_add(a: f64, b: f64) -> f64 {
@@ -1927,10 +1945,6 @@ pub unsafe fn lean_float_decLt(a: f64, b: f64) -> u8 {
     (a < b) as u8
 }
 
-// ============================================================================
-// Float32 arithmetic operations (static inline from lean.h)
-// ============================================================================
-
 /// Add two Float32 values
 #[inline]
 pub unsafe fn lean_float32_add(a: f32, b: f32) -> f32 {
@@ -1961,10 +1975,6 @@ pub unsafe fn lean_float32_negate(a: f32) -> f32 {
     -a
 }
 
-// ============================================================================
-// Float32 comparison operations (static inline from lean.h)
-// ============================================================================
-
 /// Float32 equality comparison
 #[inline]
 pub unsafe fn lean_float32_beq(a: f32, b: f32) -> u8 {
@@ -1982,10 +1992,6 @@ pub unsafe fn lean_float32_decLe(a: f32, b: f32) -> u8 {
 pub unsafe fn lean_float32_decLt(a: f32, b: f32) -> u8 {
     (a < b) as u8
 }
-
-// ============================================================================
-// Scalar Array (ByteArray) Functions
-// ============================================================================
 
 /// Get the size of a scalar array.
 ///
@@ -2038,11 +2044,6 @@ pub unsafe fn lean_byte_array_uset(a: lean_obj_arg, i: size_t, v: u8) -> lean_ob
     *lean_sarray_cptr(a).add(i) = v;
     a
 }
-
-// ============================================================================
-// Fixed-Precision Unsigned Integer Operations (UInt8/16/32/64)
-// ============================================================================
-// These mirror the static inline functions from lean.h
 
 // --- UInt8 Operations ---
 
@@ -2551,12 +2552,6 @@ pub unsafe fn lean_usize_dec_lt(a1: size_t, a2: size_t) -> bool {
 pub unsafe fn lean_usize_dec_le(a1: size_t, a2: size_t) -> bool {
     a1 <= a2
 }
-
-// ============================================================================
-// Fixed-Precision Signed Integer Operations (Int8/16/32/64/ISize)
-// ============================================================================
-
-// --- Int8 Operations ---
 
 #[inline(always)]
 pub unsafe fn lean_int8_add(a1: u8, a2: u8) -> u8 {
