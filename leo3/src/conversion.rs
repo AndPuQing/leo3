@@ -11,7 +11,7 @@ use crate::types::{
     LeanUInt8, LeanUSize,
 };
 
-/// Macro for automatic conversion dispatch. For Vec<u8> and &[u8], uses optimized
+/// Macro for automatic conversion dispatch. For `Vec<u8>` and `&[u8]`, uses optimized
 /// bulk memcpy. For other types, delegates to IntoLean trait.
 #[macro_export]
 macro_rules! to_lean {
@@ -26,7 +26,7 @@ macro_rules! to_lean {
     };
 }
 
-/// Macro for automatic conversion from Lean. For Vec<u8>, uses optimized conversion.
+/// Macro for automatic conversion from Lean. For `Vec<u8>`, uses optimized conversion.
 /// For other types, delegates to FromLean trait.
 #[macro_export]
 macro_rules! from_lean {
@@ -485,7 +485,7 @@ where
 // Note: These are provided as helper functions instead of trait implementations
 // to avoid trait specialization conflicts in stable Rust.
 
-/// Optimized bulk conversion: Vec<u8> → LeanByteArray using single memcpy
+/// Optimized bulk conversion: `Vec<u8>` → LeanByteArray using single memcpy
 ///
 /// This is ~100-1000x faster than element-by-element conversion for large arrays.
 ///
@@ -560,7 +560,7 @@ pub fn slice_u8_into_lean<'l>(
     }
 }
 
-/// Optimized bulk conversion: LeanByteArray → Vec<u8> using single memcpy
+/// Optimized bulk conversion: LeanByteArray → `Vec<u8>` using single memcpy
 ///
 /// This uses zero-copy slice access followed by a single memcpy.
 ///
