@@ -1230,3 +1230,977 @@ pub unsafe fn lean_byte_array_uset(a: lean_obj_arg, i: size_t, v: u8) -> lean_ob
     *lean_sarray_cptr(a).add(i) = v;
     a
 }
+
+// ============================================================================
+// Fixed-Precision Unsigned Integer Operations (UInt8/16/32/64)
+// ============================================================================
+// These mirror the static inline functions from lean.h
+
+// --- UInt8 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_uint8_add(a1: u8, a2: u8) -> u8 {
+    a1.wrapping_add(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_sub(a1: u8, a2: u8) -> u8 {
+    a1.wrapping_sub(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_mul(a1: u8, a2: u8) -> u8 {
+    a1.wrapping_mul(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_div(a1: u8, a2: u8) -> u8 {
+    if a2 == 0 { 0 } else { a1 / a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_mod(a1: u8, a2: u8) -> u8 {
+    if a2 == 0 { a1 } else { a1 % a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_land(a1: u8, a2: u8) -> u8 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_lor(a1: u8, a2: u8) -> u8 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_xor(a1: u8, a2: u8) -> u8 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_complement(a: u8) -> u8 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_shift_left(a1: u8, a2: u8) -> u8 {
+    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
+    a1.wrapping_shl(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_shift_right(a1: u8, a2: u8) -> u8 {
+    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
+    a1.wrapping_shr(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_neg(a: u8) -> u8 {
+    a.wrapping_neg()
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_dec_eq(a1: u8, a2: u8) -> bool {
+    a1 == a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_dec_lt(a1: u8, a2: u8) -> bool {
+    a1 < a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_dec_le(a1: u8, a2: u8) -> bool {
+    a1 <= a2
+}
+
+// --- UInt16 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_uint16_add(a1: u16, a2: u16) -> u16 {
+    a1.wrapping_add(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_sub(a1: u16, a2: u16) -> u16 {
+    a1.wrapping_sub(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_mul(a1: u16, a2: u16) -> u16 {
+    a1.wrapping_mul(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_div(a1: u16, a2: u16) -> u16 {
+    if a2 == 0 { 0 } else { a1 / a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_mod(a1: u16, a2: u16) -> u16 {
+    if a2 == 0 { a1 } else { a1 % a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_land(a1: u16, a2: u16) -> u16 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_lor(a1: u16, a2: u16) -> u16 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_xor(a1: u16, a2: u16) -> u16 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_complement(a: u16) -> u16 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_shift_left(a1: u16, a2: u16) -> u16 {
+    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    a1.wrapping_shl(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_shift_right(a1: u16, a2: u16) -> u16 {
+    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    a1.wrapping_shr(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_neg(a: u16) -> u16 {
+    a.wrapping_neg()
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_dec_eq(a1: u16, a2: u16) -> bool {
+    a1 == a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_dec_lt(a1: u16, a2: u16) -> bool {
+    a1 < a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_dec_le(a1: u16, a2: u16) -> bool {
+    a1 <= a2
+}
+
+// --- UInt32 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_uint32_add(a1: u32, a2: u32) -> u32 {
+    a1.wrapping_add(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_sub(a1: u32, a2: u32) -> u32 {
+    a1.wrapping_sub(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_mul(a1: u32, a2: u32) -> u32 {
+    a1.wrapping_mul(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_div(a1: u32, a2: u32) -> u32 {
+    if a2 == 0 { 0 } else { a1 / a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_mod(a1: u32, a2: u32) -> u32 {
+    if a2 == 0 { a1 } else { a1 % a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_land(a1: u32, a2: u32) -> u32 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_lor(a1: u32, a2: u32) -> u32 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_xor(a1: u32, a2: u32) -> u32 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_complement(a: u32) -> u32 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_shift_left(a1: u32, a2: u32) -> u32 {
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    a1.wrapping_shl(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_shift_right(a1: u32, a2: u32) -> u32 {
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    a1.wrapping_shr(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_neg(a: u32) -> u32 {
+    a.wrapping_neg()
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_dec_eq(a1: u32, a2: u32) -> bool {
+    a1 == a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_dec_lt(a1: u32, a2: u32) -> bool {
+    a1 < a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_dec_le(a1: u32, a2: u32) -> bool {
+    a1 <= a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_is_valid_char(a: u32) -> bool {
+    a < 0xD800 || (a >= 0xE000 && a <= 0x10FFFF)
+}
+
+// --- UInt64 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_uint64_add(a1: u64, a2: u64) -> u64 {
+    a1.wrapping_add(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_sub(a1: u64, a2: u64) -> u64 {
+    a1.wrapping_sub(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_mul(a1: u64, a2: u64) -> u64 {
+    a1.wrapping_mul(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_div(a1: u64, a2: u64) -> u64 {
+    if a2 == 0 { 0 } else { a1 / a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_mod(a1: u64, a2: u64) -> u64 {
+    if a2 == 0 { a1 } else { a1 % a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_land(a1: u64, a2: u64) -> u64 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_lor(a1: u64, a2: u64) -> u64 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_xor(a1: u64, a2: u64) -> u64 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_complement(a: u64) -> u64 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_shift_left(a1: u64, a2: u64) -> u64 {
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    a1.wrapping_shl(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_shift_right(a1: u64, a2: u64) -> u64 {
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    a1.wrapping_shr(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_neg(a: u64) -> u64 {
+    a.wrapping_neg()
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_dec_eq(a1: u64, a2: u64) -> bool {
+    a1 == a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_dec_lt(a1: u64, a2: u64) -> bool {
+    a1 < a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_dec_le(a1: u64, a2: u64) -> bool {
+    a1 <= a2
+}
+
+// --- Conversion Functions: UInt to/from Nat ---
+
+#[inline(always)]
+pub unsafe fn lean_uint8_to_nat(a: u8) -> *mut lean_object {
+    lean_usize_to_nat(a as usize)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint8_of_nat(a: *const lean_object) -> u8 {
+    if lean_is_scalar(a) {
+        lean_unbox(a) as u8
+    } else {
+        crate::nat::lean_uint8_of_big_nat(a)
+    }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_to_nat(a: u16) -> *mut lean_object {
+    lean_usize_to_nat(a as usize)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint16_of_nat(a: *const lean_object) -> u16 {
+    if lean_is_scalar(a) {
+        lean_unbox(a) as u16
+    } else {
+        crate::nat::lean_uint16_of_big_nat(a)
+    }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_to_nat(a: u32) -> *mut lean_object {
+    lean_usize_to_nat(a as usize)
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint32_of_nat(a: *const lean_object) -> u32 {
+    if lean_is_scalar(a) {
+        lean_unbox(a) as u32
+    } else {
+        crate::nat::lean_uint32_of_big_nat(a)
+    }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_to_nat(n: u64) -> *mut lean_object {
+    if n <= LEAN_MAX_SMALL_NAT as u64 {
+        lean_box(n as usize)
+    } else {
+        crate::nat::lean_big_uint64_to_nat(n)
+    }
+}
+
+#[inline(always)]
+pub unsafe fn lean_uint64_of_nat(a: *const lean_object) -> u64 {
+    if lean_is_scalar(a) {
+        lean_unbox(a) as u64
+    } else {
+        crate::nat::lean_uint64_of_big_nat(a)
+    }
+}
+
+// --- USize Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_usize_add(a1: size_t, a2: size_t) -> size_t {
+    a1.wrapping_add(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_sub(a1: size_t, a2: size_t) -> size_t {
+    a1.wrapping_sub(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_mul(a1: size_t, a2: size_t) -> size_t {
+    a1.wrapping_mul(a2)
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_div(a1: size_t, a2: size_t) -> size_t {
+    if a2 == 0 { 0 } else { a1 / a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_mod(a1: size_t, a2: size_t) -> size_t {
+    if a2 == 0 { a1 } else { a1 % a2 }
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_land(a1: size_t, a2: size_t) -> size_t {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_lor(a1: size_t, a2: size_t) -> size_t {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_xor(a1: size_t, a2: size_t) -> size_t {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_complement(a: size_t) -> size_t {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_shift_left(a1: size_t, a2: size_t) -> size_t {
+    #[cfg(target_pointer_width = "64")]
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
+    #[cfg(target_pointer_width = "32")]
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
+    a1.wrapping_shl(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_shift_right(a1: size_t, a2: size_t) -> size_t {
+    #[cfg(target_pointer_width = "64")]
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
+    #[cfg(target_pointer_width = "32")]
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
+    a1.wrapping_shr(shift)
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_neg(a: size_t) -> size_t {
+    a.wrapping_neg()
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_dec_eq(a1: size_t, a2: size_t) -> bool {
+    a1 == a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_dec_lt(a1: size_t, a2: size_t) -> bool {
+    a1 < a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_usize_dec_le(a1: size_t, a2: size_t) -> bool {
+    a1 <= a2
+}
+
+// ============================================================================
+// Fixed-Precision Signed Integer Operations (Int8/16/32/64/ISize)
+// ============================================================================
+
+// --- Int8 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_int8_add(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let rhs = a2 as i8;
+    (lhs.wrapping_add(rhs)) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_sub(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let rhs = a2 as i8;
+    (lhs.wrapping_sub(rhs)) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_mul(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let rhs = a2 as i8;
+    (lhs.wrapping_mul(rhs)) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_div(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let rhs = a2 as i8;
+    (if rhs == 0 { 0 } else { lhs / rhs }) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_mod(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let rhs = a2 as i8;
+    (if rhs == 0 { lhs } else { lhs % rhs }) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_land(a1: u8, a2: u8) -> u8 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_lor(a1: u8, a2: u8) -> u8 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_xor(a1: u8, a2: u8) -> u8 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_complement(a: u8) -> u8 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_shift_left(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
+    (lhs.wrapping_shl(shift)) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_shift_right(a1: u8, a2: u8) -> u8 {
+    let lhs = a1 as i8;
+    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
+    (lhs.wrapping_shr(shift)) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_neg(a: u8) -> u8 {
+    let arg = a as i8;
+    (arg.wrapping_neg()) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_abs(a: u8) -> u8 {
+    let arg = a as i8;
+    // With -fwrapv, INT8_MIN maps to INT8_MIN
+    (if arg < 0 { arg.wrapping_neg() } else { arg }) as u8
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_dec_eq(a1: u8, a2: u8) -> bool {
+    (a1 as i8) == (a2 as i8)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_dec_lt(a1: u8, a2: u8) -> bool {
+    (a1 as i8) < (a2 as i8)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int8_dec_le(a1: u8, a2: u8) -> bool {
+    (a1 as i8) <= (a2 as i8)
+}
+
+// --- Int16 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_int16_add(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let rhs = a2 as i16;
+    (lhs.wrapping_add(rhs)) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_sub(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let rhs = a2 as i16;
+    (lhs.wrapping_sub(rhs)) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_mul(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let rhs = a2 as i16;
+    (lhs.wrapping_mul(rhs)) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_div(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let rhs = a2 as i16;
+    (if rhs == 0 { 0 } else { lhs / rhs }) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_mod(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let rhs = a2 as i16;
+    (if rhs == 0 { lhs } else { lhs % rhs }) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_land(a1: u16, a2: u16) -> u16 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_lor(a1: u16, a2: u16) -> u16 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_xor(a1: u16, a2: u16) -> u16 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_complement(a: u16) -> u16 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_shift_left(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    (lhs.wrapping_shl(shift)) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_shift_right(a1: u16, a2: u16) -> u16 {
+    let lhs = a1 as i16;
+    let shift = (((a2 as i16 % 16) + 16) % 16) as u32; // smod 16
+    (lhs.wrapping_shr(shift)) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_neg(a: u16) -> u16 {
+    let arg = a as i16;
+    (arg.wrapping_neg()) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_abs(a: u16) -> u16 {
+    let arg = a as i16;
+    (if arg < 0 { arg.wrapping_neg() } else { arg }) as u16
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_dec_eq(a1: u16, a2: u16) -> bool {
+    (a1 as i16) == (a2 as i16)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_dec_lt(a1: u16, a2: u16) -> bool {
+    (a1 as i16) < (a2 as i16)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int16_dec_le(a1: u16, a2: u16) -> bool {
+    (a1 as i16) <= (a2 as i16)
+}
+
+// --- Int32 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_int32_add(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let rhs = a2 as i32;
+    (lhs.wrapping_add(rhs)) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_sub(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let rhs = a2 as i32;
+    (lhs.wrapping_sub(rhs)) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_mul(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let rhs = a2 as i32;
+    (lhs.wrapping_mul(rhs)) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_div(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let rhs = a2 as i32;
+    (if rhs == 0 { 0 } else { lhs / rhs }) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_mod(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let rhs = a2 as i32;
+    (if rhs == 0 { lhs } else { lhs % rhs }) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_land(a1: u32, a2: u32) -> u32 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_lor(a1: u32, a2: u32) -> u32 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_xor(a1: u32, a2: u32) -> u32 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_complement(a: u32) -> u32 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_shift_left(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    (lhs.wrapping_shl(shift)) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_shift_right(a1: u32, a2: u32) -> u32 {
+    let lhs = a1 as i32;
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32; // smod 32
+    (lhs.wrapping_shr(shift)) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_neg(a: u32) -> u32 {
+    let arg = a as i32;
+    (arg.wrapping_neg()) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_abs(a: u32) -> u32 {
+    let arg = a as i32;
+    (if arg < 0 { arg.wrapping_neg() } else { arg }) as u32
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_dec_eq(a1: u32, a2: u32) -> bool {
+    (a1 as i32) == (a2 as i32)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_dec_lt(a1: u32, a2: u32) -> bool {
+    (a1 as i32) < (a2 as i32)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int32_dec_le(a1: u32, a2: u32) -> bool {
+    (a1 as i32) <= (a2 as i32)
+}
+
+// --- Int64 Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_int64_add(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let rhs = a2 as i64;
+    (lhs.wrapping_add(rhs)) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_sub(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let rhs = a2 as i64;
+    (lhs.wrapping_sub(rhs)) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_mul(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let rhs = a2 as i64;
+    (lhs.wrapping_mul(rhs)) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_div(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let rhs = a2 as i64;
+    (if rhs == 0 { 0 } else { lhs / rhs }) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_mod(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let rhs = a2 as i64;
+    (if rhs == 0 { lhs } else { lhs % rhs }) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_land(a1: u64, a2: u64) -> u64 {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_lor(a1: u64, a2: u64) -> u64 {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_xor(a1: u64, a2: u64) -> u64 {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_complement(a: u64) -> u64 {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_shift_left(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    (lhs.wrapping_shl(shift)) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_shift_right(a1: u64, a2: u64) -> u64 {
+    let lhs = a1 as i64;
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32; // smod 64
+    (lhs.wrapping_shr(shift)) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_neg(a: u64) -> u64 {
+    let arg = a as i64;
+    (arg.wrapping_neg()) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_abs(a: u64) -> u64 {
+    let arg = a as i64;
+    (if arg < 0 { arg.wrapping_neg() } else { arg }) as u64
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_dec_eq(a1: u64, a2: u64) -> bool {
+    (a1 as i64) == (a2 as i64)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_dec_lt(a1: u64, a2: u64) -> bool {
+    (a1 as i64) < (a2 as i64)
+}
+
+#[inline(always)]
+pub unsafe fn lean_int64_dec_le(a1: u64, a2: u64) -> bool {
+    (a1 as i64) <= (a2 as i64)
+}
+
+// --- ISize Operations ---
+
+#[inline(always)]
+pub unsafe fn lean_isize_add(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    let rhs = a2 as isize;
+    (lhs.wrapping_add(rhs)) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_sub(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    let rhs = a2 as isize;
+    (lhs.wrapping_sub(rhs)) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_mul(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    let rhs = a2 as isize;
+    (lhs.wrapping_mul(rhs)) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_div(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    let rhs = a2 as isize;
+    (if rhs == 0 { 0 } else { lhs / rhs }) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_mod(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    let rhs = a2 as isize;
+    (if rhs == 0 { lhs } else { lhs % rhs }) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_land(a1: size_t, a2: size_t) -> size_t {
+    a1 & a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_lor(a1: size_t, a2: size_t) -> size_t {
+    a1 | a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_xor(a1: size_t, a2: size_t) -> size_t {
+    a1 ^ a2
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_complement(a: size_t) -> size_t {
+    !a
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_shift_left(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    #[cfg(target_pointer_width = "64")]
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
+    #[cfg(target_pointer_width = "32")]
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
+    (lhs.wrapping_shl(shift)) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_shift_right(a1: size_t, a2: size_t) -> size_t {
+    let lhs = a1 as isize;
+    #[cfg(target_pointer_width = "64")]
+    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
+    #[cfg(target_pointer_width = "32")]
+    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
+    (lhs.wrapping_shr(shift)) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_neg(a: size_t) -> size_t {
+    let arg = a as isize;
+    (arg.wrapping_neg()) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_abs(a: size_t) -> size_t {
+    let arg = a as isize;
+    (if arg < 0 { arg.wrapping_neg() } else { arg }) as size_t
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_dec_eq(a1: size_t, a2: size_t) -> bool {
+    (a1 as isize) == (a2 as isize)
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_dec_lt(a1: size_t, a2: size_t) -> bool {
+    (a1 as isize) < (a2 as isize)
+}
+
+#[inline(always)]
+pub unsafe fn lean_isize_dec_le(a1: size_t, a2: size_t) -> bool {
+    (a1 as isize) <= (a2 as isize)
+}

@@ -87,8 +87,9 @@ pub mod prelude {
 
     // Re-export commonly used types
     pub use crate::types::{
-        LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanInt, LeanList, LeanNat,
-        LeanOption, LeanProd, LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8, LeanUSize,
+        LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanFloat32, LeanISize, LeanInt,
+        LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption, LeanProd,
+        LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8, LeanUSize,
     };
 
     #[cfg(feature = "macros")]
