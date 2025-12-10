@@ -1122,6 +1122,21 @@ pub unsafe fn lean_ctor_set_usize(o: lean_obj_arg, i: c_uint, v: size_t) {
     *(lean_ctor_obj_cptr(o).add(i as usize) as *mut size_t) = v;
 }
 
+/// Set the header of a lean object
+///
+/// # Safety
+/// - `o` must point to a valid lean_object with allocated space
+/// - This initializes the reference count to 1
+#[inline]
+pub unsafe fn lean_set_st_header(o: *mut lean_object, tag: u8, other: u8) {
+    (*o).m_rc = 1;
+    (*o).m_tag = tag;
+    (*o).m_other = other;
+    // Note: m_cs_sz is already initialized by lean_alloc_object when using mimalloc
+    // For non-mimalloc builds, we set it to 0 here
+    (*o).m_cs_sz = 0;
+}
+
 extern "C" {
     fn lean_internal_panic_out_of_memory() -> !;
 }
@@ -1136,11 +1151,11 @@ pub unsafe fn lean_alloc_sarray(elem_size: c_uint, size: size_t, capacity: size_
     let total_size = std::mem::size_of::<lean_sarray_object>() + (elem_size as usize) * capacity;
     let o = crate::object::lean_alloc_object(total_size) as *mut lean_sarray_object;
 
-    // Initialize header (matching lean_set_st_header from lean.h)
-    (*o).m_header.m_rc = 1;
-    (*o).m_header.m_tag = LEAN_SCALAR_ARRAY;
-    (*o).m_header.m_other = elem_size as u8;
-    (*o).m_header.m_cs_sz = 0;
+    lean_set_st_header(
+        &mut (*o).m_header as *mut lean_object,
+        LEAN_SCALAR_ARRAY,
+        elem_size as u8,
+    );
 
     // Initialize size and capacity
     (*o).m_size = size;

@@ -276,7 +276,7 @@ pub unsafe fn lean_array_fswap(
 /// - `capacity` must be >= `size`
 #[inline]
 pub unsafe fn lean_alloc_array(size: size_t, capacity: size_t) -> lean_obj_res {
-    use crate::inline::lean_array_object;
+    use crate::inline::{lean_array_object, lean_set_st_header};
     use crate::LEAN_ARRAY;
 
     let data_size = std::mem::size_of::<*mut lean_object>() * capacity;
@@ -284,11 +284,7 @@ pub unsafe fn lean_alloc_array(size: size_t, capacity: size_t) -> lean_obj_res {
 
     let ptr = crate::object::lean_alloc_object(total_size) as *mut lean_array_object;
 
-    // Initialize header (matching lean_set_st_header from lean.h)
-    (*ptr).m_header.m_rc = 1;
-    (*ptr).m_header.m_tag = LEAN_ARRAY;
-    (*ptr).m_header.m_other = 0;
-    (*ptr).m_header.m_cs_sz = 0;
+    lean_set_st_header(&mut (*ptr).m_header as *mut lean_object, LEAN_ARRAY, 0);
 
     (*ptr).m_size = size;
     (*ptr).m_capacity = capacity;
