@@ -1487,11 +1487,7 @@ pub unsafe fn lean_float_to_usize(a: f64) -> usize {
 /// Convert Float to Int8
 #[inline]
 pub unsafe fn lean_float_to_int8(a: f64) -> i8 {
-    if crate::float::lean_float_isnan(a) != 0 {
-        0
-    } else {
-        a.clamp(i8::MIN as f64, i8::MAX as f64) as i8
-    }
+    a as i8
 }
 
 /// Convert Float to Int16
