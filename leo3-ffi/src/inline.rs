@@ -1901,14 +1901,12 @@ pub unsafe fn lean_uint8_complement(a: u8) -> u8 {
 
 #[inline(always)]
 pub unsafe fn lean_uint8_shift_left(a1: u8, a2: u8) -> u8 {
-    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
-    a1.wrapping_shl(shift)
+    a1.wrapping_shl((a2 % 8) as u32)
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint8_shift_right(a1: u8, a2: u8) -> u8 {
-    let shift = (((a2 as i8 % 8) + 8) % 8) as u32; // smod 8
-    a1.wrapping_shr(shift)
+    a1 >> (a2 % 8)
 }
 
 #[inline(always)]
