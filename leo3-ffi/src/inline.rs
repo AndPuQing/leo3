@@ -2396,9 +2396,7 @@ pub unsafe fn lean_usize_log2(a: size_t) -> size_t {
 
 #[inline(always)]
 pub unsafe fn lean_int8_add(a1: u8, a2: u8) -> u8 {
-    let lhs = a1 as i8;
-    let rhs = a2 as i8;
-    (lhs.wrapping_add(rhs)) as u8
+    (a1 as i8).wrapping_add(a2 as i8) as u8
 }
 
 #[inline(always)]
@@ -2855,11 +2853,14 @@ pub unsafe fn lean_isize_shift_left(a1: size_t, a2: size_t) -> size_t {
 #[inline(always)]
 pub unsafe fn lean_isize_shift_right(a1: size_t, a2: size_t) -> size_t {
     let lhs = a1 as isize;
+
     #[cfg(target_pointer_width = "64")]
-    let shift = (((a2 as i64 % 64) + 64) % 64) as u32;
+    let shift = (a2 & 63) as u32;
+
     #[cfg(target_pointer_width = "32")]
-    let shift = (((a2 as i32 % 32) + 32) % 32) as u32;
-    (lhs.wrapping_shr(shift)) as size_t
+    let shift = (a2 & 31) as u32;
+
+    lhs.wrapping_shr(shift) as size_t
 }
 
 #[inline(always)]
