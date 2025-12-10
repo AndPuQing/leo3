@@ -2,8 +2,7 @@
 
 use leo3_ffi::inline::{
     lean_box, lean_nat_add, lean_nat_dec_eq, lean_nat_dec_le, lean_nat_dec_lt, lean_nat_div,
-    lean_nat_land, lean_nat_lor, lean_nat_lxor, lean_nat_mod, lean_nat_mul, lean_nat_sub,
-    lean_unbox, lean_usize_of_nat, lean_usize_to_nat,
+    lean_nat_mod, lean_nat_mul, lean_nat_sub, lean_unbox, lean_usize_of_nat, lean_usize_to_nat,
 };
 
 use crate::err::{LeanError, LeanResult};
@@ -281,8 +280,8 @@ impl LeanNat {
     pub fn pred<'l>(n: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = n.lean_token();
-            let one = lean_box(1);
-            let ptr = lean_nat_sub(n.into_ptr(), one);
+            let ptr = ffi::nat::lean_nat_pred(n.as_ptr());
+            leo3_ffi::inline::lean_dec(n.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -327,7 +326,9 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_shiftl(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::lean_nat_shift_left(a.as_ptr(), b.as_ptr());
+            leo3_ffi::inline::lean_dec(a.into_ptr());
+            leo3_ffi::inline::lean_dec(b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -352,8 +353,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = ffi::nat::lean_nat_shiftr(a.as_ptr(), b.as_ptr());
-            // shiftr borrows, so we need to manually dec after
+            let ptr = ffi::nat::lean_nat_shift_right(a.as_ptr(), b.as_ptr());
             leo3_ffi::inline::lean_dec(a.into_ptr());
             leo3_ffi::inline::lean_dec(b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
@@ -379,7 +379,9 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = lean_nat_lxor(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::lean_nat_xor(a.as_ptr(), b.as_ptr());
+            leo3_ffi::inline::lean_dec(a.into_ptr());
+            leo3_ffi::inline::lean_dec(b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -403,7 +405,9 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = lean_nat_lor(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::lean_nat_lor(a.as_ptr(), b.as_ptr());
+            leo3_ffi::inline::lean_dec(a.into_ptr());
+            leo3_ffi::inline::lean_dec(b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -427,7 +431,9 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            let ptr = lean_nat_land(a.into_ptr(), b.into_ptr());
+            let ptr = ffi::nat::lean_nat_land(a.as_ptr(), b.as_ptr());
+            leo3_ffi::inline::lean_dec(a.into_ptr());
+            leo3_ffi::inline::lean_dec(b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -447,13 +453,14 @@ impl LeanNat {
     #[allow(non_snake_case)]
     pub fn testBit<'l>(n: &LeanBound<'l, Self>, idx: &LeanBound<'l, Self>) -> bool {
         unsafe {
-            // testBit n i = (n >>> i) &&& 1 != 0
-            let shifted = ffi::nat::lean_nat_shiftr(n.as_ptr(), idx.as_ptr());
+            // Manual implementation: testBit n i = ((n >>> i) &&& 1) != 0
+            let shifted = ffi::nat::lean_nat_shift_right(n.as_ptr(), idx.as_ptr());
             let one = lean_box(1);
-            let anded = lean_nat_land(shifted, one);
+            let anded = ffi::nat::lean_nat_land(shifted, one);
             let zero = lean_box(0);
             let result = !lean_nat_dec_eq(anded, zero);
             leo3_ffi::inline::lean_dec(anded);
+            leo3_ffi::inline::lean_dec(shifted);
             result
         }
     }
@@ -477,15 +484,8 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            if lean_nat_dec_le(a.as_ptr(), b.as_ptr()) {
-                let ptr = a.as_ptr();
-                leo3_ffi::inline::lean_inc(ptr);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            } else {
-                let ptr = b.as_ptr();
-                leo3_ffi::inline::lean_inc(ptr);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            }
+            let ptr = ffi::nat::lean_nat_min(a.as_ptr(), b.as_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
 
@@ -508,15 +508,8 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            if lean_nat_dec_le(a.as_ptr(), b.as_ptr()) {
-                let ptr = b.as_ptr();
-                leo3_ffi::inline::lean_inc(ptr);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            } else {
-                let ptr = a.as_ptr();
-                leo3_ffi::inline::lean_inc(ptr);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            }
+            let ptr = ffi::nat::lean_nat_max(a.as_ptr(), b.as_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
 
@@ -539,14 +532,7 @@ impl LeanNat {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = a.lean_token();
-            // lcm a b = a * b / gcd a b
-            let a_ptr = a.as_ptr();
-            let b_ptr = b.as_ptr();
-            leo3_ffi::inline::lean_inc(a_ptr);
-            leo3_ffi::inline::lean_inc(b_ptr);
-            let gcd_val = ffi::nat::lean_nat_gcd(a_ptr, b_ptr);
-            let product = lean_nat_mul(a.into_ptr(), b.into_ptr());
-            let ptr = lean_nat_div(product, gcd_val);
+            let ptr = ffi::nat::lean_nat_lcm(a.into_ptr(), b.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -717,10 +703,10 @@ impl LeanNat {
             let n_ptr = n.as_ptr();
             leo3_ffi::inline::lean_inc(n_ptr);
             let n_minus_1 = lean_nat_sub(n_ptr, one);
-            leo3_ffi::inline::lean_inc(n.as_ptr());
-            let anded = lean_nat_land(n.as_ptr(), n_minus_1);
+            let anded = ffi::nat::lean_nat_land(n.as_ptr(), n_minus_1);
             let result = lean_nat_dec_eq(anded, lean_box(0));
             leo3_ffi::inline::lean_dec(anded);
+            leo3_ffi::inline::lean_dec(n_minus_1);
             result
         }
     }

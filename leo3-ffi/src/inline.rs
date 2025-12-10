@@ -632,35 +632,7 @@ extern "C" {
     fn lean_nat_big_eq(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
     fn lean_nat_big_lt(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
     fn lean_nat_big_le(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
-    fn lean_nat_big_land(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_lor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
     fn lean_nat_big_xor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-}
-
-/// Bitwise AND for natural numbers
-///
-/// # Safety
-/// - Both arguments must be valid nat objects (borrowed)
-#[inline]
-pub unsafe fn lean_nat_land(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res {
-    if lean_is_scalar(a1) && lean_is_scalar(a2) {
-        lean_box(lean_unbox(a1) & lean_unbox(a2))
-    } else {
-        lean_nat_big_land(a1, a2)
-    }
-}
-
-/// Bitwise OR for natural numbers
-///
-/// # Safety
-/// - Both arguments must be valid nat objects (borrowed)
-#[inline]
-pub unsafe fn lean_nat_lor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res {
-    if lean_is_scalar(a1) && lean_is_scalar(a2) {
-        lean_box(lean_unbox(a1) | lean_unbox(a2))
-    } else {
-        lean_nat_big_lor(a1, a2)
-    }
 }
 
 /// Bitwise XOR for natural numbers

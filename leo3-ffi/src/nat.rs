@@ -51,18 +51,6 @@ extern "C" {
     /// - `a` must be a valid nat object (consumed)
     pub fn lean_nat_log2(a: b_lean_obj_arg) -> lean_obj_res;
 
-    /// Bitwise AND
-    ///
-    /// # Safety
-    /// - Both arguments must be valid nat objects (consumed)
-    pub fn lean_nat_land(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
-
-    /// Bitwise OR
-    ///
-    /// # Safety
-    /// - Both arguments must be valid nat objects (consumed)
-    pub fn lean_nat_lor(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
-
     /// Bitwise XOR
     ///
     /// # Safety
@@ -111,14 +99,111 @@ extern "C" {
     /// - `a` must be a valid nat object that is not scalar
     pub fn lean_uint64_of_big_nat(a: b_lean_obj_arg) -> u64;
 
-    /// Next power of two (native Lean implementation)
+    // ============================================================================
+    // Native Lean Nat functions (compiled from Lean stdlib)
+    // Note: These are internal compiled functions and may not be stable across
+    // Lean versions, but they provide optimized implementations.
+    // ============================================================================
+
+    /// Predecessor (native Lean implementation)
     ///
-    /// Note: This is an internal Lean compiled function (l_Nat_nextPowerOfTwo___boxed)
-    /// and may not be stable across Lean versions.
+    /// # Safety
+    /// - `n` must be a valid nat object (borrowed)
+    #[link_name = "l_Nat_pred___boxed"]
+    pub fn lean_nat_pred(n: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Min (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_min___boxed"]
+    pub fn lean_nat_min(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Max (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_max___boxed"]
+    pub fn lean_nat_max(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// LCM (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    #[link_name = "l_Nat_lcm___boxed"]
+    pub fn lean_nat_lcm(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise left shift (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_shiftLeft___boxed"]
+    pub fn lean_nat_shift_left(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise right shift (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_shiftRight___boxed"]
+    pub fn lean_nat_shift_right(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise XOR (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_xor___boxed"]
+    pub fn lean_nat_xor(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise OR (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_lor___boxed"]
+    pub fn lean_nat_lor(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise AND (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    #[link_name = "l_Nat_land___boxed"]
+    pub fn lean_nat_land(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Test bit (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    ///   Returns a Lean Bool object (must be decremented)
+    #[link_name = "l_Nat_testBit___boxed"]
+    pub fn lean_nat_test_bit(n: b_lean_obj_arg, i: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Boolean equality (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    ///   Returns a Lean Bool object (must be decremented)
+    #[link_name = "l_Nat_beq___boxed"]
+    pub fn lean_nat_beq(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Boolean less-than-or-equal (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    ///   Returns a Lean Bool object (must be decremented)
+    #[link_name = "l_Nat_ble___boxed"]
+    pub fn lean_nat_ble(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Boolean less-than (native Lean implementation)
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (borrowed)
+    ///   Returns a Lean Bool object (must be decremented)
+    #[link_name = "l_Nat_blt___boxed"]
+    pub fn lean_nat_blt(a: b_lean_obj_arg, b: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Next power of two (native Lean implementation)
     ///
     /// # Safety
     /// - `n` must be a valid nat object (consumed)
     #[link_name = "l_Nat_nextPowerOfTwo___boxed"]
     pub fn lean_nat_next_power_of_two(n: lean_obj_arg) -> lean_obj_res;
-
 }
