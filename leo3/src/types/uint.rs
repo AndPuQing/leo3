@@ -22,6 +22,7 @@ pub struct LeanUInt8 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanUInt8 {
     /// The number of distinct values: 2^8 = 256.
     pub const SIZE: u32 = 256;
@@ -109,10 +110,7 @@ impl LeanUInt8 {
     }
 
     /// Negation with wrapping semantics.
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_uint8_neg(Self::to_u8(a));
             Self::mk(lean, result)
@@ -315,6 +313,7 @@ pub struct LeanUInt16 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanUInt16 {
     /// The number of distinct values: 2^16 = 65536.
     pub const SIZE: u32 = 65536;
@@ -396,10 +395,7 @@ impl LeanUInt16 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_uint16_neg(Self::to_u16(a));
             Self::mk(lean, result)
@@ -491,7 +487,7 @@ impl LeanUInt16 {
 
     pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
         let val = Self::to_u16(obj) as u32;
-        val < 0xD800 || (val >= 0xE000 && val <= 0x10FFFF)
+        val < 0xD800 || (0xE000..=0x10FFFF).contains(&val)
     }
 
     pub fn toChar<'l>(
@@ -592,6 +588,7 @@ pub struct LeanUInt32 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanUInt32 {
     /// The number of distinct values: 2^32 = 4294967296.
     pub const SIZE: u64 = 4294967296;
@@ -673,10 +670,7 @@ impl LeanUInt32 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_uint32_neg(Self::to_u32(a));
             Self::mk(lean, result)
@@ -868,6 +862,7 @@ pub struct LeanUInt64 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanUInt64 {
     /// The number of distinct values: 2^64.
     pub const SIZE: u128 = 18446744073709551616;
@@ -949,10 +944,7 @@ impl LeanUInt64 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_uint64_neg(Self::to_u64(a));
             Self::mk(lean, result)
@@ -1044,7 +1036,7 @@ impl LeanUInt64 {
 
     pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
         let val = Self::to_u64(obj);
-        val < 0xD800 || (val >= 0xE000 && val <= 0x10FFFF)
+        val < 0xD800 || (0xE000..=0x10FFFF).contains(&val)
     }
 
     pub fn toChar<'l>(
@@ -1150,6 +1142,7 @@ pub struct LeanUSize {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanUSize {
     /// The number of distinct values (platform-dependent).
     #[cfg(target_pointer_width = "64")]
@@ -1249,10 +1242,7 @@ impl LeanUSize {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_usize_neg(Self::to_usize(a));
             Self::mk(lean, result)
@@ -1344,7 +1334,7 @@ impl LeanUSize {
 
     pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
         let val = Self::to_usize(obj) as u64;
-        val < 0xD800 || (val >= 0xE000 && val <= 0x10FFFF)
+        val < 0xD800 || (0xE000..=0x10FFFF).contains(&val)
     }
 
     pub fn toChar<'l>(

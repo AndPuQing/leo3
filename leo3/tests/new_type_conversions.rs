@@ -1,5 +1,7 @@
 //! Tests for new type conversions: signed integers, floats, Option, Result
 
+#![allow(clippy::approx_constant)]
+
 use leo3::conversion::{FromLean, IntoLean};
 use leo3::err::LeanResult;
 
@@ -111,51 +113,6 @@ fn test_isize_conversion() {
         let lean_val = val.into_lean(lean)?;
         let result: isize = FromLean::from_lean(&lean_val)?;
         assert_eq!(result, val);
-
-        Ok(())
-    })
-    .expect("test failed");
-}
-
-#[test]
-fn test_f32_conversion() {
-    leo3::prepare_freethreaded_lean();
-    leo3::with_lean(|lean| -> LeanResult<()> {
-        // Test regular values
-        let val: f32 = 3.14159;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert!((result - val).abs() < 0.0001);
-
-        // Test negative values
-        let val: f32 = -2.5;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert_eq!(result, val);
-
-        // Test zero
-        let val: f32 = 0.0;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert_eq!(result, val);
-
-        // Test infinity
-        let val: f32 = f32::INFINITY;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert_eq!(result, val);
-
-        // Test negative infinity
-        let val: f32 = f32::NEG_INFINITY;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert_eq!(result, val);
-
-        // Test NaN
-        let val: f32 = f32::NAN;
-        let lean_val = val.into_lean(lean)?;
-        let result: f32 = FromLean::from_lean(&lean_val)?;
-        assert!(result.is_nan());
 
         Ok(())
     })

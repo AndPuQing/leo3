@@ -6,9 +6,9 @@ use crate::err::LeanResult;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::types::{
-    LeanArray, LeanBool, LeanByteArray, LeanExcept, LeanFloat, LeanISize, LeanInt16, LeanInt32,
-    LeanInt64, LeanInt8, LeanOption, LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8,
-    LeanUSize,
+    LeanArray, LeanBool, LeanByteArray, LeanExcept, LeanFloat, LeanFloat32, LeanISize, LeanInt16,
+    LeanInt32, LeanInt64, LeanInt8, LeanOption, LeanString, LeanUInt16, LeanUInt32, LeanUInt64,
+    LeanUInt8, LeanUSize,
 };
 
 /// Macro for automatic conversion dispatch. For Vec<u8> and &[u8], uses optimized
@@ -248,20 +248,20 @@ impl<'l> FromLean<'l> for isize {
     }
 }
 
-// f32 ↔ LeanFloat
+// f32 ↔ LeanFloat32
 impl<'l> IntoLean<'l> for f32 {
-    type Target = LeanFloat;
+    type Target = LeanFloat32;
 
     fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
-        LeanFloat::from_f32(lean, self)
+        LeanFloat32::from_f32(lean, self)
     }
 }
 
 impl<'l> FromLean<'l> for f32 {
-    type Source = LeanFloat;
+    type Source = LeanFloat32;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        Ok(LeanFloat::to_f32(obj))
+        Ok(LeanFloat32::to_f32(obj))
     }
 }
 

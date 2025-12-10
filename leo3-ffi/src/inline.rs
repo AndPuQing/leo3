@@ -1175,6 +1175,248 @@ pub unsafe fn lean_unbox_float32(o: b_lean_obj_arg) -> f32 {
     *(o as *const f32)
 }
 
+#[inline]
+pub unsafe fn lean_float32_to_uint8(a: f32) -> u8 {
+    if 0.0 <= a {
+        if a < 256.0 {
+            a as u8
+        } else {
+            u8::MAX
+        }
+    } else {
+        0
+    }
+}
+
+#[inline]
+pub unsafe fn lean_float32_to_uint16(a: f32) -> u16 {
+    if 0.0 <= a {
+        if a < 65536.0 {
+            a as u16
+        } else {
+            u16::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float32 to UInt32
+#[inline]
+pub unsafe fn lean_float32_to_uint32(a: f32) -> u32 {
+    if 0.0 <= a {
+        if a < 4294967296.0 {
+            a as u32
+        } else {
+            u32::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float32 to UInt64
+#[inline]
+pub unsafe fn lean_float32_to_uint64(a: f32) -> u64 {
+    if 0.0 <= a {
+        if a < 18446744073709551616.0 {
+            a as u64
+        } else {
+            u64::MAX
+        }
+    } else {
+        0
+    }
+}
+
+/// Convert Float32 to USize
+#[inline]
+pub unsafe fn lean_float32_to_usize(a: f32) -> usize {
+    if std::mem::size_of::<usize>() == std::mem::size_of::<u64>() {
+        lean_float32_to_uint64(a) as usize
+    } else {
+        lean_float32_to_uint32(a) as usize
+    }
+}
+
+/// Convert Float32 to Int8
+#[inline]
+pub unsafe fn lean_float32_to_int8(a: f32) -> i8 {
+    let result: i8;
+    if crate::float::lean_float32_isnan(a) != 0 {
+        result = 0;
+    } else if -129.0 < a {
+        if a < 128.0 {
+            result = a as i8;
+        } else {
+            result = i8::MAX;
+        }
+    } else {
+        result = i8::MIN;
+    }
+    result
+}
+
+/// Convert Float32 to Int16
+#[inline]
+pub unsafe fn lean_float32_to_int16(a: f32) -> i16 {
+    let result: i16;
+    if crate::float::lean_float32_isnan(a) != 0 {
+        result = 0;
+    } else if -32769.0 < a {
+        if a < 32768.0 {
+            result = a as i16;
+        } else {
+            result = i16::MAX;
+        }
+    } else {
+        result = i16::MIN;
+    }
+    result
+}
+
+/// Convert Float32 to Int32
+#[inline]
+pub unsafe fn lean_float32_to_int32(a: f32) -> i32 {
+    let result: i32;
+    if crate::float::lean_float32_isnan(a) != 0 {
+        result = 0;
+    } else if -2147483649.0 < a {
+        if a < 2147483648.0 {
+            result = a as i32;
+        } else {
+            result = i32::MAX;
+        }
+    } else {
+        result = i32::MIN;
+    }
+    result
+}
+
+/// Convert Float32 to Int64
+#[inline]
+pub unsafe fn lean_float32_to_int64(a: f32) -> i64 {
+    let result: i64;
+    if crate::float::lean_float32_isnan(a) != 0 {
+        result = 0;
+    } else if -9223372036854775809.0 < a {
+        if a < 9223372036854775808.0 {
+            result = a as i64;
+        } else {
+            result = i64::MAX;
+        }
+    } else {
+        result = i64::MIN;
+    }
+    result
+}
+
+/// Convert Float32 to ISize
+#[inline]
+pub unsafe fn lean_float32_to_isize(a: f32) -> isize {
+    if std::mem::size_of::<isize>() == std::mem::size_of::<i64>() {
+        let result: i64;
+        if crate::float::lean_float32_isnan(a) != 0 {
+            result = 0;
+        } else if -9223372036854775809.0 < a {
+            if a < 9223372036854775808.0 {
+                result = a as i64;
+            } else {
+                result = i64::MAX;
+            }
+        } else {
+            result = i64::MIN;
+        }
+        result as isize
+    } else {
+        let result: i32;
+        if crate::float::lean_float32_isnan(a) != 0 {
+            result = 0;
+        } else if -2147483649.0 < a {
+            if a < 2147483648.0 {
+                result = a as i32;
+            } else {
+                result = i32::MAX;
+            }
+        } else {
+            result = i32::MIN;
+        }
+        result as isize
+    }
+}
+
+/// Convert UInt8 to Float32
+#[inline]
+pub unsafe fn lean_uint8_to_float32(a: u8) -> f32 {
+    a as f32
+}
+
+/// Convert UInt16 to Float32
+#[inline]
+pub unsafe fn lean_uint16_to_float32(a: u16) -> f32 {
+    a as f32
+}
+
+/// Convert UInt32 to Float32
+#[inline]
+pub unsafe fn lean_uint32_to_float32(a: u32) -> f32 {
+    a as f32
+}
+
+/// Convert UInt64 to Float32
+#[inline]
+pub unsafe fn lean_uint64_to_float32(a: u64) -> f32 {
+    a as f32
+}
+
+/// Convert USize to Float32
+#[inline]
+pub unsafe fn lean_usize_to_float32(a: usize) -> f32 {
+    a as f32
+}
+
+/// Convert Int8 to Float32
+#[inline]
+pub unsafe fn lean_int8_to_float32(a: i8) -> f32 {
+    a as f32
+}
+
+/// Convert Int16 to Float32
+#[inline]
+pub unsafe fn lean_int16_to_float32(a: i16) -> f32 {
+    a as f32
+}
+
+/// Convert Int32 to Float32
+#[inline]
+pub unsafe fn lean_int32_to_float32(a: i32) -> f32 {
+    a as f32
+}
+
+/// Convert Int64 to Float32
+#[inline]
+pub unsafe fn lean_int64_to_float32(a: i64) -> f32 {
+    a as f32
+}
+
+/// Convert ISize to Float32
+#[inline]
+pub unsafe fn lean_isize_to_float32(a: isize) -> f32 {
+    a as f32
+}
+
+/// Convert Float to Float32
+#[inline]
+pub unsafe fn lean_float_to_float32(a: f64) -> f32 {
+    a as f32
+}
+
+/// Convert Float32 to Float
+#[inline]
+pub unsafe fn lean_float32_to_float(a: f32) -> f64 {
+    a as f64
+}
+
 // ============================================================================
 // Scalar Array (ByteArray) Functions
 // ============================================================================
@@ -1255,12 +1497,20 @@ pub unsafe fn lean_uint8_mul(a1: u8, a2: u8) -> u8 {
 
 #[inline(always)]
 pub unsafe fn lean_uint8_div(a1: u8, a2: u8) -> u8 {
-    if a2 == 0 { 0 } else { a1 / a2 }
+    if a2 == 0 {
+        0
+    } else {
+        a1 / a2
+    }
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint8_mod(a1: u8, a2: u8) -> u8 {
-    if a2 == 0 { a1 } else { a1 % a2 }
+    if a2 == 0 {
+        a1
+    } else {
+        a1 % a2
+    }
 }
 
 #[inline(always)]
@@ -1334,12 +1584,20 @@ pub unsafe fn lean_uint16_mul(a1: u16, a2: u16) -> u16 {
 
 #[inline(always)]
 pub unsafe fn lean_uint16_div(a1: u16, a2: u16) -> u16 {
-    if a2 == 0 { 0 } else { a1 / a2 }
+    if a2 == 0 {
+        0
+    } else {
+        a1 / a2
+    }
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint16_mod(a1: u16, a2: u16) -> u16 {
-    if a2 == 0 { a1 } else { a1 % a2 }
+    if a2 == 0 {
+        a1
+    } else {
+        a1 % a2
+    }
 }
 
 #[inline(always)]
@@ -1413,12 +1671,20 @@ pub unsafe fn lean_uint32_mul(a1: u32, a2: u32) -> u32 {
 
 #[inline(always)]
 pub unsafe fn lean_uint32_div(a1: u32, a2: u32) -> u32 {
-    if a2 == 0 { 0 } else { a1 / a2 }
+    if a2 == 0 {
+        0
+    } else {
+        a1 / a2
+    }
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint32_mod(a1: u32, a2: u32) -> u32 {
-    if a2 == 0 { a1 } else { a1 % a2 }
+    if a2 == 0 {
+        a1
+    } else {
+        a1 % a2
+    }
 }
 
 #[inline(always)]
@@ -1475,7 +1741,7 @@ pub unsafe fn lean_uint32_dec_le(a1: u32, a2: u32) -> bool {
 
 #[inline(always)]
 pub unsafe fn lean_uint32_is_valid_char(a: u32) -> bool {
-    a < 0xD800 || (a >= 0xE000 && a <= 0x10FFFF)
+    a < 0xD800 || (0xE000..=0x10FFFF).contains(&a)
 }
 
 // --- UInt64 Operations ---
@@ -1497,12 +1763,20 @@ pub unsafe fn lean_uint64_mul(a1: u64, a2: u64) -> u64 {
 
 #[inline(always)]
 pub unsafe fn lean_uint64_div(a1: u64, a2: u64) -> u64 {
-    if a2 == 0 { 0 } else { a1 / a2 }
+    if a2 == 0 {
+        0
+    } else {
+        a1 / a2
+    }
 }
 
 #[inline(always)]
 pub unsafe fn lean_uint64_mod(a1: u64, a2: u64) -> u64 {
-    if a2 == 0 { a1 } else { a1 % a2 }
+    if a2 == 0 {
+        a1
+    } else {
+        a1 % a2
+    }
 }
 
 #[inline(always)]
@@ -1638,12 +1912,20 @@ pub unsafe fn lean_usize_mul(a1: size_t, a2: size_t) -> size_t {
 
 #[inline(always)]
 pub unsafe fn lean_usize_div(a1: size_t, a2: size_t) -> size_t {
-    if a2 == 0 { 0 } else { a1 / a2 }
+    if a2 == 0 {
+        0
+    } else {
+        a1 / a2
+    }
 }
 
 #[inline(always)]
 pub unsafe fn lean_usize_mod(a1: size_t, a2: size_t) -> size_t {
-    if a2 == 0 { a1 } else { a1 % a2 }
+    if a2 == 0 {
+        a1
+    } else {
+        a1 % a2
+    }
 }
 
 #[inline(always)]

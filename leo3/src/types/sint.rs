@@ -30,6 +30,7 @@ pub struct LeanInt8 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanInt8 {
     /// The number of distinct values: 2^8 = 256.
     pub const SIZE: u32 = 256;
@@ -117,10 +118,7 @@ impl LeanInt8 {
     }
 
     /// Negation with wrapping semantics.
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int8_neg(Self::to_i8(a) as u8);
             Self::mk(lean, result as i8)
@@ -128,10 +126,7 @@ impl LeanInt8 {
     }
 
     /// Absolute value with wrapping semantics.
-    pub fn abs<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int8_abs(Self::to_i8(a) as u8);
             Self::mk(lean, result as i8)
@@ -238,7 +233,7 @@ impl LeanInt8 {
             return false;
         }
         let uval = val as u32;
-        uval < 0xD800 || (uval >= 0xE000 && uval <= 0x10FFFF)
+        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
     }
 
     /// Convert to LeanChar if valid Unicode scalar, otherwise return error.
@@ -342,6 +337,7 @@ pub struct LeanInt16 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanInt16 {
     /// The number of distinct values: 2^16 = 65536.
     pub const SIZE: u32 = 65536;
@@ -421,20 +417,14 @@ impl LeanInt16 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int16_neg(Self::to_i16(a) as u16);
             Self::mk(lean, result as i16)
         }
     }
 
-    pub fn abs<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int16_abs(Self::to_i16(a) as u16);
             Self::mk(lean, result as i16)
@@ -530,7 +520,7 @@ impl LeanInt16 {
             return false;
         }
         let uval = val as u32;
-        uval < 0xD800 || (uval >= 0xE000 && uval <= 0x10FFFF)
+        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
     }
 
     pub fn toChar<'l>(
@@ -633,6 +623,7 @@ pub struct LeanInt32 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanInt32 {
     /// The number of distinct values: 2^32 = 4294967296.
     pub const SIZE: u64 = 4294967296;
@@ -712,20 +703,14 @@ impl LeanInt32 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int32_neg(Self::to_i32(a) as u32);
             Self::mk(lean, result as i32)
         }
     }
 
-    pub fn abs<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int32_abs(Self::to_i32(a) as u32);
             Self::mk(lean, result as i32)
@@ -821,7 +806,7 @@ impl LeanInt32 {
             return false;
         }
         let uval = val as u32;
-        uval < 0xD800 || (uval >= 0xE000 && uval <= 0x10FFFF)
+        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
     }
 
     pub fn toChar<'l>(
@@ -924,6 +909,7 @@ pub struct LeanInt64 {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanInt64 {
     /// The number of distinct values: 2^64.
     pub const SIZE: u128 = 18446744073709551616;
@@ -1003,20 +989,14 @@ impl LeanInt64 {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int64_neg(Self::to_i64(a) as u64);
             Self::mk(lean, result as i64)
         }
     }
 
-    pub fn abs<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_int64_abs(Self::to_i64(a) as u64);
             Self::mk(lean, result as i64)
@@ -1112,7 +1092,7 @@ impl LeanInt64 {
             return false;
         }
         let uval = val as u32;
-        uval < 0xD800 || (uval >= 0xE000 && uval <= 0x10FFFF)
+        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
     }
 
     pub fn toChar<'l>(
@@ -1220,6 +1200,7 @@ pub struct LeanISize {
     _private: (),
 }
 
+#[allow(non_snake_case, missing_docs)]
 impl LeanISize {
     /// The number of distinct values (platform-dependent).
     #[cfg(target_pointer_width = "64")]
@@ -1321,20 +1302,14 @@ impl LeanISize {
         }
     }
 
-    pub fn neg<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_isize_neg(Self::to_isize(a) as usize);
             Self::mk(lean, result as isize)
         }
     }
 
-    pub fn abs<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let result = lean_isize_abs(Self::to_isize(a) as usize);
             Self::mk(lean, result as isize)
@@ -1432,7 +1407,7 @@ impl LeanISize {
             return false;
         }
         let uval = val as u32;
-        uval < 0xD800 || (uval >= 0xE000 && uval <= 0x10FFFF)
+        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
     }
 
     pub fn toChar<'l>(

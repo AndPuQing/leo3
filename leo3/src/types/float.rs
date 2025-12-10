@@ -50,11 +50,6 @@ impl LeanFloat {
         }
     }
 
-    /// Create a Lean float from an f32.
-    pub fn from_f32<'l>(lean: Lean<'l>, value: f32) -> LeanResult<LeanBound<'l, Self>> {
-        Self::from_f64(lean, value as f64)
-    }
-
     /// Create a Lean float from bits (IEEE 754 representation).
     ///
     /// # Lean4 Reference
@@ -74,11 +69,6 @@ impl LeanFloat {
     /// ```
     pub fn to_f64<'l>(obj: &LeanBound<'l, Self>) -> f64 {
         unsafe { lean_unbox_float(obj.as_ptr()) }
-    }
-
-    /// Convert a Lean float to an f32.
-    pub fn to_f32<'l>(obj: &LeanBound<'l, Self>) -> f32 {
-        Self::to_f64(obj) as f32
     }
 
     /// Convert to bits (IEEE 754 representation).
@@ -131,6 +121,18 @@ impl LeanFloat {
     #[allow(non_snake_case)]
     pub fn isFinite<'l>(obj: &LeanBound<'l, Self>) -> bool {
         unsafe { ffi::float::lean_float_isfinite(Self::to_f64(obj)) != 0 }
+    }
+
+    /// Convert to LeanFloat32 (32-bit float).
+    #[allow(non_snake_case)]
+    pub fn toFloat32<'l>(
+        obj: &LeanBound<'l, Self>,
+        lean: Lean<'l>,
+    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+        unsafe {
+            let result = ffi::inline::lean_float_to_float32(Self::to_f64(obj));
+            crate::types::LeanFloat32::from_f32(lean, result)
+        }
     }
 
     /// Check if the float is infinite.

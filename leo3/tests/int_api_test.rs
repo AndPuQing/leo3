@@ -1,5 +1,7 @@
 //! Tests for fixed-precision integer API functions (constants, comparisons, character conversions)
 
+#![allow(non_snake_case)]
+
 use leo3::prelude::*;
 
 #[test]

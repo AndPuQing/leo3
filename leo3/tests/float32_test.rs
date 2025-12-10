@@ -1,3 +1,5 @@
+#![allow(clippy::approx_constant)]
+
 use leo3::prelude::*;
 
 #[test]
@@ -100,7 +102,7 @@ fn test_float32_comparisons() {
 fn test_float32_math_functions() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> LeanResult<()> {
         let x = LeanFloat32::from_f32(lean, 9.0)?;
 
         // Test square root
@@ -130,7 +132,7 @@ fn test_float32_math_functions() {
 fn test_float32_bits() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> LeanResult<()> {
         let f = LeanFloat32::from_f32(lean, 1.0)?;
         let bits = LeanFloat32::toBits(&f);
 
@@ -150,7 +152,7 @@ fn test_float32_bits() {
 fn test_float32_to_float64_conversion() {
     leo3::prepare_freethreaded_lean();
 
-    leo3::with_lean(|lean| {
+    leo3::with_lean(|lean| -> LeanResult<()> {
         let f32_val = LeanFloat32::from_f32(lean, 3.14)?;
         let f64_val = LeanFloat32::toFloat(&f32_val, lean)?;
 
