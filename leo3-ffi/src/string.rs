@@ -3,9 +3,49 @@
 //! Based on the string functions from lean.h
 
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
-use libc::c_char;
+use libc::{c_char, size_t};
 
 extern "C" {
+    /// Get UTF-8 string length in characters
+    ///
+    /// # Safety
+    /// - `str` must be a valid null-terminated UTF-8 string
+    pub fn lean_utf8_strlen(str: *const c_char) -> size_t;
+
+    /// Get UTF-8 string length in characters (bounded by n bytes)
+    ///
+    /// # Safety
+    /// - `str` must be a valid UTF-8 string of at least `n` bytes
+    pub fn lean_utf8_n_strlen(str: *const c_char, n: size_t) -> size_t;
+
+    /// Create a new Lean string from C string (unchecked)
+    ///
+    /// # Safety
+    /// - `s` must be a valid UTF-8 string
+    /// - `sz` is the byte size
+    /// - `len` is the character length
+    pub fn lean_mk_string_unchecked(s: *const c_char, sz: size_t, len: size_t) -> lean_obj_res;
+
+    /// Create a new Lean string from bytes
+    ///
+    /// # Safety
+    /// - `s` must be a valid UTF-8 byte sequence
+    /// - `sz` is the byte size
+    pub fn lean_mk_string_from_bytes(s: *const c_char, sz: size_t) -> lean_obj_res;
+
+    /// Create a new Lean string from bytes (unchecked)
+    ///
+    /// # Safety
+    /// - `s` must be a valid UTF-8 byte sequence
+    /// - `sz` is the byte size (no validation performed)
+    pub fn lean_mk_string_from_bytes_unchecked(s: *const c_char, sz: size_t) -> lean_obj_res;
+
+    /// Create a new Lean string from ASCII C string (unchecked)
+    ///
+    /// # Safety
+    /// - `s` must be a valid null-terminated ASCII string
+    pub fn lean_mk_ascii_string_unchecked(s: *const c_char) -> lean_obj_res;
+
     /// Create a new Lean string from C string
     ///
     /// # Safety
@@ -45,12 +85,32 @@ extern "C" {
     /// - `i` must be a valid byte position (boxed usize)
     pub fn lean_string_utf8_get(s: b_lean_obj_arg, i: b_lean_obj_arg) -> u32;
 
+    /// Get UTF-8 character at position (cold path)
+    ///
+    /// # Safety
+    /// - `str` must be a valid UTF-8 string
+    /// - `i` must be < size
+    /// - `c` is the byte at position i
+    pub fn lean_string_utf8_get_fast_cold(
+        str: *const c_char,
+        i: size_t,
+        size: size_t,
+        c: u8,
+    ) -> u32;
+
     /// Get next UTF-8 byte position
     ///
     /// # Safety
     /// - `s` must be a valid string object
     /// - `i` must be a valid byte position (boxed usize)
     pub fn lean_string_utf8_next(s: b_lean_obj_arg, i: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get next UTF-8 byte position (cold path)
+    ///
+    /// # Safety
+    /// - `i` is the current position
+    /// - `c` is the byte at position i
+    pub fn lean_string_utf8_next_fast_cold(i: size_t, c: u8) -> lean_obj_res;
 
     /// Get previous UTF-8 byte position
     ///
@@ -89,6 +149,45 @@ extern "C" {
     /// # Safety
     /// - `s1` and `s2` must be valid string objects
     pub fn lean_string_lt(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> bool;
+
+    /// Compute hash of a string
+    ///
+    /// # Safety
+    /// - `s` must be a valid string object
+    pub fn lean_string_hash(s: b_lean_obj_arg) -> u64;
+
+    /// Convert usize to string
+    ///
+    /// # Safety
+    /// - Always safe to call
+    pub fn lean_string_of_usize(n: size_t) -> lean_obj_res;
+
+    /// Compare string regions using memcmp
+    ///
+    /// # Safety
+    /// - `s1` and `s2` must be valid string objects
+    /// - `lstart`, `rstart`, and `len` must be valid byte positions (boxed usize)
+    ///   Returns: 0 if equal, 1 if s1 > s2, 2 if s1 < s2
+    pub fn lean_string_memcmp(
+        s1: b_lean_obj_arg,
+        s2: b_lean_obj_arg,
+        lstart: b_lean_obj_arg,
+        rstart: b_lean_obj_arg,
+        len: b_lean_obj_arg,
+    ) -> u8;
+
+    /// Compute hash of a string slice
+    ///
+    /// # Safety
+    /// - `s` must be a valid string object
+    pub fn lean_slice_hash(s: b_lean_obj_arg) -> u64;
+
+    /// Compare two string slices lexicographically (decidable less-than)
+    ///
+    /// # Safety
+    /// - `s1` and `s2` must be valid string slice objects
+    ///   Returns: 1 if s1 < s2, 0 otherwise
+    pub fn lean_slice_dec_lt(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> u8;
 }
 
 // Inline helper functions from lean.h

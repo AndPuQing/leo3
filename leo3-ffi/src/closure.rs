@@ -53,6 +53,199 @@ extern "C" {
         a4: lean_obj_arg,
     ) -> lean_obj_res;
 
+    /// Apply a closure to five arguments
+    pub fn lean_apply_5(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to six arguments
+    pub fn lean_apply_6(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to seven arguments
+    pub fn lean_apply_7(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to eight arguments
+    pub fn lean_apply_8(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to nine arguments
+    pub fn lean_apply_9(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to ten arguments
+    pub fn lean_apply_10(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to eleven arguments
+    pub fn lean_apply_11(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to twelve arguments
+    pub fn lean_apply_12(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+        a12: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to thirteen arguments
+    pub fn lean_apply_13(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+        a12: lean_obj_arg,
+        a13: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to fourteen arguments
+    pub fn lean_apply_14(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+        a12: lean_obj_arg,
+        a13: lean_obj_arg,
+        a14: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to fifteen arguments
+    pub fn lean_apply_15(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+        a12: lean_obj_arg,
+        a13: lean_obj_arg,
+        a14: lean_obj_arg,
+        a15: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to sixteen arguments
+    pub fn lean_apply_16(
+        c: lean_obj_arg,
+        a1: lean_obj_arg,
+        a2: lean_obj_arg,
+        a3: lean_obj_arg,
+        a4: lean_obj_arg,
+        a5: lean_obj_arg,
+        a6: lean_obj_arg,
+        a7: lean_obj_arg,
+        a8: lean_obj_arg,
+        a9: lean_obj_arg,
+        a10: lean_obj_arg,
+        a11: lean_obj_arg,
+        a12: lean_obj_arg,
+        a13: lean_obj_arg,
+        a14: lean_obj_arg,
+        a15: lean_obj_arg,
+        a16: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Apply a closure to n arguments (general case)
+    ///
+    /// # Safety
+    /// - `c` must be a valid closure object (consumed)
+    /// - `args` must be an array of `n` valid lean objects
+    pub fn lean_apply_n(c: lean_obj_arg, n: c_uint, args: *mut lean_obj_arg) -> lean_obj_res;
+
     /// Apply a closure to multiple arguments
     ///
     /// # Safety
@@ -78,6 +271,12 @@ extern "C" {
     /// - `t` must be a valid thunk object
     pub fn lean_thunk_get(t: b_lean_obj_arg) -> b_lean_obj_res;
 
+    /// Get the value of a thunk (core implementation)
+    ///
+    /// # Safety
+    /// - `t` must be a valid thunk object (consumed)
+    pub fn lean_thunk_get_core(t: lean_obj_arg) -> lean_obj_res;
+
     /// Get the value of an owned thunk (forcing evaluation if needed)
     ///
     /// # Safety
@@ -96,6 +295,30 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
+    /// Initialize the task manager with default number of workers
+    ///
+    /// Must be called before using task functions
+    pub fn lean_init_task_manager();
+
+    /// Initialize the task manager with a specific number of workers
+    ///
+    /// # Safety
+    /// - `num_workers` should be > 0
+    pub fn lean_init_task_manager_using(num_workers: c_uint);
+
+    /// Finalize the task manager
+    ///
+    /// Should be called before program exit
+    pub fn lean_finalize_task_manager();
+
+    /// Spawn a new task (core implementation)
+    ///
+    /// # Safety
+    /// - `c` must be a valid closure object (consumed)
+    /// - `prio` is the task priority
+    /// - `keep_alive` indicates if the task should prevent thread pool shutdown
+    pub fn lean_task_spawn_core(c: lean_obj_arg, prio: c_uint, keep_alive: bool) -> lean_obj_res;
+
     /// Spawn a new task
     ///
     /// # Safety
@@ -115,6 +338,22 @@ extern "C" {
     /// - `t` must be a valid task object (consumed)
     pub fn lean_task_get_own(t: lean_obj_arg) -> lean_obj_res;
 
+    /// Map a function over a task (core implementation)
+    ///
+    /// # Safety
+    /// - `f` must be a valid closure object (consumed)
+    /// - `t` must be a valid task object (consumed)
+    /// - `prio` is the priority for the new task
+    /// - `sync` indicates if the task should be forced synchronously
+    /// - `keep_alive` indicates if the task should prevent thread pool shutdown
+    pub fn lean_task_map_core(
+        f: lean_obj_arg,
+        t: lean_obj_arg,
+        prio: c_uint,
+        sync: bool,
+        keep_alive: bool,
+    ) -> lean_obj_res;
+
     /// Map a function over a task
     ///
     /// # Safety
@@ -122,6 +361,22 @@ extern "C" {
     /// - `t` must be a valid task object (consumed)
     /// - `prio` is the priority for the new task
     pub fn lean_task_map(f: lean_obj_arg, t: lean_obj_arg, prio: c_uint) -> lean_obj_res;
+
+    /// Bind a function over a task (core implementation)
+    ///
+    /// # Safety
+    /// - `t` must be a valid task object (consumed)
+    /// - `f` must be a valid closure object (consumed)
+    /// - `prio` is the priority for the new task
+    /// - `sync` indicates if the task should be forced synchronously
+    /// - `keep_alive` indicates if the task should prevent thread pool shutdown
+    pub fn lean_task_bind_core(
+        t: lean_obj_arg,
+        f: lean_obj_arg,
+        prio: c_uint,
+        sync: bool,
+        keep_alive: bool,
+    ) -> lean_obj_res;
 
     /// Bind a function over a task (monadic bind)
     ///
@@ -138,6 +393,30 @@ extern "C" {
     /// # Safety
     /// - `v` is the value to wrap (consumed)
     pub fn lean_task_pure(v: lean_obj_arg) -> lean_obj_res;
+
+    /// Check if cancellation was requested
+    ///
+    /// Returns true if a cancellation is pending
+    pub fn lean_io_check_canceled_core() -> bool;
+
+    /// Cancel a task
+    ///
+    /// # Safety
+    /// - `t` must be a valid task object
+    pub fn lean_io_cancel_core(t: b_lean_obj_arg);
+
+    /// Get task state
+    ///
+    /// # Safety
+    /// - `t` must be a valid task object
+    ///   Returns: 0 = running, 1 = finished, 2 = aborted
+    pub fn lean_io_get_task_state_core(t: b_lean_obj_arg) -> u8;
+
+    /// Wait for any task in a list to complete
+    ///
+    /// # Safety
+    /// - `task_list` must be a valid list of task objects
+    pub fn lean_io_wait_any_core(task_list: b_lean_obj_arg) -> b_lean_obj_res;
 }
 
 // ============================================================================

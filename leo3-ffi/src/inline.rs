@@ -523,7 +523,7 @@ pub unsafe fn lean_nat_add(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
         }
     }
     // Fall back to big nat addition
-    lean_nat_big_add(a1, a2)
+    lean_nat_big_add(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
 /// Subtract natural numbers.
@@ -539,7 +539,7 @@ pub unsafe fn lean_nat_sub(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
             return lean_box(n1 - n2);
         }
     }
-    lean_nat_big_sub(a1, a2)
+    lean_nat_big_sub(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
 /// Multiply two natural numbers.
@@ -557,7 +557,7 @@ pub unsafe fn lean_nat_mul(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
             }
         }
     }
-    lean_nat_big_mul(a1, a2)
+    lean_nat_big_mul(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
 /// Divide natural numbers.
@@ -574,7 +574,7 @@ pub unsafe fn lean_nat_div(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
             return lean_box(n1 / n2);
         }
     }
-    lean_nat_big_div(a1, a2)
+    lean_nat_big_div(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
 /// Modulo operation.
@@ -591,7 +591,7 @@ pub unsafe fn lean_nat_mod(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
             return lean_box(n1 % n2);
         }
     }
-    lean_nat_big_mod(a1, a2)
+    lean_nat_big_mod(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
 // Nat comparison functions
@@ -622,18 +622,11 @@ pub unsafe fn lean_nat_dec_le(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool {
     }
 }
 
-// External declarations for big nat operations
-extern "C" {
-    fn lean_nat_big_add(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_sub(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_mul(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_div(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_mod(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-    fn lean_nat_big_eq(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
-    fn lean_nat_big_lt(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
-    fn lean_nat_big_le(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
-    fn lean_nat_big_xor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_res;
-}
+// Import big nat operations from nat module
+use crate::nat::{
+    lean_nat_big_add, lean_nat_big_div, lean_nat_big_eq, lean_nat_big_le, lean_nat_big_lt,
+    lean_nat_big_mod, lean_nat_big_mul, lean_nat_big_sub, lean_nat_big_xor,
+};
 
 /// Bitwise XOR for natural numbers
 ///
@@ -644,7 +637,7 @@ pub unsafe fn lean_nat_lxor(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_
     if lean_is_scalar(a1) && lean_is_scalar(a2) {
         lean_box(lean_unbox(a1) ^ lean_unbox(a2))
     } else {
-        lean_nat_big_xor(a1, a2)
+        lean_nat_big_xor(a1 as lean_obj_arg, a2 as lean_obj_arg)
     }
 }
 

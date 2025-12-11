@@ -326,4 +326,59 @@ pub use crate::inline::lean_mk_empty_byte_array;
 extern "C" {
     /// Push a byte to byte array
     pub fn lean_byte_array_push(a: lean_obj_arg, b: u8) -> lean_obj_res;
+
+    /// Create a byte array from a list
+    ///
+    /// # Safety
+    /// - `a` must be a valid list object (consumed)
+    pub fn lean_byte_array_mk(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Convert byte array to list
+    ///
+    /// # Safety
+    /// - `a` must be a valid byte array object (consumed)
+    pub fn lean_byte_array_data(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Copy a byte array
+    ///
+    /// # Safety
+    /// - `a` must be a valid byte array object (consumed)
+    pub fn lean_copy_byte_array(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Compute hash of byte array
+    ///
+    /// # Safety
+    /// - `a` must be a valid byte array object
+    pub fn lean_byte_array_hash(a: b_lean_obj_arg) -> u64;
+}
+
+// ============================================================================
+// FloatArray Functions
+// ============================================================================
+
+extern "C" {
+    /// Create a float array from a list
+    ///
+    /// # Safety
+    /// - `a` must be a valid list object (consumed)
+    pub fn lean_float_array_mk(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Convert float array to list
+    ///
+    /// # Safety
+    /// - `a` must be a valid float array object (consumed)
+    pub fn lean_float_array_data(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Copy a float array
+    ///
+    /// # Safety
+    /// - `a` must be a valid float array object (consumed)
+    pub fn lean_copy_float_array(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Push a float to float array
+    ///
+    /// # Safety
+    /// - `a` must be a valid float array object (consumed)
+    /// - `d` is the float64 value to push
+    pub fn lean_float_array_push(a: lean_obj_arg, d: f64) -> lean_obj_res;
 }

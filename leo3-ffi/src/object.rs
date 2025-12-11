@@ -204,4 +204,28 @@ extern "C" {
 
     /// Panic function (returns default value)
     pub fn lean_panic_fn(default_val: lean_obj_arg, msg: lean_obj_arg) -> lean_obj_res;
+
+    /// Internal panic (always terminates)
+    ///
+    /// # Safety
+    /// - Never returns
+    pub fn lean_internal_panic(msg: *const c_char) -> !;
+
+    /// Internal panic for out of memory (always terminates)
+    ///
+    /// # Safety
+    /// - Never returns
+    pub fn lean_internal_panic_out_of_memory() -> !;
+
+    /// Internal panic for unreachable code (always terminates)
+    ///
+    /// # Safety
+    /// - Never returns
+    pub fn lean_internal_panic_unreachable() -> !;
+
+    /// Internal panic for reference count overflow (always terminates)
+    ///
+    /// # Safety
+    /// - Never returns
+    pub fn lean_internal_panic_rc_overflow() -> !;
 }

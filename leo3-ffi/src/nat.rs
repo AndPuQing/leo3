@@ -33,6 +33,102 @@ pub unsafe fn lean_nat_shiftr(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_ob
 
 // These are actual exported functions from Lean4, not inline
 extern "C" {
+    /// Successor operation for big nat
+    ///
+    /// # Safety
+    /// - `a` must be a valid nat object (consumed)
+    pub fn lean_nat_big_succ(a: lean_obj_arg) -> lean_obj_res;
+
+    /// Addition for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_add(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Subtraction for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_sub(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Multiplication for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_mul(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Handle overflow in nat multiplication
+    ///
+    /// # Safety
+    /// - Called when multiplication would overflow small nat representation
+    pub fn lean_nat_overflow_mul(a1: usize, a2: usize) -> lean_obj_res;
+
+    /// Division for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_div(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Exact division for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_div_exact(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Modulus for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_mod(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Equality comparison for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects
+    pub fn lean_nat_big_eq(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
+
+    /// Less-than-or-equal comparison for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects
+    pub fn lean_nat_big_le(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
+
+    /// Less-than comparison for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects
+    pub fn lean_nat_big_lt(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool;
+
+    /// Bitwise AND for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_land(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise OR for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_lor(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Bitwise XOR for big nat
+    ///
+    /// # Safety
+    /// - Both arguments must be valid nat objects (consumed)
+    pub fn lean_nat_big_xor(a1: lean_obj_arg, a2: lean_obj_arg) -> lean_obj_res;
+
+    /// Convert C string to nat
+    ///
+    /// # Safety
+    /// - `n` must be a valid null-terminated string representing a number
+    pub fn lean_cstr_to_nat(n: *const libc::c_char) -> lean_obj_res;
+
+    /// Convert usize to bignat (for large values)
+    ///
+    /// # Safety
+    /// - Always safe to call
+    pub fn lean_big_usize_to_nat(n: usize) -> lean_obj_res;
+
     /// Power operation
     ///
     /// # Safety
@@ -98,6 +194,12 @@ extern "C" {
     /// # Safety
     /// - `a` must be a valid nat object that is not scalar
     pub fn lean_uint64_of_big_nat(a: b_lean_obj_arg) -> u64;
+
+    /// Extract usize from bignat object
+    ///
+    /// # Safety
+    /// - `a` must be a valid nat object that is not scalar
+    pub fn lean_usize_of_big_nat(a: b_lean_obj_arg) -> usize;
 
     // ============================================================================
     // Native Lean Nat functions (compiled from Lean stdlib)

@@ -4,17 +4,30 @@
 //! Lean integers support arbitrary precision for large values.
 
 use crate::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
+use libc::c_char;
 
 extern "C" {
-    /// Convert a 64-bit signed integer to a Lean Int (for large values).
+    /// Convert a C string to a Lean Int
     ///
-    /// This is called when the value doesn't fit in small int range.
-    pub fn lean_big_int64_to_int(n: i64) -> lean_obj_res;
+    /// # Safety
+    /// - `n` must be a valid null-terminated string representing an integer
+    pub fn lean_cstr_to_int(n: *const c_char) -> lean_obj_res;
+
+    /// Convert a regular int to a Lean Int (for large values)
+    ///
+    /// # Safety
+    /// - This is called when the value doesn't fit in small int range
+    pub fn lean_big_int_to_int(n: i32) -> lean_obj_res;
 
     /// Convert a size_t to a Lean Int (for large values).
     ///
     /// This is called when the value doesn't fit in small int range.
     pub fn lean_big_size_t_to_int(n: usize) -> lean_obj_res;
+
+    /// Convert a 64-bit signed integer to a Lean Int (for large values).
+    ///
+    /// This is called when the value doesn't fit in small int range.
+    pub fn lean_big_int64_to_int(n: i64) -> lean_obj_res;
 
     /// Negate a large integer
     pub fn lean_int_big_neg(a: b_lean_obj_arg) -> lean_obj_res;
@@ -54,4 +67,34 @@ extern "C" {
 
     /// Check if a large integer is non-negative
     pub fn lean_int_big_nonneg(a: lean_obj_arg) -> bool;
+
+    /// Extract int8 from big int object
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object that is not scalar
+    pub fn lean_int8_of_big_int(a: b_lean_obj_arg) -> i8;
+
+    /// Extract int16 from big int object
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object that is not scalar
+    pub fn lean_int16_of_big_int(a: b_lean_obj_arg) -> i16;
+
+    /// Extract int32 from big int object
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object that is not scalar
+    pub fn lean_int32_of_big_int(a: b_lean_obj_arg) -> i32;
+
+    /// Extract int64 from big int object
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object that is not scalar
+    pub fn lean_int64_of_big_int(a: b_lean_obj_arg) -> i64;
+
+    /// Extract isize from big int object
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object that is not scalar
+    pub fn lean_isize_of_big_int(a: b_lean_obj_arg) -> isize;
 }

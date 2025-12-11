@@ -112,6 +112,128 @@ extern "C" {
 }
 
 // ============================================================================
+// Utility Functions
+// ============================================================================
+
+extern "C" {
+    /// Mix two uint64 hashes
+    ///
+    /// Used for combining hash values
+    pub fn lean_uint64_mix_hash(a1: u64, a2: u64) -> u64;
+
+    /// Compare two Lean Name objects for equality
+    ///
+    /// # Safety
+    /// - `n1` and `n2` must be valid name objects
+    pub fn lean_name_eq(n1: b_lean_obj_arg, n2: b_lean_obj_arg) -> u8;
+
+    /// Convert Lean Int to Lean Nat
+    ///
+    /// # Safety
+    /// - `a` must be a valid int object (consumed)
+    pub fn lean_big_int_to_nat(a: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
+// Debug Functions
+// ============================================================================
+
+extern "C" {
+    /// Debug trace - print a string and call a function
+    ///
+    /// # Safety
+    /// - `s` must be a valid string object (consumed)
+    /// - `fn_` must be a valid closure (consumed)
+    pub fn lean_dbg_trace(s: lean_obj_arg, fn_: lean_obj_arg) -> lean_obj_res;
+
+    /// Debug sleep - sleep for specified milliseconds and call a function
+    ///
+    /// # Safety
+    /// - `fn_` must be a valid closure (consumed)
+    pub fn lean_dbg_sleep(ms: u32, fn_: lean_obj_arg) -> lean_obj_res;
+
+    /// Debug trace if shared - trace object if it's shared
+    ///
+    /// # Safety
+    /// - `s` must be a valid string object (consumed)
+    /// - `a` must be a valid object (borrowed)
+    pub fn lean_dbg_trace_if_shared(s: lean_obj_arg, a: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
+// ST Reference Functions (State Thread References)
+// ============================================================================
+
+extern "C" {
+    /// Create a new ST reference
+    ///
+    /// # Safety
+    /// - `v` is the initial value (consumed)
+    pub fn lean_st_mk_ref(v: lean_obj_arg) -> lean_obj_res;
+
+    /// Get the value from an ST reference
+    ///
+    /// # Safety
+    /// - `r` must be a valid ST ref object
+    pub fn lean_st_ref_get(r: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Set the value of an ST reference
+    ///
+    /// # Safety
+    /// - `r` must be a valid ST ref object
+    /// - `v` is the new value (consumed)
+    pub fn lean_st_ref_set(r: b_lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
+
+    /// Reset an ST reference (set to default/zero value)
+    ///
+    /// # Safety
+    /// - `r` must be a valid ST ref object
+    pub fn lean_st_ref_reset(r: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Swap the value of an ST reference, returning the old value
+    ///
+    /// # Safety
+    /// - `r` must be a valid ST ref object
+    /// - `v` is the new value (consumed)
+    pub fn lean_st_ref_swap(r: b_lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
+// IO Error Handling
+// ============================================================================
+
+extern "C" {
+    /// Decode a POSIX errno into a Lean IO error
+    ///
+    /// # Safety
+    /// - `fname` must be a valid string object (borrowed)
+    pub fn lean_decode_io_error(errnum: libc::c_int, fname: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Decode a libuv error code into a Lean IO error
+    ///
+    /// # Safety
+    /// - `fname` must be a valid string object (borrowed)
+    pub fn lean_decode_uv_error(errnum: libc::c_int, fname: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Show an IO error result to stderr
+    ///
+    /// # Safety
+    /// - `r` must be a valid IO result object
+    pub fn lean_io_result_show_error(r: b_lean_obj_arg);
+
+    /// Mark end of initialization phase
+    ///
+    /// Called after program initialization is complete
+    pub fn lean_io_mark_end_initialization();
+
+    /// Create a user-defined IO error
+    ///
+    /// # Safety
+    /// - `str` must be a valid string object (consumed)
+    pub fn lean_mk_io_user_error(str: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
 // Object Type Checking Helpers (inline from lean.h)
 // ============================================================================
 
