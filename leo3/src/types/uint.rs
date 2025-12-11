@@ -318,6 +318,323 @@ macro_rules! uint_type {
     };
 }
 
+macro_rules! platform_uint_type {
+    (
+        name: $name:ident,
+        rust: $rust:ty,
+        prefix: $prefix:ident,
+        conversions: [ $( $method:ident => ($target:ident, $target_rust:ty, $ffi_fn:ident) ),* $(,)? ],
+    ) => {
+        paste! {
+            #[doc = concat!("A Lean platform-sized unsigned integer (", stringify!($name), ").")]
+            pub struct $name {
+                _private: (),
+            }
+
+            #[allow(non_snake_case, missing_docs)]
+            impl $name {
+                #[cfg(target_pointer_width = "64")]
+                pub const SIZE: u128 = 18446744073709551616; // 2^64
+
+                #[cfg(target_pointer_width = "32")]
+                pub const SIZE: u64 = 4294967296; // 2^32
+
+                pub const MIN: $rust = <$rust>::MIN;
+
+                #[cfg(target_pointer_width = "64")]
+                pub const MAX: $rust = 18446744073709551615; // 2^64 - 1
+
+                #[cfg(target_pointer_width = "32")]
+                pub const MAX: $rust = 4294967295; // 2^32 - 1
+
+                pub fn mk<'l>(lean: Lean<'l>, value: $rust) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        if std::mem::size_of::<$rust>() == 8 {
+                            let ptr = ffi::lean_alloc_ctor(0, 0, 8);
+                            lean_ctor_set_uint64(ptr, 0, value as u64);
+                            Ok(LeanBound::from_owned_ptr(lean, ptr))
+                        } else {
+                            let ptr = ffi::lean_alloc_ctor(0, 0, 4);
+                            lean_ctor_set_uint32(ptr, 0, value as u32);
+                            Ok(LeanBound::from_owned_ptr(lean, ptr))
+                        }
+                    }
+                }
+
+                pub fn [<to_ $rust>]<'l>(obj: &LeanBound<'l, Self>) -> $rust {
+                    if std::mem::size_of::<$rust>() == 8 {
+                        unsafe { lean_ctor_get_uint64(obj.as_ptr(), 0) as $rust }
+                    } else {
+                        unsafe { lean_ctor_get_uint32(obj.as_ptr(), 0) as $rust }
+                    }
+                }
+
+                pub fn add<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _add>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn sub<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _sub>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn mul<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _mul>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn div<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _div>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn mod_<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _mod>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _neg>](Self::[<to_ $rust>](a));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn land<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _land>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn lor<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _lor>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn xor<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _xor>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn complement<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _complement>](Self::[<to_ $rust>](a));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn shiftLeft<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _shift_left>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn shiftRight<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$prefix _shift_right>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b));
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$prefix _dec_eq>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b)) }
+                }
+
+                pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$prefix _dec_lt>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b)) }
+                }
+
+                pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$prefix _dec_le>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b)) }
+                }
+
+                pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
+                    let val = Self::[<to_ $rust>](obj) as u64;
+                    val <= u32::MAX as u64 && char::from_u32(val as u32).is_some()
+                }
+
+                pub fn toChar<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, LeanChar>> {
+                    let val = Self::[<to_ $rust>](obj) as u64;
+                    if val > u32::MAX as u64 {
+                        return Err(crate::err::LeanError::conversion(
+                            "Value out of range for Unicode scalar",
+                        ));
+                    }
+                    match char::from_u32(val as u32) {
+                        Some(c) => LeanChar::mk(lean, c),
+                        None => Err(crate::err::LeanError::conversion(
+                            "Invalid Unicode scalar value",
+                        )),
+                    }
+                }
+
+                pub fn toInt<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
+                    let nat = Self::toNat(obj, lean)?;
+                    crate::types::LeanInt::ofNat(lean, nat)
+                }
+
+                pub fn ofInt<'l>(
+                    lean: Lean<'l>,
+                    int: &LeanBound<'l, crate::types::LeanInt>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as $rust;
+                    Self::mk(lean, val)
+                }
+
+                pub fn toNat<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
+                    unsafe {
+                        let ptr = [<$prefix _to_nat>](Self::[<to_ $rust>](obj));
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn ofNat<'l>(
+                    lean: Lean<'l>,
+                    nat: &LeanBound<'l, crate::types::LeanNat>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let val = [<$prefix _of_nat>](nat.as_ptr()) as $rust;
+                        Self::mk(lean, val)
+                    }
+                }
+
+                pub fn ofNatTruncate<'l>(
+                    lean: Lean<'l>,
+                    nat: &LeanBound<'l, crate::types::LeanNat>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    Self::ofNat(lean, nat)
+                }
+
+                pub fn ofNatLT<'l>(
+                    lean: Lean<'l>,
+                    nat: &LeanBound<'l, crate::types::LeanNat>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    Self::ofNat(lean, nat)
+                }
+
+                pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$prefix _dec_le>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b)) }
+                }
+
+                pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$prefix _dec_lt>](Self::[<to_ $rust>](a), Self::[<to_ $rust>](b)) }
+                }
+
+                pub fn toFloat<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
+                    unsafe {
+                        let ptr = ffi::inline::lean_box_float(Self::[<to_ $rust>](obj) as f64);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn toFloat32<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+                    unsafe {
+                        let ptr = ffi::inline::lean_box_float32([<$prefix _to_float32>](Self::[<to_ $rust>](obj)));
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                $(
+                    pub fn $method<'l>(
+                        obj: &LeanBound<'l, Self>,
+                        lean: Lean<'l>,
+                    ) -> LeanResult<LeanBound<'l, $target>> {
+                        unsafe {
+                            let val = $ffi_fn(Self::[<to_ $rust>](obj));
+                            $target::mk(lean, val as $target_rust)
+                        }
+                    }
+                )*
+
+                pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> $rust {
+                    unsafe { [<$prefix _log2>](Self::[<to_ $rust>](obj)) as $rust }
+                }
+            }
+
+            impl<'l> std::fmt::Debug for LeanBound<'l, $name> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, concat!(stringify!($name), "({})"), $name::[<to_ $rust>](self))
+                }
+            }
+        }
+    };
+}
+
 uint_type! {
     name: LeanUInt8,
     rust: u8,
@@ -382,378 +699,14 @@ uint_type! {
     ],
 }
 
-/// A Lean platform-sized unsigned integer (USize).
-pub struct LeanUSize {
-    _private: (),
-}
-
-#[allow(non_snake_case, missing_docs)]
-impl LeanUSize {
-    /// The number of distinct values (platform-dependent).
-    #[cfg(target_pointer_width = "64")]
-    pub const SIZE: u128 = 18446744073709551616; // 2^64
-
-    #[cfg(target_pointer_width = "32")]
-    pub const SIZE: u64 = 4294967296; // 2^32
-
-    /// The minimum value: 0.
-    pub const MIN: usize = 0;
-
-    /// The maximum value (platform-dependent).
-    #[cfg(target_pointer_width = "64")]
-    pub const MAX: usize = 18446744073709551615; // 2^64 - 1
-
-    #[cfg(target_pointer_width = "32")]
-    pub const MAX: usize = 4294967295; // 2^32 - 1
-
-    /// Create a Lean USize from a Rust usize.
-    pub fn mk<'l>(lean: Lean<'l>, value: usize) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            if std::mem::size_of::<usize>() == 8 {
-                let ptr = ffi::lean_alloc_ctor(0, 0, 8);
-                lean_ctor_set_uint64(ptr, 0, value as u64);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            } else {
-                let ptr = ffi::lean_alloc_ctor(0, 0, 4);
-                lean_ctor_set_uint32(ptr, 0, value as u32);
-                Ok(LeanBound::from_owned_ptr(lean, ptr))
-            }
-        }
-    }
-
-    /// Convert to Rust usize.
-    pub fn to_usize<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        if std::mem::size_of::<usize>() == 8 {
-            unsafe { lean_ctor_get_uint64(obj.as_ptr(), 0) as usize }
-        } else {
-            unsafe { lean_ctor_get_uint32(obj.as_ptr(), 0) as usize }
-        }
-    }
-
-    // Arithmetic operations
-
-    pub fn add<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_add(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn sub<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_sub(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn mul<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_mul(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn div<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_div(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn mod_<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_mod(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_neg(Self::to_usize(a));
-            Self::mk(lean, result)
-        }
-    }
-
-    // Bitwise operations
-
-    pub fn land<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_land(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn lor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_lor(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn xor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_xor(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn complement<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_complement(Self::to_usize(a));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn shiftLeft<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_shift_left(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    pub fn shiftRight<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_usize_shift_right(Self::to_usize(a), Self::to_usize(b));
-            Self::mk(lean, result)
-        }
-    }
-
-    // Comparison operations
-
-    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_usize_dec_eq(Self::to_usize(a), Self::to_usize(b)) }
-    }
-
-    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_usize_dec_lt(Self::to_usize(a), Self::to_usize(b)) }
-    }
-
-    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_usize_dec_le(Self::to_usize(a), Self::to_usize(b)) }
-    }
-
-    // Character operations
-
-    pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        let val = Self::to_usize(obj) as u64;
-        val < 0xD800 || (0xE000..=0x10FFFF).contains(&val)
-    }
-
-    pub fn toChar<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanChar>> {
-        let val = Self::to_usize(obj) as u64;
-        if val > u32::MAX as u64 {
-            return Err(crate::err::LeanError::conversion(
-                "Value out of range for Unicode scalar",
-            ));
-        }
-        match char::from_u32(val as u32) {
-            Some(c) => LeanChar::mk(lean, c),
-            None => Err(crate::err::LeanError::conversion(
-                "Invalid Unicode scalar value",
-            )),
-        }
-    }
-
-    // Conversions to/from arbitrary precision types
-
-    /// Convert to LeanInt (arbitrary precision integer).
-    pub fn toInt<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
-        let nat = Self::toNat(obj, lean)?;
-        crate::types::LeanInt::ofNat(lean, nat)
-    }
-
-    /// Create from LeanInt (wrapping if out of range).
-    pub fn ofInt<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as usize;
-        Self::mk(lean, val)
-    }
-
-    /// Convert to LeanNat (arbitrary precision natural number).
-    pub fn toNat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
-        unsafe {
-            let val = Self::to_usize(obj);
-            let ptr = ffi::inline::lean_usize_to_nat(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanNat (wrapping if out of range).
-    pub fn ofNat<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let val = ffi::inline::lean_usize_of_nat(nat.as_ptr());
-            Self::mk(lean, val)
-        }
-    }
-
-    /// Create from LeanNat with explicit truncation (same as ofNat).
-    pub fn ofNatTruncate<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    /// Create from LeanNat with proof that value is less than size.
-    /// In FFI context, this is the same as ofNat since we can't verify the proof.
-    pub fn ofNatLT<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    // Comparison operations (non-decidable versions)
-
-    /// Less than or equal comparison.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_usize_dec_le(Self::to_usize(a), Self::to_usize(b)) }
-    }
-
-    /// Less than comparison.
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_usize_dec_lt(Self::to_usize(a), Self::to_usize(b)) }
-    }
-
-    // Float conversions
-
-    /// Convert to LeanFloat (64-bit float).
-    pub fn toFloat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
-        unsafe {
-            let val = Self::to_usize(obj) as f64;
-            let ptr = ffi::inline::lean_box_float(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to LeanFloat32 (32-bit float).
-    pub fn toFloat32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
-        unsafe {
-            let val = lean_usize_to_float32(Self::to_usize(obj));
-            let ptr = ffi::inline::lean_box_float32(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    // UInt conversions
-
-    /// Convert to LeanUInt8.
-    pub fn toUInt8<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanUInt8>> {
-        unsafe {
-            let val = lean_usize_to_uint8(Self::to_usize(obj));
-            LeanUInt8::mk(lean, val)
-        }
-    }
-
-    /// Convert to LeanUInt16.
-    pub fn toUInt16<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanUInt16>> {
-        unsafe {
-            let val = lean_usize_to_uint16(Self::to_usize(obj));
-            LeanUInt16::mk(lean, val)
-        }
-    }
-
-    /// Convert to LeanUInt32.
-    pub fn toUInt32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanUInt32>> {
-        unsafe {
-            let val = lean_usize_to_uint32(Self::to_usize(obj));
-            LeanUInt32::mk(lean, val)
-        }
-    }
-
-    /// Convert to LeanUInt64.
-    pub fn toUInt64<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanUInt64>> {
-        unsafe {
-            let val = lean_usize_to_uint64(Self::to_usize(obj));
-            LeanUInt64::mk(lean, val)
-        }
-    }
-
-    // Special operations
-
-    /// Compute floor(log2(n)). Returns 0 for n = 0.
-    pub fn log2<'l>(obj: &LeanBound<'l, Self>) -> usize {
-        unsafe { ffi::inline::lean_usize_log2(Self::to_usize(obj)) }
-    }
-}
-
-impl<'l> std::fmt::Debug for LeanBound<'l, LeanUSize> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LeanUSize({})", LeanUSize::to_usize(self))
-    }
+platform_uint_type! {
+    name: LeanUSize,
+    rust: usize,
+    prefix: lean_usize,
+    conversions: [
+        toUInt8 => (LeanUInt8, u8, lean_usize_to_uint8),
+        toUInt16 => (LeanUInt16, u16, lean_usize_to_uint16),
+        toUInt32 => (LeanUInt32, u32, lean_usize_to_uint32),
+        toUInt64 => (LeanUInt64, u64, lean_usize_to_uint64),
+    ],
 }
