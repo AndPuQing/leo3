@@ -2,7 +2,7 @@
 //!
 //! Provides wrappers for Int8, Int16, Int32, Int64, and ISize types.
 //!
-//! In Lean4, these are structures that wrap UInt types using two's complement:
+//! In Lean4, these are structures that wrap UInt types using two's complement.
 //! ```lean
 //! structure Int8 where
 //!   ofUInt8 :: toUInt8 : UInt8
@@ -18,1526 +18,399 @@ use crate::ffi::object::{
 use crate::instance::LeanBound;
 use crate::marker::Lean;
 use crate::types::LeanChar;
+use paste::paste;
 
-// ============================================================================
-// Int8
-// ============================================================================
+macro_rules! sint_type {
+    (
+        name: $name:ident,
+        rust: $rust:ty,
+        bits: $bits:expr,
+        size_ty: $size_ty:ty,
+        ctor_bytes: $ctor_bytes:expr,
+        storage: $storage_suffix:ident,
+        ops_prefix: $ops_prefix:ident,
+        nat_prefix: $nat_prefix:ident,
+        conversions: [ $( $method:ident => ($target:ident, $target_rust:ty, $ffi_fn:ident) ),* $(,)? ],
+    ) => {
+        paste! {
+            #[doc = concat!("A Lean ", stringify!($bits), "-bit signed integer.")]
+            pub struct $name {
+                _private: (),
+            }
 
-/// A Lean 8-bit signed integer.
-///
-/// In Lean4, this is represented as a structure wrapping UInt8 using two's complement.
-pub struct LeanInt8 {
-    _private: (),
+            #[allow(non_snake_case, missing_docs)]
+            impl $name {
+                pub const SIZE: $size_ty = (1 as $size_ty) << $bits;
+                pub const MIN: $rust = <$rust>::MIN;
+                pub const MAX: $rust = <$rust>::MAX;
+
+                pub fn mk<'l>(lean: Lean<'l>, value: $rust) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let ptr = ffi::lean_alloc_ctor(0, 0, $ctor_bytes);
+                        [<lean_ctor_set_ $storage_suffix>](ptr, 0, value as _);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn [<to_ $rust>]<'l>(obj: &LeanBound<'l, Self>) -> $rust {
+                    unsafe { [<lean_ctor_get_ $storage_suffix>](obj.as_ptr(), 0) as $rust }
+                }
+
+                pub fn add<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _add>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn sub<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _sub>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn mul<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _mul>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn div<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _div>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn mod_<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _mod>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _neg>](Self::[<to_ $rust>](a) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _abs>](Self::[<to_ $rust>](a) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn land<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _land>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn lor<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _lor>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn xor<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _xor>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn complement<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result = [<$ops_prefix _complement>](Self::[<to_ $rust>](a) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn shiftLeft<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result =
+                            [<$ops_prefix _shift_left>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn shiftRight<'l>(
+                    lean: Lean<'l>,
+                    a: &LeanBound<'l, Self>,
+                    b: &LeanBound<'l, Self>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let result =
+                            [<$ops_prefix _shift_right>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _);
+                        Self::mk(lean, result as $rust)
+                    }
+                }
+
+                pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$ops_prefix _dec_eq>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _) }
+                }
+
+                pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$ops_prefix _dec_lt>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _) }
+                }
+
+                pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$ops_prefix _dec_le>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _) }
+                }
+
+                pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
+                    let val = Self::[<to_ $rust>](obj) as i128;
+                    if val < 0 || val > u32::MAX as i128 {
+                        return false;
+                    }
+                    char::from_u32(val as u32).is_some()
+                }
+
+                pub fn toChar<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, LeanChar>> {
+                    let val = Self::[<to_ $rust>](obj) as i128;
+                    if val < 0 {
+                        return Err(crate::err::LeanError::conversion(
+                            "Negative values cannot be converted to char",
+                        ));
+                    }
+                    if val > u32::MAX as i128 {
+                        return Err(crate::err::LeanError::conversion(
+                            "Value out of range for Unicode scalar",
+                        ));
+                    }
+                    match char::from_u32(val as u32) {
+                        Some(c) => LeanChar::mk(lean, c),
+                        None => Err(crate::err::LeanError::conversion(
+                            "Invalid Unicode scalar value",
+                        )),
+                    }
+                }
+
+                pub fn toInt<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
+                    unsafe {
+                        let val = Self::[<to_ $rust>](obj) as i64;
+                        let ptr = ffi::inline::lean_int64_to_int(val);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn ofInt<'l>(
+                    lean: Lean<'l>,
+                    int: &LeanBound<'l, crate::types::LeanInt>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as $rust;
+                    Self::mk(lean, val)
+                }
+
+                pub fn toNat<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
+                    let val = Self::[<to_ $rust>](obj);
+                    if val < 0 {
+                        return Err(crate::err::LeanError::conversion(
+                            "Negative values cannot be converted to Nat",
+                        ));
+                    }
+                    unsafe {
+                        let ptr = [<$nat_prefix _to_nat>](val as _);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn ofNat<'l>(
+                    lean: Lean<'l>,
+                    nat: &LeanBound<'l, crate::types::LeanNat>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    unsafe {
+                        let val = [<$nat_prefix _of_nat>](nat.as_ptr()) as $rust;
+                        Self::mk(lean, val)
+                    }
+                }
+
+                pub fn toFloat<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
+                    unsafe {
+                        let ptr = ffi::inline::lean_box_float(Self::[<to_ $rust>](obj) as f64);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                pub fn toFloat32<'l>(
+                    obj: &LeanBound<'l, Self>,
+                    lean: Lean<'l>,
+                ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
+                    unsafe {
+                        let ptr = ffi::inline::lean_box_float32([<$ops_prefix _to_float32>](Self::[<to_ $rust>](obj) as _));
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    }
+                }
+
+                $(
+                    pub fn $method<'l>(
+                        obj: &LeanBound<'l, Self>,
+                        lean: Lean<'l>,
+                    ) -> LeanResult<LeanBound<'l, $target>> {
+                        unsafe {
+                            let val = $ffi_fn(Self::[<to_ $rust>](obj) as _);
+                            $target::mk(lean, val as $target_rust)
+                        }
+                    }
+                )*
+
+                pub fn ofNatTruncate<'l>(
+                    lean: Lean<'l>,
+                    nat: &LeanBound<'l, crate::types::LeanNat>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    Self::ofNat(lean, nat)
+                }
+
+                pub fn ofIntTruncate<'l>(
+                    lean: Lean<'l>,
+                    int: &LeanBound<'l, crate::types::LeanInt>,
+                ) -> LeanResult<LeanBound<'l, Self>> {
+                    Self::ofInt(lean, int)
+                }
+
+                pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$ops_prefix _dec_le>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _) }
+                }
+
+                pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+                    unsafe { [<$ops_prefix _dec_lt>](Self::[<to_ $rust>](a) as _, Self::[<to_ $rust>](b) as _) }
+                }
+            }
+
+            impl<'l> std::fmt::Debug for LeanBound<'l, $name> {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, concat!(stringify!($name), "({})"), $name::[<to_ $rust>](self))
+                }
+            }
+        }
+    };
 }
 
-#[allow(non_snake_case, missing_docs)]
-impl LeanInt8 {
-    /// The number of distinct values: 2^8 = 256.
-    pub const SIZE: u32 = 256;
-
-    /// The minimum value: -(2^7) = -128.
-    pub const MIN: i8 = -128;
-
-    /// The maximum value: 2^7 - 1 = 127.
-    pub const MAX: i8 = 127;
-
-    /// Create a Lean Int8 from a Rust i8.
-    pub fn mk<'l>(lean: Lean<'l>, value: i8) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let ptr = ffi::lean_alloc_ctor(0, 0, 1);
-            lean_ctor_set_uint8(ptr, 0, value as u8);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to Rust i8.
-    pub fn to_i8<'l>(obj: &LeanBound<'l, Self>) -> i8 {
-        unsafe { lean_ctor_get_uint8(obj.as_ptr(), 0) as i8 }
-    }
-
-    // Arithmetic operations
-
-    /// Addition with wrapping semantics.
-    pub fn add<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_add(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Subtraction with wrapping semantics.
-    pub fn sub<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_sub(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Multiplication with wrapping semantics.
-    pub fn mul<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_mul(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Division. Returns 0 if divisor is 0.
-    pub fn div<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_div(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Modulo operation. Returns dividend if divisor is 0.
-    pub fn mod_<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_mod(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Negation with wrapping semantics.
-    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_neg(Self::to_i8(a) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Absolute value with wrapping semantics.
-    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_abs(Self::to_i8(a) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    // Bitwise operations
-
-    /// Bitwise AND.
-    pub fn land<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_land(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Bitwise OR.
-    pub fn lor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_lor(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Bitwise XOR.
-    pub fn xor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_xor(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Bitwise complement (NOT).
-    pub fn complement<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_complement(Self::to_i8(a) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Left shift (arithmetic).
-    pub fn shiftLeft<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_shift_left(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    /// Right shift (arithmetic - sign-extending).
-    pub fn shiftRight<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int8_shift_right(Self::to_i8(a) as u8, Self::to_i8(b) as u8);
-            Self::mk(lean, result as i8)
-        }
-    }
-
-    // Comparison operations
-
-    /// Check equality.
-    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int8_dec_eq(Self::to_i8(a) as u8, Self::to_i8(b) as u8) }
-    }
-
-    /// Check if strictly less than.
-    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int8_dec_lt(Self::to_i8(a) as u8, Self::to_i8(b) as u8) }
-    }
-
-    /// Check if less than or equal.
-    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int8_dec_le(Self::to_i8(a) as u8, Self::to_i8(b) as u8) }
-    }
-
-    // Character operations
-
-    /// Check if this value is a valid Unicode scalar.
-    /// For signed integers, must be non-negative and valid Unicode.
-    pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        let val = Self::to_i8(obj);
-        if val < 0 {
-            return false;
-        }
-        let uval = val as u32;
-        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
-    }
-
-    /// Convert to LeanChar if valid Unicode scalar, otherwise return error.
-    pub fn toChar<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanChar>> {
-        let val = Self::to_i8(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to char",
-            ));
-        }
-        let uval = val as u32;
-        match char::from_u32(uval) {
-            Some(c) => LeanChar::mk(lean, c),
-            None => Err(crate::err::LeanError::conversion(
-                "Invalid Unicode scalar value",
-            )),
-        }
-    }
-
-    // Conversions to/from arbitrary precision types
-
-    /// Convert to LeanInt (arbitrary precision integer).
-    pub fn toInt<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
-        unsafe {
-            let val = Self::to_i8(obj) as i64;
-            let ptr = ffi::inline::lean_int64_to_int(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanInt (wrapping if out of range).
-    pub fn ofInt<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as i8;
-        Self::mk(lean, val)
-    }
-
-    /// Convert to LeanNat (fails for negative values).
-    pub fn toNat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
-        let val = Self::to_i8(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to Nat",
-            ));
-        }
-        unsafe {
-            let ptr = ffi::inline::lean_uint8_to_nat(val as u8);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanNat (wrapping if out of range).
-    pub fn ofNat<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let val = ffi::inline::lean_uint8_of_nat(nat.as_ptr()) as i8;
-            Self::mk(lean, val)
-        }
-    }
-
-    // Float conversions
-
-    /// Convert to LeanFloat (64-bit float).
-    pub fn toFloat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
-        unsafe {
-            let val = Self::to_i8(obj) as f64;
-            let ptr = ffi::inline::lean_box_float(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to LeanFloat32 (32-bit float).
-    pub fn toFloat32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
-        unsafe {
-            let val = lean_int8_to_float32(Self::to_i8(obj));
-            let ptr = ffi::inline::lean_box_float32(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    // Int conversions
-
-    /// Convert to LeanInt16.
-    pub fn toInt16<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt16>> {
-        unsafe {
-            let val = lean_int8_to_int16(Self::to_i8(obj) as u8);
-            LeanInt16::mk(lean, val as i16)
-        }
-    }
-
-    /// Convert to LeanInt32.
-    pub fn toInt32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt32>> {
-        unsafe {
-            let val = lean_int8_to_int32(Self::to_i8(obj) as u8);
-            LeanInt32::mk(lean, val as i32)
-        }
-    }
-
-    /// Convert to LeanInt64.
-    pub fn toInt64<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt64>> {
-        unsafe {
-            let val = lean_int8_to_int64(Self::to_i8(obj) as u8);
-            LeanInt64::mk(lean, val as i64)
-        }
-    }
-
-    /// Convert to LeanISize.
-    pub fn toISize<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanISize>> {
-        unsafe {
-            let val = lean_int8_to_isize(Self::to_i8(obj) as u8);
-            LeanISize::mk(lean, val as isize)
-        }
-    }
-
-    // Additional Nat/Int conversions and comparisons
-
-    /// Create from LeanNat with explicit truncation (same as ofNat).
-    pub fn ofNatTruncate<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    /// Create from LeanInt with explicit truncation (same as ofInt).
-    pub fn ofIntTruncate<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofInt(lean, int)
-    }
-
-    /// Less than or equal comparison.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int8_dec_le(Self::to_i8(a) as u8, Self::to_i8(b) as u8) }
-    }
-
-    /// Less than comparison.
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int8_dec_lt(Self::to_i8(a) as u8, Self::to_i8(b) as u8) }
-    }
+sint_type! {
+    name: LeanInt8,
+    rust: i8,
+    bits: 8,
+    size_ty: u32,
+    ctor_bytes: 1,
+    storage: uint8,
+    ops_prefix: lean_int8,
+    nat_prefix: lean_uint8,
+    conversions: [
+        toInt16 => (LeanInt16, i16, lean_int8_to_int16),
+        toInt32 => (LeanInt32, i32, lean_int8_to_int32),
+        toInt64 => (LeanInt64, i64, lean_int8_to_int64),
+        toISize => (LeanISize, isize, lean_int8_to_isize),
+    ],
 }
 
-impl<'l> std::fmt::Debug for LeanBound<'l, LeanInt8> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LeanInt8({})", LeanInt8::to_i8(self))
-    }
+sint_type! {
+    name: LeanInt16,
+    rust: i16,
+    bits: 16,
+    size_ty: u32,
+    ctor_bytes: 2,
+    storage: uint16,
+    ops_prefix: lean_int16,
+    nat_prefix: lean_uint16,
+    conversions: [
+        toInt8 => (LeanInt8, i8, lean_int16_to_int8),
+        toInt32 => (LeanInt32, i32, lean_int16_to_int32),
+        toInt64 => (LeanInt64, i64, lean_int16_to_int64),
+        toISize => (LeanISize, isize, lean_int16_to_isize),
+    ],
 }
 
-// ============================================================================
-// Int16
-// ============================================================================
-
-/// A Lean 16-bit signed integer.
-pub struct LeanInt16 {
-    _private: (),
+sint_type! {
+    name: LeanInt32,
+    rust: i32,
+    bits: 32,
+    size_ty: u64,
+    ctor_bytes: 4,
+    storage: uint32,
+    ops_prefix: lean_int32,
+    nat_prefix: lean_uint32,
+    conversions: [
+        toInt8 => (LeanInt8, i8, lean_int32_to_int8),
+        toInt16 => (LeanInt16, i16, lean_int32_to_int16),
+        toInt64 => (LeanInt64, i64, lean_int32_to_int64),
+        toISize => (LeanISize, isize, lean_int32_to_isize),
+    ],
 }
 
-#[allow(non_snake_case, missing_docs)]
-impl LeanInt16 {
-    /// The number of distinct values: 2^16 = 65536.
-    pub const SIZE: u32 = 65536;
-
-    /// The minimum value: -(2^15) = -32768.
-    pub const MIN: i16 = -32768;
-
-    /// The maximum value: 2^15 - 1 = 32767.
-    pub const MAX: i16 = 32767;
-
-    pub fn mk<'l>(lean: Lean<'l>, value: i16) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let ptr = ffi::lean_alloc_ctor(0, 0, 2);
-            lean_ctor_set_uint16(ptr, 0, value as u16);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    pub fn to_i16<'l>(obj: &LeanBound<'l, Self>) -> i16 {
-        unsafe { lean_ctor_get_uint16(obj.as_ptr(), 0) as i16 }
-    }
-
-    // Arithmetic operations
-
-    pub fn add<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_add(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn sub<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_sub(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn mul<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_mul(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn div<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_div(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn mod_<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_mod(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_neg(Self::to_i16(a) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_abs(Self::to_i16(a) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    // Bitwise operations
-
-    pub fn land<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_land(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn lor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_lor(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn xor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_xor(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn complement<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_complement(Self::to_i16(a) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn shiftLeft<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_shift_left(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    pub fn shiftRight<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int16_shift_right(Self::to_i16(a) as u16, Self::to_i16(b) as u16);
-            Self::mk(lean, result as i16)
-        }
-    }
-
-    // Comparison operations
-
-    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int16_dec_eq(Self::to_i16(a) as u16, Self::to_i16(b) as u16) }
-    }
-
-    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int16_dec_lt(Self::to_i16(a) as u16, Self::to_i16(b) as u16) }
-    }
-
-    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int16_dec_le(Self::to_i16(a) as u16, Self::to_i16(b) as u16) }
-    }
-
-    // Character operations
-
-    pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        let val = Self::to_i16(obj);
-        if val < 0 {
-            return false;
-        }
-        let uval = val as u32;
-        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
-    }
-
-    pub fn toChar<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanChar>> {
-        let val = Self::to_i16(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to char",
-            ));
-        }
-        let uval = val as u32;
-        match char::from_u32(uval) {
-            Some(c) => LeanChar::mk(lean, c),
-            None => Err(crate::err::LeanError::conversion(
-                "Invalid Unicode scalar value",
-            )),
-        }
-    }
-
-    // Conversions to/from arbitrary precision types
-
-    /// Convert to LeanInt (arbitrary precision integer).
-    pub fn toInt<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
-        unsafe {
-            let val = Self::to_i16(obj) as i64;
-            let ptr = ffi::inline::lean_int64_to_int(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanInt (wrapping if out of range).
-    pub fn ofInt<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as i16;
-        Self::mk(lean, val)
-    }
-
-    /// Convert to LeanNat (fails for negative values).
-    pub fn toNat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
-        let val = Self::to_i16(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to Nat",
-            ));
-        }
-        unsafe {
-            let ptr = ffi::inline::lean_uint16_to_nat(val as u16);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanNat (wrapping if out of range).
-    pub fn ofNat<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let val = ffi::inline::lean_uint16_of_nat(nat.as_ptr()) as i16;
-            Self::mk(lean, val)
-        }
-    }
-
-    // Float conversions
-
-    /// Convert to LeanFloat (64-bit float).
-    pub fn toFloat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
-        unsafe {
-            let val = Self::to_i16(obj) as f64;
-            let ptr = ffi::inline::lean_box_float(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to LeanFloat32 (32-bit float).
-    pub fn toFloat32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
-        unsafe {
-            let val = lean_int16_to_float32(Self::to_i16(obj));
-            let ptr = ffi::inline::lean_box_float32(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    // Int conversions
-
-    /// Convert to LeanInt8.
-    pub fn toInt8<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt8>> {
-        unsafe {
-            let val = lean_int16_to_int8(Self::to_i16(obj) as u16);
-            LeanInt8::mk(lean, val as i8)
-        }
-    }
-
-    /// Convert to LeanInt32.
-    pub fn toInt32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt32>> {
-        unsafe {
-            let val = lean_int16_to_int32(Self::to_i16(obj) as u16);
-            LeanInt32::mk(lean, val as i32)
-        }
-    }
-
-    /// Convert to LeanInt64.
-    pub fn toInt64<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt64>> {
-        unsafe {
-            let val = lean_int16_to_int64(Self::to_i16(obj) as u16);
-            LeanInt64::mk(lean, val as i64)
-        }
-    }
-
-    /// Convert to LeanISize.
-    pub fn toISize<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanISize>> {
-        unsafe {
-            let val = lean_int16_to_isize(Self::to_i16(obj) as u16);
-            LeanISize::mk(lean, val as isize)
-        }
-    }
-
-    // Additional Nat/Int conversions and comparisons
-
-    /// Create from LeanNat with explicit truncation (same as ofNat).
-    pub fn ofNatTruncate<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    /// Create from LeanInt with explicit truncation (same as ofInt).
-    pub fn ofIntTruncate<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofInt(lean, int)
-    }
-
-    /// Less than or equal comparison.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int16_dec_le(Self::to_i16(a) as u16, Self::to_i16(b) as u16) }
-    }
-
-    /// Less than comparison.
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int16_dec_lt(Self::to_i16(a) as u16, Self::to_i16(b) as u16) }
-    }
+sint_type! {
+    name: LeanInt64,
+    rust: i64,
+    bits: 64,
+    size_ty: u128,
+    ctor_bytes: 8,
+    storage: uint64,
+    ops_prefix: lean_int64,
+    nat_prefix: lean_uint64,
+    conversions: [
+        toInt8 => (LeanInt8, i8, lean_int64_to_int8),
+        toInt16 => (LeanInt16, i16, lean_int64_to_int16),
+        toInt32 => (LeanInt32, i32, lean_int64_to_int32),
+        toISize => (LeanISize, isize, lean_int64_to_isize),
+    ],
 }
-
-impl<'l> std::fmt::Debug for LeanBound<'l, LeanInt16> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LeanInt16({})", LeanInt16::to_i16(self))
-    }
-}
-
-// ============================================================================
-// Int32
-// ============================================================================
-
-/// A Lean 32-bit signed integer.
-pub struct LeanInt32 {
-    _private: (),
-}
-
-#[allow(non_snake_case, missing_docs)]
-impl LeanInt32 {
-    /// The number of distinct values: 2^32 = 4294967296.
-    pub const SIZE: u64 = 4294967296;
-
-    /// The minimum value: -(2^31) = -2147483648.
-    pub const MIN: i32 = -2147483648;
-
-    /// The maximum value: 2^31 - 1 = 2147483647.
-    pub const MAX: i32 = 2147483647;
-
-    pub fn mk<'l>(lean: Lean<'l>, value: i32) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let ptr = ffi::lean_alloc_ctor(0, 0, 4);
-            lean_ctor_set_uint32(ptr, 0, value as u32);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    pub fn to_i32<'l>(obj: &LeanBound<'l, Self>) -> i32 {
-        unsafe { lean_ctor_get_uint32(obj.as_ptr(), 0) as i32 }
-    }
-
-    // Arithmetic operations
-
-    pub fn add<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_add(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn sub<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_sub(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn mul<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_mul(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn div<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_div(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn mod_<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_mod(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_neg(Self::to_i32(a) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_abs(Self::to_i32(a) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    // Bitwise operations
-
-    pub fn land<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_land(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn lor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_lor(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn xor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_xor(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn complement<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_complement(Self::to_i32(a) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn shiftLeft<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_shift_left(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    pub fn shiftRight<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int32_shift_right(Self::to_i32(a) as u32, Self::to_i32(b) as u32);
-            Self::mk(lean, result as i32)
-        }
-    }
-
-    // Comparison operations
-
-    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int32_dec_eq(Self::to_i32(a) as u32, Self::to_i32(b) as u32) }
-    }
-
-    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int32_dec_lt(Self::to_i32(a) as u32, Self::to_i32(b) as u32) }
-    }
-
-    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int32_dec_le(Self::to_i32(a) as u32, Self::to_i32(b) as u32) }
-    }
-
-    // Character operations
-
-    pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        let val = Self::to_i32(obj);
-        if val < 0 {
-            return false;
-        }
-        let uval = val as u32;
-        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
-    }
-
-    pub fn toChar<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanChar>> {
-        let val = Self::to_i32(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to char",
-            ));
-        }
-        let uval = val as u32;
-        match char::from_u32(uval) {
-            Some(c) => LeanChar::mk(lean, c),
-            None => Err(crate::err::LeanError::conversion(
-                "Invalid Unicode scalar value",
-            )),
-        }
-    }
-
-    // Conversions to/from arbitrary precision types
-
-    /// Convert to LeanInt (arbitrary precision integer).
-    pub fn toInt<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
-        unsafe {
-            let val = Self::to_i32(obj) as i64;
-            let ptr = ffi::inline::lean_int64_to_int(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanInt (wrapping if out of range).
-    pub fn ofInt<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        let val = crate::types::LeanInt::to_i64(int).unwrap_or(0) as i32;
-        Self::mk(lean, val)
-    }
-
-    /// Convert to LeanNat (fails for negative values).
-    pub fn toNat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
-        let val = Self::to_i32(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to Nat",
-            ));
-        }
-        unsafe {
-            let ptr = ffi::inline::lean_uint32_to_nat(val as u32);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanNat (wrapping if out of range).
-    pub fn ofNat<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let val = ffi::inline::lean_uint32_of_nat(nat.as_ptr()) as i32;
-            Self::mk(lean, val)
-        }
-    }
-
-    // Float conversions
-
-    /// Convert to LeanFloat (64-bit float).
-    pub fn toFloat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
-        unsafe {
-            let val = Self::to_i32(obj) as f64;
-            let ptr = ffi::inline::lean_box_float(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to LeanFloat32 (32-bit float).
-    pub fn toFloat32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
-        unsafe {
-            let val = lean_int32_to_float32(Self::to_i32(obj));
-            let ptr = ffi::inline::lean_box_float32(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    // Int conversions
-
-    /// Convert to LeanInt8.
-    pub fn toInt8<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt8>> {
-        unsafe {
-            let val = lean_int32_to_int8(Self::to_i32(obj) as u32);
-            LeanInt8::mk(lean, val as i8)
-        }
-    }
-
-    /// Convert to LeanInt16.
-    pub fn toInt16<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt16>> {
-        unsafe {
-            let val = lean_int32_to_int16(Self::to_i32(obj) as u32);
-            LeanInt16::mk(lean, val as i16)
-        }
-    }
-
-    /// Convert to LeanInt64.
-    pub fn toInt64<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt64>> {
-        unsafe {
-            let val = lean_int32_to_int64(Self::to_i32(obj) as u32);
-            LeanInt64::mk(lean, val as i64)
-        }
-    }
-
-    /// Convert to LeanISize.
-    pub fn toISize<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanISize>> {
-        unsafe {
-            let val = lean_int32_to_isize(Self::to_i32(obj) as u32);
-            LeanISize::mk(lean, val as isize)
-        }
-    }
-
-    // Additional Nat/Int conversions and comparisons
-
-    /// Create from LeanNat with explicit truncation (same as ofNat).
-    pub fn ofNatTruncate<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    /// Create from LeanInt with explicit truncation (same as ofInt).
-    pub fn ofIntTruncate<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofInt(lean, int)
-    }
-
-    /// Less than or equal comparison.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int32_dec_le(Self::to_i32(a) as u32, Self::to_i32(b) as u32) }
-    }
-
-    /// Less than comparison.
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int32_dec_lt(Self::to_i32(a) as u32, Self::to_i32(b) as u32) }
-    }
-}
-
-impl<'l> std::fmt::Debug for LeanBound<'l, LeanInt32> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LeanInt32({})", LeanInt32::to_i32(self))
-    }
-}
-
-// ============================================================================
-// Int64
-// ============================================================================
-
-/// A Lean 64-bit signed integer.
-pub struct LeanInt64 {
-    _private: (),
-}
-
-#[allow(non_snake_case, missing_docs)]
-impl LeanInt64 {
-    /// The number of distinct values: 2^64.
-    pub const SIZE: u128 = 18446744073709551616;
-
-    /// The minimum value: -(2^63) = -9223372036854775808.
-    pub const MIN: i64 = -9223372036854775808;
-
-    /// The maximum value: 2^63 - 1 = 9223372036854775807.
-    pub const MAX: i64 = 9223372036854775807;
-
-    pub fn mk<'l>(lean: Lean<'l>, value: i64) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let ptr = ffi::lean_alloc_ctor(0, 0, 8);
-            lean_ctor_set_uint64(ptr, 0, value as u64);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    pub fn to_i64<'l>(obj: &LeanBound<'l, Self>) -> i64 {
-        unsafe { lean_ctor_get_uint64(obj.as_ptr(), 0) as i64 }
-    }
-
-    // Arithmetic operations
-
-    pub fn add<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_add(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn sub<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_sub(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn mul<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_mul(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn div<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_div(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn mod_<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_mod(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn neg<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_neg(Self::to_i64(a) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn abs<'l>(lean: Lean<'l>, a: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_abs(Self::to_i64(a) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    // Bitwise operations
-
-    pub fn land<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_land(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn lor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_lor(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn xor<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_xor(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn complement<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_complement(Self::to_i64(a) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn shiftLeft<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_shift_left(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    pub fn shiftRight<'l>(
-        lean: Lean<'l>,
-        a: &LeanBound<'l, Self>,
-        b: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let result = lean_int64_shift_right(Self::to_i64(a) as u64, Self::to_i64(b) as u64);
-            Self::mk(lean, result as i64)
-        }
-    }
-
-    // Comparison operations
-
-    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int64_dec_eq(Self::to_i64(a) as u64, Self::to_i64(b) as u64) }
-    }
-
-    pub fn decLt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int64_dec_lt(Self::to_i64(a) as u64, Self::to_i64(b) as u64) }
-    }
-
-    pub fn decLe<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int64_dec_le(Self::to_i64(a) as u64, Self::to_i64(b) as u64) }
-    }
-
-    // Character operations
-
-    pub fn isValidChar<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        let val = Self::to_i64(obj);
-        if val < 0 || val > u32::MAX as i64 {
-            return false;
-        }
-        let uval = val as u32;
-        uval < 0xD800 || (0xE000..=0x10FFFF).contains(&uval)
-    }
-
-    pub fn toChar<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanChar>> {
-        let val = Self::to_i64(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to char",
-            ));
-        }
-        if val > u32::MAX as i64 {
-            return Err(crate::err::LeanError::conversion(
-                "Value out of range for Unicode scalar",
-            ));
-        }
-        let uval = val as u32;
-        match char::from_u32(uval) {
-            Some(c) => LeanChar::mk(lean, c),
-            None => Err(crate::err::LeanError::conversion(
-                "Invalid Unicode scalar value",
-            )),
-        }
-    }
-
-    // Conversions to/from arbitrary precision types
-
-    /// Convert to LeanInt (arbitrary precision integer).
-    pub fn toInt<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanInt>> {
-        unsafe {
-            let val = Self::to_i64(obj);
-            let ptr = ffi::inline::lean_int64_to_int(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanInt (wrapping if out of range).
-    pub fn ofInt<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        let val = crate::types::LeanInt::to_i64(int).unwrap_or(0);
-        Self::mk(lean, val)
-    }
-
-    /// Convert to LeanNat (fails for negative values).
-    pub fn toNat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanNat>> {
-        let val = Self::to_i64(obj);
-        if val < 0 {
-            return Err(crate::err::LeanError::conversion(
-                "Negative values cannot be converted to Nat",
-            ));
-        }
-        unsafe {
-            let ptr = ffi::inline::lean_uint64_to_nat(val as u64);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Create from LeanNat (wrapping if out of range).
-    pub fn ofNat<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        unsafe {
-            let val = ffi::inline::lean_uint64_of_nat(nat.as_ptr()) as i64;
-            Self::mk(lean, val)
-        }
-    }
-
-    // Float conversions
-
-    /// Convert to LeanFloat (64-bit float).
-    pub fn toFloat<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat>> {
-        unsafe {
-            let val = Self::to_i64(obj) as f64;
-            let ptr = ffi::inline::lean_box_float(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    /// Convert to LeanFloat32 (32-bit float).
-    pub fn toFloat32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, crate::types::LeanFloat32>> {
-        unsafe {
-            let val = lean_int64_to_float32(Self::to_i64(obj));
-            let ptr = ffi::inline::lean_box_float32(val);
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
-    // Int conversions
-
-    /// Convert to LeanInt8.
-    pub fn toInt8<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt8>> {
-        unsafe {
-            let val = lean_int64_to_int8(Self::to_i64(obj) as u64);
-            LeanInt8::mk(lean, val as i8)
-        }
-    }
-
-    /// Convert to LeanInt16.
-    pub fn toInt16<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt16>> {
-        unsafe {
-            let val = lean_int64_to_int16(Self::to_i64(obj) as u64);
-            LeanInt16::mk(lean, val as i16)
-        }
-    }
-
-    /// Convert to LeanInt32.
-    pub fn toInt32<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanInt32>> {
-        unsafe {
-            let val = lean_int64_to_int32(Self::to_i64(obj) as u64);
-            LeanInt32::mk(lean, val as i32)
-        }
-    }
-
-    /// Convert to LeanISize.
-    pub fn toISize<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-    ) -> LeanResult<LeanBound<'l, LeanISize>> {
-        unsafe {
-            let val = lean_int64_to_isize(Self::to_i64(obj) as u64);
-            LeanISize::mk(lean, val as isize)
-        }
-    }
-
-    // Additional Nat/Int conversions and comparisons
-
-    /// Create from LeanNat with explicit truncation (same as ofNat).
-    pub fn ofNatTruncate<'l>(
-        lean: Lean<'l>,
-        nat: &LeanBound<'l, crate::types::LeanNat>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofNat(lean, nat)
-    }
-
-    /// Create from LeanInt with explicit truncation (same as ofInt).
-    pub fn ofIntTruncate<'l>(
-        lean: Lean<'l>,
-        int: &LeanBound<'l, crate::types::LeanInt>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
-        Self::ofInt(lean, int)
-    }
-
-    /// Less than or equal comparison.
-    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int64_dec_le(Self::to_i64(a) as u64, Self::to_i64(b) as u64) }
-    }
-
-    /// Less than comparison.
-    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
-        unsafe { lean_int64_dec_lt(Self::to_i64(a) as u64, Self::to_i64(b) as u64) }
-    }
-}
-
-impl<'l> std::fmt::Debug for LeanBound<'l, LeanInt64> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "LeanInt64({})", LeanInt64::to_i64(self))
-    }
-}
-
-// ============================================================================
-// ISize (platform-dependent)
-// ============================================================================
 
 /// A Lean platform-sized signed integer (ISize).
 pub struct LeanISize {

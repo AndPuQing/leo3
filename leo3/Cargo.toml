@@ -15,6 +15,7 @@ readme = "../README.md"
 leo3-ffi = { workspace = true }
 libc.workspace = true
 libloading.workspace = true
+paste = "1.0"
 
 # Optional macro support
 leo3-macros = { workspace = true, optional = true }
