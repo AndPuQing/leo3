@@ -3,7 +3,6 @@
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
-use crate::marker::Lean;
 
 /// A Lean except (result) object.
 ///
@@ -33,16 +32,14 @@ impl LeanExcept {
     ///
     /// leo3::with_lean(|lean| {
     ///     let err_msg = LeanString::mk(lean, "something went wrong")?;
-    ///     let result = LeanExcept::error(lean, err_msg.cast())?;
+    ///     let result = LeanExcept::error(err_msg.cast())?;
     ///     assert!(LeanExcept::isError(&result));
     ///     Ok(())
     /// })
     /// ```
-    pub fn error<'l>(
-        lean: Lean<'l>,
-        error: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn error<'l>(error: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = error.lean_token();
             // Except.error is constructor 0 with 1 field (the error value)
             let ptr = ffi::lean_alloc_ctor(0, 1, 0);
             ffi::lean_ctor_set(ptr, 0, error.into_ptr());
@@ -59,14 +56,12 @@ impl LeanExcept {
     ///
     /// ```rust,ignore
     /// let value = LeanNat::from_usize(lean, 42)?;
-    /// let result = LeanExcept::ok(lean, value.cast())?;
+    /// let result = LeanExcept::ok(value.cast())?;
     /// assert!(LeanExcept::isOk(&result));
     /// ```
-    pub fn ok<'l>(
-        lean: Lean<'l>,
-        value: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn ok<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = value.lean_token();
             // Except.ok is constructor 1 with 1 field (the success value)
             let ptr = ffi::lean_alloc_ctor(1, 1, 0);
             ffi::lean_ctor_set(ptr, 0, value.into_ptr());
@@ -101,15 +96,13 @@ impl LeanExcept {
     ///
     /// # Lean4 Reference
     /// Similar to pattern matching on `error e` in Lean4.
-    pub fn get_error<'l>(
-        lean: Lean<'l>,
-        obj: &LeanBound<'l, Self>,
-    ) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn get_error<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if !Self::isError(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let err_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(err_ptr);
@@ -123,12 +116,13 @@ impl LeanExcept {
     ///
     /// # Lean4 Reference
     /// Similar to pattern matching on `ok val` in Lean4.
-    pub fn get_ok<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn get_ok<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if Self::isError(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(val_ptr);
@@ -143,21 +137,20 @@ impl LeanExcept {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let result = LeanExcept::ok(lean, value)?;
-    /// match LeanExcept::toRustResult(lean, &result) {
+    /// let result = LeanExcept::ok(value)?;
+    /// match LeanExcept::toRustResult(&result) {
     ///     Ok(val) => println!("Success: {:?}", val),
     ///     Err(err) => println!("Error: {:?}", err),
     /// }
     /// ```
     #[allow(non_snake_case)]
     pub fn toRustResult<'l>(
-        lean: Lean<'l>,
         obj: &LeanBound<'l, Self>,
     ) -> Result<LeanBound<'l, LeanAny>, LeanBound<'l, LeanAny>> {
         if Self::isError(obj) {
-            Err(Self::get_error(lean, obj).expect("error value must exist"))
+            Err(Self::get_error(obj).expect("error value must exist"))
         } else {
-            Ok(Self::get_ok(lean, obj).expect("ok value must exist"))
+            Ok(Self::get_ok(obj).expect("ok value must exist"))
         }
     }
 }

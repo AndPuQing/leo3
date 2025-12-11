@@ -5,7 +5,6 @@
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
-use crate::marker::Lean;
 
 /// A Lean sum (disjoint union) object.
 ///
@@ -41,16 +40,14 @@ impl LeanSum {
     ///
     /// leo3::with_lean(|lean| {
     ///     let value = LeanNat::from_usize(lean, 42)?;
-    ///     let sum = LeanSum::inl(lean, value.unbind())?;
+    ///     let sum = LeanSum::inl(value.unbind())?;
     ///     assert!(LeanSum::isLeft(&sum));
     ///     Ok(())
     /// })
     /// ```
-    pub fn inl<'l>(
-        lean: Lean<'l>,
-        value: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn inl<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = value.lean_token();
             // Sum.inl is constructor 0 with 1 field
             let ptr = ffi::lean_alloc_ctor(0, 1, 0);
             ffi::lean_ctor_set(ptr, 0, value.into_ptr());
@@ -70,16 +67,14 @@ impl LeanSum {
     ///
     /// leo3::with_lean(|lean| {
     ///     let value = LeanString::from_str(lean, "hello")?;
-    ///     let sum = LeanSum::inr(lean, value.unbind())?;
+    ///     let sum = LeanSum::inr(value.unbind())?;
     ///     assert!(LeanSum::isRight(&sum));
     ///     Ok(())
     /// })
     /// ```
-    pub fn inr<'l>(
-        lean: Lean<'l>,
-        value: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn inr<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = value.lean_token();
             // Sum.inr is constructor 1 with 1 field
             let ptr = ffi::lean_alloc_ctor(1, 1, 0);
             ffi::lean_ctor_set(ptr, 0, value.into_ptr());
@@ -95,7 +90,7 @@ impl LeanSum {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let sum = LeanSum::inl(lean, value)?;
+    /// let sum = LeanSum::inl(value)?;
     /// assert!(LeanSum::isLeft(&sum));
     /// ```
     #[allow(non_snake_case)]
@@ -114,7 +109,7 @@ impl LeanSum {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let sum = LeanSum::inr(lean, value)?;
+    /// let sum = LeanSum::inr(value)?;
     /// assert!(LeanSum::isRight(&sum));
     /// ```
     #[allow(non_snake_case)]
@@ -130,21 +125,19 @@ impl LeanSum {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let sum = LeanSum::inl(lean, value)?;
-    /// if let Some(left_val) = LeanSum::getLeft(lean, &sum) {
+    /// let sum = LeanSum::inl(value)?;
+    /// if let Some(left_val) = LeanSum::getLeft(&sum) {
     ///     // Use left_val
     /// }
     /// ```
     #[allow(non_snake_case)]
-    pub fn getLeft<'l>(
-        lean: Lean<'l>,
-        obj: &LeanBound<'l, Self>,
-    ) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn getLeft<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if !Self::isLeft(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(val_ptr);
@@ -160,21 +153,19 @@ impl LeanSum {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let sum = LeanSum::inr(lean, value)?;
-    /// if let Some(right_val) = LeanSum::getRight(lean, &sum) {
+    /// let sum = LeanSum::inr(value)?;
+    /// if let Some(right_val) = LeanSum::getRight(&sum) {
     ///     // Use right_val
     /// }
     /// ```
     #[allow(non_snake_case)]
-    pub fn getRight<'l>(
-        lean: Lean<'l>,
-        obj: &LeanBound<'l, Self>,
-    ) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn getRight<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if !Self::isRight(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(val_ptr);
@@ -195,12 +186,13 @@ impl LeanSum {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let sum = LeanSum::inl(lean, value)?;
-    /// let swapped = LeanSum::swap(lean, sum)?;
+    /// let sum = LeanSum::inl(value)?;
+    /// let swapped = LeanSum::swap(sum)?;
     /// assert!(LeanSum::isRight(&swapped));
     /// ```
-    pub fn swap<'l>(lean: Lean<'l>, obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn swap<'l>(obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = obj.lean_token();
             let tag = ffi::lean_obj_tag(obj.as_ptr());
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
 
@@ -214,10 +206,10 @@ impl LeanSum {
             // Create new sum with swapped tag
             if tag == 0 {
                 // inl -> inr
-                Self::inr(lean, value)
+                Self::inr(value)
             } else {
                 // inr -> inl
-                Self::inl(lean, value)
+                Self::inl(value)
             }
         }
     }

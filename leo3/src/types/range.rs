@@ -5,7 +5,6 @@
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
-use crate::marker::Lean;
 use crate::types::LeanNat;
 
 /// A Lean Range object.
@@ -70,18 +69,18 @@ impl LeanRange {
     ///     let start = LeanNat::from_usize(lean, 0)?;
     ///     let stop = LeanNat::from_usize(lean, 10)?;
     ///     let step = LeanNat::from_usize(lean, 2)?;
-    ///     let range = LeanRange::new(lean, start, stop, step)?;
+    ///     let range = LeanRange::new(start, stop, step)?;
     ///     // Represents [0:10:2] = 0, 2, 4, 6, 8
     ///     Ok(())
     /// })
     /// ```
     pub fn new<'l>(
-        lean: Lean<'l>,
         start: LeanBound<'l, LeanNat>,
         stop: LeanBound<'l, LeanNat>,
         step: LeanBound<'l, LeanNat>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = start.lean_token();
             // Range is constructor 0 with 3 fields (start, stop, step; step_pos proof erased)
             let ptr = ffi::lean_alloc_ctor(0, 3, 0);
             ffi::lean_ctor_set(ptr, 0, start.into_ptr());
@@ -100,21 +99,23 @@ impl LeanRange {
     ///
     /// ```rust,ignore
     /// let stop = LeanNat::from_usize(lean, 10)?;
-    /// let range = LeanRange::mk(lean, stop)?;
+    /// let range = LeanRange::mk(stop)?;
     /// // Represents [:10] = 0, 1, 2, ..., 9
     /// ```
-    pub fn mk<'l>(lean: Lean<'l>, stop: LeanBound<'l, LeanNat>) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn mk<'l>(stop: LeanBound<'l, LeanNat>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = stop.lean_token();
         let start = LeanNat::from_usize(lean, 0)?;
         let step = LeanNat::from_usize(lean, 1)?;
-        Self::new(lean, start, stop, step)
+        Self::new(start, stop, step)
     }
 
     /// Get the start value of the range.
     ///
     /// # Lean4 Reference
     /// Corresponds to `Range.start` field access.
-    pub fn start<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
+    pub fn start<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
         unsafe {
+            let lean = obj.lean_token();
             let start_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             ffi::lean_inc(start_ptr);
             LeanBound::from_owned_ptr(lean, start_ptr)
@@ -125,8 +126,9 @@ impl LeanRange {
     ///
     /// # Lean4 Reference
     /// Corresponds to `Range.stop` field access.
-    pub fn stop<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
+    pub fn stop<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
         unsafe {
+            let lean = obj.lean_token();
             let stop_ptr = ffi::lean_ctor_get(obj.as_ptr(), 1) as *mut ffi::lean_object;
             ffi::lean_inc(stop_ptr);
             LeanBound::from_owned_ptr(lean, stop_ptr)
@@ -137,8 +139,9 @@ impl LeanRange {
     ///
     /// # Lean4 Reference
     /// Corresponds to `Range.step` field access.
-    pub fn step<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
+    pub fn step<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanNat> {
         unsafe {
+            let lean = obj.lean_token();
             let step_ptr = ffi::lean_ctor_get(obj.as_ptr(), 2) as *mut ffi::lean_object;
             ffi::lean_inc(step_ptr);
             LeanBound::from_owned_ptr(lean, step_ptr)
@@ -165,16 +168,14 @@ impl LeanRange {
     ///
     /// ```rust,ignore
     /// // Range [0:10:3] has elements 0, 3, 6, 9 (size = 4)
-    /// let range = LeanRange::new(lean, zero, ten, three)?;
-    /// let size = LeanRange::size(lean, &range)?;
+    /// let range = LeanRange::new(zero, ten, three)?;
+    /// let size = LeanRange::size(&range)?;
     /// ```
-    pub fn size<'l>(
-        lean: Lean<'l>,
-        obj: &LeanBound<'l, Self>,
-    ) -> LeanResult<LeanBound<'l, LeanNat>> {
-        let start = Self::start(lean, obj);
-        let stop = Self::stop(lean, obj);
-        let step = Self::step(lean, obj);
+    pub fn size<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanNat>> {
+        let lean = obj.lean_token();
+        let start = Self::start(obj);
+        let stop = Self::stop(obj);
+        let step = Self::step(obj);
 
         // Clone step for multiple uses
         let step_clone1 = unsafe {

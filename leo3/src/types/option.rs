@@ -51,14 +51,12 @@ impl LeanOption {
     ///
     /// ```rust,ignore
     /// let value = LeanNat::from_usize(lean, 42)?;
-    /// let opt = LeanOption::some(lean, value.unbind())?;
+    /// let opt = LeanOption::some(value.unbind())?;
     /// assert!(LeanOption::isSome(&opt));
     /// ```
-    pub fn some<'l>(
-        lean: Lean<'l>,
-        value: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn some<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = value.lean_token();
             // Option.some is constructor 1 with 1 field (val)
             let ptr = ffi::lean_alloc_ctor(1, 1, 0);
             ffi::lean_ctor_set(ptr, 0, value.into_ptr());
@@ -93,12 +91,13 @@ impl LeanOption {
     ///
     /// # Lean4 Reference
     /// Similar to pattern matching on `some val` in Lean4.
-    pub fn get<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn get<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if Self::isNone(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(val_ptr);
@@ -111,17 +110,14 @@ impl LeanOption {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let opt = LeanOption::some(lean, value)?;
-    /// if let Some(val) = LeanOption::toRustOption(lean, &opt) {
+    /// let opt = LeanOption::some(value)?;
+    /// if let Some(val) = LeanOption::toRustOption(&opt) {
     ///     // use val
     /// }
     /// ```
     #[allow(non_snake_case)]
-    pub fn toRustOption<'l>(
-        lean: Lean<'l>,
-        obj: &LeanBound<'l, Self>,
-    ) -> Option<LeanBound<'l, LeanAny>> {
-        Self::get(lean, obj)
+    pub fn toRustOption<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
+        Self::get(obj)
     }
 }
 

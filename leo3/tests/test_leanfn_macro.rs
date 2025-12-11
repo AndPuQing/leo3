@@ -269,7 +269,7 @@ fn test_leanfn_vec_return() {
             assert_eq!(LeanArray::size(&result), 5);
 
             for i in 0..5 {
-                let elem = LeanArray::get(&result, lean, i).unwrap();
+                let elem = LeanArray::get(&result, i).unwrap();
                 let uint: LeanBound<LeanUInt64> = elem.cast();
                 assert_eq!(LeanUInt64::to_u64(&uint), i as u64);
             }
@@ -331,7 +331,7 @@ fn test_leanfn_vec_transform() {
 
             let expected = [2, 4, 6];
             for (i, &expected_val) in expected.iter().enumerate() {
-                let elem = LeanArray::get(&result, lean, i).unwrap();
+                let elem = LeanArray::get(&result, i).unwrap();
                 let uint: LeanBound<LeanUInt64> = elem.cast();
                 assert_eq!(LeanUInt64::to_u64(&uint), expected_val);
             }

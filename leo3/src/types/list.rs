@@ -51,14 +51,14 @@ impl LeanList {
     ///
     /// ```rust,ignore
     /// let list = LeanList::nil(lean)?;
-    /// let list = LeanList::cons(lean, elem, list)?;
+    /// let list = LeanList::cons(elem, list)?;
     /// ```
     pub fn cons<'l>(
-        lean: Lean<'l>,
         head: LeanBound<'l, LeanAny>,
         tail: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = head.lean_token();
             // List.cons is constructor 1 with 2 fields (head, tail)
             let ptr = ffi::lean_alloc_ctor(1, 2, 0);
             ffi::lean_ctor_set(ptr, 0, head.into_ptr());
@@ -85,12 +85,13 @@ impl LeanList {
     ///
     /// # Lean4 Reference
     /// Corresponds to `List.head?` in Lean4.
-    pub fn head<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn head<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         if Self::isEmpty(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let head_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(head_ptr);
@@ -104,12 +105,13 @@ impl LeanList {
     ///
     /// # Lean4 Reference
     /// Corresponds to `List.tail?` in Lean4.
-    pub fn tail<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, Self>> {
+    pub fn tail<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, Self>> {
         if Self::isEmpty(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let tail_ptr = ffi::lean_ctor_get(obj.as_ptr(), 1) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(tail_ptr);

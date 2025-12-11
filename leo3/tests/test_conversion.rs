@@ -222,7 +222,7 @@ fn test_array_with_nats() {
 
         // Get elements back (as LeanAny, can't directly convert to nat without unsafe)
         for i in 0..10 {
-            let elem = LeanArray::get(&arr, lean, i);
+            let elem = LeanArray::get(&arr, i);
             assert!(elem.is_some(), "Element {} should exist", i);
         }
 
@@ -418,8 +418,8 @@ fn test_array_out_of_bounds_get() {
         let arr = LeanArray::empty(lean)?;
 
         // Getting from empty array should return None
-        assert!(LeanArray::get(&arr, lean, 0).is_none());
-        assert!(LeanArray::get(&arr, lean, 100).is_none());
+        assert!(LeanArray::get(&arr, 0).is_none());
+        assert!(LeanArray::get(&arr, 100).is_none());
 
         Ok(())
     });
@@ -585,7 +585,7 @@ fn test_iter_into_lean() {
 
         // Verify elements (spot check)
         for i in 0..5 {
-            let elem = LeanArray::get(&arr, lean, i).unwrap();
+            let elem = LeanArray::get(&arr, i).unwrap();
             let uint: LeanBound<LeanUSize> = elem.cast();
             let value = LeanUSize::to_usize(&uint);
             assert_eq!(value, i * 2);
@@ -610,7 +610,7 @@ fn test_slice_into_lean() {
 
         // Verify elements
         for (i, &expected) in data.iter().enumerate() {
-            let elem = LeanArray::get(&arr, lean, i).unwrap();
+            let elem = LeanArray::get(&arr, i).unwrap();
             let uint: LeanBound<LeanUInt64> = elem.cast();
             let value = LeanUInt64::to_u64(&uint);
             assert_eq!(value, expected);

@@ -27,7 +27,7 @@ fn test_option_some() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let value = LeanNat::from_usize(lean, 42)?;
-        let opt = LeanOption::some(lean, value.cast())?;
+        let opt = LeanOption::some(value.cast())?;
 
         assert!(!LeanOption::isNone(&opt));
         assert!(LeanOption::isSome(&opt));
@@ -44,9 +44,9 @@ fn test_option_get_some() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let value = LeanNat::from_usize(lean, 42)?;
-        let opt = LeanOption::some(lean, value.cast())?;
+        let opt = LeanOption::some(value.cast())?;
 
-        let retrieved = LeanOption::get(lean, &opt);
+        let retrieved = LeanOption::get(&opt);
         assert!(retrieved.is_some());
 
         Ok(())
@@ -62,7 +62,7 @@ fn test_option_get_none() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let opt = LeanOption::none(lean)?;
 
-        let retrieved = LeanOption::get(lean, &opt);
+        let retrieved = LeanOption::get(&opt);
         assert!(retrieved.is_none());
 
         Ok(())
@@ -77,9 +77,9 @@ fn test_option_to_rust_option_some() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let value = LeanNat::from_usize(lean, 100)?;
-        let opt = LeanOption::some(lean, value.cast())?;
+        let opt = LeanOption::some(value.cast())?;
 
-        let rust_opt = LeanOption::toRustOption(lean, &opt);
+        let rust_opt = LeanOption::toRustOption(&opt);
         assert!(rust_opt.is_some());
 
         Ok(())
@@ -95,7 +95,7 @@ fn test_option_to_rust_option_none() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let opt = LeanOption::none(lean)?;
 
-        let rust_opt = LeanOption::toRustOption(lean, &opt);
+        let rust_opt = LeanOption::toRustOption(&opt);
         assert!(rust_opt.is_none());
 
         Ok(())
@@ -110,11 +110,11 @@ fn test_option_with_string() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let s = LeanString::mk(lean, "hello")?;
-        let opt = LeanOption::some(lean, s.cast())?;
+        let opt = LeanOption::some(s.cast())?;
 
         assert!(LeanOption::isSome(&opt));
 
-        let retrieved = LeanOption::get(lean, &opt);
+        let retrieved = LeanOption::get(&opt);
         assert!(retrieved.is_some());
 
         Ok(())
@@ -131,10 +131,10 @@ fn test_option_with_list() {
         // Create a list
         let list = LeanList::nil(lean)?;
         let elem = LeanNat::from_usize(lean, 1)?;
-        let list = LeanList::cons(lean, elem.cast(), list)?;
+        let list = LeanList::cons(elem.cast(), list)?;
 
         // Wrap it in Option.some
-        let opt = LeanOption::some(lean, list.cast())?;
+        let opt = LeanOption::some(list.cast())?;
 
         assert!(LeanOption::isSome(&opt));
 
@@ -151,9 +151,9 @@ fn test_option_pattern_matching() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Test with Some
         let value = LeanNat::from_usize(lean, 42)?;
-        let opt_some = LeanOption::some(lean, value.cast())?;
+        let opt_some = LeanOption::some(value.cast())?;
 
-        match LeanOption::toRustOption(lean, &opt_some) {
+        match LeanOption::toRustOption(&opt_some) {
             Some(_) => {
                 // Expected path
             }
@@ -165,7 +165,7 @@ fn test_option_pattern_matching() {
         // Test with None
         let opt_none = LeanOption::none(lean)?;
 
-        match LeanOption::toRustOption(lean, &opt_none) {
+        match LeanOption::toRustOption(&opt_none) {
             Some(_) => {
                 panic!("Expected None, got Some");
             }
@@ -187,13 +187,13 @@ fn test_option_nested() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create Option (Option Nat)
         let inner_value = LeanNat::from_usize(lean, 42)?;
-        let inner_opt = LeanOption::some(lean, inner_value.cast())?;
-        let outer_opt = LeanOption::some(lean, inner_opt.cast())?;
+        let inner_opt = LeanOption::some(inner_value.cast())?;
+        let outer_opt = LeanOption::some(inner_opt.cast())?;
 
         assert!(LeanOption::isSome(&outer_opt));
 
         // Get inner option
-        let inner = LeanOption::get(lean, &outer_opt);
+        let inner = LeanOption::get(&outer_opt);
         assert!(inner.is_some());
 
         Ok(())

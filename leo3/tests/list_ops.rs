@@ -31,7 +31,7 @@ fn test_list_cons() {
 
         // Add element 42
         let elem = LeanNat::from_usize(lean, 42)?;
-        let list = LeanList::cons(lean, elem.cast(), list)?;
+        let list = LeanList::cons(elem.cast(), list)?;
 
         assert!(!LeanList::isEmpty(&list));
         assert_eq!(LeanList::length(&list), 1);
@@ -50,10 +50,10 @@ fn test_list_head() {
         // Build list: [42]
         let list = LeanList::nil(lean)?;
         let elem = LeanNat::from_usize(lean, 42)?;
-        let list = LeanList::cons(lean, elem.cast(), list)?;
+        let list = LeanList::cons(elem.cast(), list)?;
 
         // Get head
-        let head = LeanList::head(lean, &list);
+        let head = LeanList::head(&list);
         assert!(head.is_some());
 
         Ok(())
@@ -70,7 +70,7 @@ fn test_list_head_empty() {
         let list = LeanList::nil(lean)?;
 
         // Head of empty list should be None
-        let head = LeanList::head(lean, &list);
+        let head = LeanList::head(&list);
         assert!(head.is_none());
 
         Ok(())
@@ -87,12 +87,12 @@ fn test_list_tail() {
         // Build list: [1, 2]
         let list = LeanList::nil(lean)?;
         let elem2 = LeanNat::from_usize(lean, 2)?;
-        let list = LeanList::cons(lean, elem2.cast(), list)?;
+        let list = LeanList::cons(elem2.cast(), list)?;
         let elem1 = LeanNat::from_usize(lean, 1)?;
-        let list = LeanList::cons(lean, elem1.cast(), list)?;
+        let list = LeanList::cons(elem1.cast(), list)?;
 
         // Get tail
-        let tail = LeanList::tail(lean, &list);
+        let tail = LeanList::tail(&list);
         assert!(tail.is_some());
 
         let tail = tail.unwrap();
@@ -112,7 +112,7 @@ fn test_list_tail_empty() {
         let list = LeanList::nil(lean)?;
 
         // Tail of empty list should be None
-        let tail = LeanList::tail(lean, &list);
+        let tail = LeanList::tail(&list);
         assert!(tail.is_none());
 
         Ok(())
@@ -131,7 +131,7 @@ fn test_list_length_multiple_elements() {
 
         for i in (1..=5).rev() {
             let elem = LeanNat::from_usize(lean, i)?;
-            list = LeanList::cons(lean, elem.cast(), list)?;
+            list = LeanList::cons(elem.cast(), list)?;
         }
 
         assert_eq!(LeanList::length(&list), 5);
@@ -150,24 +150,24 @@ fn test_list_build_and_traverse() {
         // Build list: [1, 2, 3]
         let list = LeanList::nil(lean)?;
         let elem3 = LeanNat::from_usize(lean, 3)?;
-        let list = LeanList::cons(lean, elem3.cast(), list)?;
+        let list = LeanList::cons(elem3.cast(), list)?;
         let elem2 = LeanNat::from_usize(lean, 2)?;
-        let list = LeanList::cons(lean, elem2.cast(), list)?;
+        let list = LeanList::cons(elem2.cast(), list)?;
         let elem1 = LeanNat::from_usize(lean, 1)?;
-        let list = LeanList::cons(lean, elem1.cast(), list)?;
+        let list = LeanList::cons(elem1.cast(), list)?;
 
         assert_eq!(LeanList::length(&list), 3);
 
         // Traverse: get first element
-        let head = LeanList::head(lean, &list);
+        let head = LeanList::head(&list);
         assert!(head.is_some());
 
         // Get rest of list
-        let tail = LeanList::tail(lean, &list).unwrap();
+        let tail = LeanList::tail(&list).unwrap();
         assert_eq!(LeanList::length(&tail), 2);
 
         // Get second element
-        let head2 = LeanList::head(lean, &tail);
+        let head2 = LeanList::head(&tail);
         assert!(head2.is_some());
 
         Ok(())
@@ -184,9 +184,9 @@ fn test_list_with_strings() {
         // Build list of strings: ["hello", "world"]
         let list = LeanList::nil(lean)?;
         let str2 = LeanString::mk(lean, "world")?;
-        let list = LeanList::cons(lean, str2.cast(), list)?;
+        let list = LeanList::cons(str2.cast(), list)?;
         let str1 = LeanString::mk(lean, "hello")?;
-        let list = LeanList::cons(lean, str1.cast(), list)?;
+        let list = LeanList::cons(str1.cast(), list)?;
 
         assert_eq!(LeanList::length(&list), 2);
         assert!(!LeanList::isEmpty(&list));

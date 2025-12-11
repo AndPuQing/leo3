@@ -365,7 +365,6 @@ where
     type Source = LeanArray;
 
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        let lean = obj.lean_token();
         let size = LeanArray::size(obj);
 
         // Pre-allocate Vec with exact capacity
@@ -373,7 +372,7 @@ where
 
         // Direct element access without intermediate allocations
         for i in 0..size {
-            let elem = LeanArray::get(obj, lean, i)
+            let elem = LeanArray::get(obj, i)
                 .ok_or_else(|| crate::err::LeanError::runtime("Index out of bounds"))?;
             let typed_elem: LeanBound<'l, T::Source> = elem.cast();
             let rust_item = T::from_lean(&typed_elem)?;
@@ -399,7 +398,7 @@ where
             Some(value) => {
                 let lean_value = value.into_lean(lean)?;
                 let any_value: LeanBound<'l, LeanAny> = lean_value.cast();
-                LeanOption::some(lean, any_value)
+                LeanOption::some(any_value)
             }
         }
     }
@@ -415,8 +414,7 @@ where
     ///
     /// Maps `Option.none` to `None` and `Option.some value` to `Some(value)`.
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        let lean = obj.lean_token();
-        match LeanOption::get(lean, obj) {
+        match LeanOption::get(obj) {
             None => Ok(None),
             Some(any_value) => {
                 let typed_value: LeanBound<'l, T::Source> = any_value.cast();
@@ -444,12 +442,12 @@ where
             Err(error) => {
                 let lean_error = error.into_lean(lean)?;
                 let any_error: LeanBound<'l, LeanAny> = lean_error.cast();
-                LeanExcept::error(lean, any_error)
+                LeanExcept::error(any_error)
             }
             Ok(value) => {
                 let lean_value = value.into_lean(lean)?;
                 let any_value: LeanBound<'l, LeanAny> = lean_value.cast();
-                LeanExcept::ok(lean, any_value)
+                LeanExcept::ok(any_value)
             }
         }
     }
@@ -466,8 +464,7 @@ where
     ///
     /// Maps `Except.error` to `Err(error)` and `Except.ok` to `Ok(value)`.
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        let lean = obj.lean_token();
-        match LeanExcept::toRustResult(lean, obj) {
+        match LeanExcept::toRustResult(obj) {
             Err(any_error) => {
                 let typed_error: LeanBound<'l, E::Source> = any_error.cast();
                 let rust_error = E::from_lean(&typed_error)?;

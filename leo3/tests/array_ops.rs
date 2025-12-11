@@ -76,19 +76,19 @@ fn test_array_get() {
         }
 
         // Get elements back
-        let _elem0 = LeanArray::get(&arr, lean, 0).expect("Element 0 should exist");
-        let _elem1 = LeanArray::get(&arr, lean, 1).expect("Element 1 should exist");
-        let _elem2 = LeanArray::get(&arr, lean, 2).expect("Element 2 should exist");
+        let _elem0 = LeanArray::get(&arr, 0).expect("Element 0 should exist");
+        let _elem1 = LeanArray::get(&arr, 1).expect("Element 1 should exist");
+        let _elem2 = LeanArray::get(&arr, 2).expect("Element 2 should exist");
 
         // Note: Elements are returned as LeanAny, would need type-specific handling
         // For now, just check that we got something
-        assert!(LeanArray::get(&arr, lean, 0).is_some());
-        assert!(LeanArray::get(&arr, lean, 1).is_some());
-        assert!(LeanArray::get(&arr, lean, 2).is_some());
+        assert!(LeanArray::get(&arr, 0).is_some());
+        assert!(LeanArray::get(&arr, 1).is_some());
+        assert!(LeanArray::get(&arr, 2).is_some());
 
         // Out of bounds should return None
-        assert!(LeanArray::get(&arr, lean, 3).is_none());
-        assert!(LeanArray::get(&arr, lean, 100).is_none());
+        assert!(LeanArray::get(&arr, 3).is_none());
+        assert!(LeanArray::get(&arr, 100).is_none());
 
         Ok(())
     });
@@ -395,13 +395,13 @@ fn test_array_replicate() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create array with 10 copies of 42
         let val = LeanNat::from_usize(lean, 42)?;
-        let arr = LeanArray::replicate(lean, 10, val.cast())?;
+        let arr = LeanArray::replicate(10, val.cast())?;
 
         assert_eq!(LeanArray::size(&arr), 10);
 
         // All elements should be accessible
         for i in 0..10 {
-            assert!(LeanArray::get(&arr, lean, i).is_some());
+            assert!(LeanArray::get(&arr, i).is_some());
         }
 
         Ok(())
@@ -417,7 +417,7 @@ fn test_array_replicate_zero() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Create array with 0 copies
         let val = LeanNat::from_usize(lean, 42)?;
-        let arr = LeanArray::replicate(lean, 0, val.cast())?;
+        let arr = LeanArray::replicate(0, val.cast())?;
 
         assert!(LeanArray::isEmpty(&arr));
         assert_eq!(LeanArray::size(&arr), 0);
@@ -443,12 +443,12 @@ fn test_array_get_d() {
 
         // Get element within bounds - should return element
         let default = LeanNat::from_usize(lean, 999)?;
-        let _elem = LeanArray::getD(&arr, lean, 1, default.cast())?;
+        let _elem = LeanArray::getD(&arr, 1, default.cast())?;
         // elem should be 20, not 999
 
         // Get element out of bounds - should return default
         let default = LeanNat::from_usize(lean, 999)?;
-        let _elem = LeanArray::getD(&arr, lean, 100, default.cast())?;
+        let _elem = LeanArray::getD(&arr, 100, default.cast())?;
         // elem should be 999
 
         Ok(())
@@ -464,7 +464,7 @@ fn test_array_back() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Empty array should return None
         let arr = LeanArray::empty(lean)?;
-        assert!(LeanArray::back(&arr, lean).is_none());
+        assert!(LeanArray::back(&arr).is_none());
 
         // Array with elements should return last element
         let mut arr = LeanArray::empty(lean)?;
@@ -474,7 +474,7 @@ fn test_array_back() {
         }
 
         // Should return the last element (50)
-        let last = LeanArray::back(&arr, lean);
+        let last = LeanArray::back(&arr);
         assert!(last.is_some());
 
         Ok(())
@@ -497,12 +497,12 @@ fn test_array_back_after_pop() {
         }
 
         // Back should be 30
-        assert!(LeanArray::back(&arr, lean).is_some());
+        assert!(LeanArray::back(&arr).is_some());
 
         // Pop and check back again
         arr = LeanArray::pop(arr)?;
         // Back should now be 20
-        assert!(LeanArray::back(&arr, lean).is_some());
+        assert!(LeanArray::back(&arr).is_some());
 
         Ok(())
     });

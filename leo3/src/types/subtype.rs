@@ -5,7 +5,6 @@
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
-use crate::marker::Lean;
 
 /// A Lean subtype object.
 ///
@@ -67,15 +66,16 @@ impl LeanSubtype {
     /// leo3::with_lean(|lean| {
     ///     // In Lean: subtype of positive naturals { n : Nat // n > 0 }
     ///     let value = LeanNat::from_usize(lean, 42)?;
-    ///     let subtype = LeanSubtype::mk(lean, value.unbind())?;
+    ///     let subtype = LeanSubtype::mk(value.unbind())?;
     ///
     ///     // Extract the value
-    ///     let extracted = LeanSubtype::val(lean, &subtype);
+    ///     let extracted = LeanSubtype::val(&subtype);
     ///     Ok(())
     /// })
     /// ```
-    pub fn mk<'l>(lean: Lean<'l>, val: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
+    pub fn mk<'l>(val: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = val.lean_token();
             // Subtype has constructor 0 with 1 field (val only, property is erased)
             // At runtime it's just a trivial wrapper around the value
             let ptr = ffi::lean_alloc_ctor(0, 1, 0);
@@ -92,11 +92,12 @@ impl LeanSubtype {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let subtype = LeanSubtype::mk(lean, value)?;
-    /// let extracted_value = LeanSubtype::val(lean, &subtype);
+    /// let subtype = LeanSubtype::mk(value)?;
+    /// let extracted_value = LeanSubtype::val(&subtype);
     /// ```
-    pub fn val<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
+    pub fn val<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
         unsafe {
+            let lean = obj.lean_token();
             let val_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(val_ptr);

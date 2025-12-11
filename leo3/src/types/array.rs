@@ -139,18 +139,15 @@ impl LeanArray {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let elem = LeanArray::get(&arr, lean, 0);
+    /// let elem = LeanArray::get(&arr, 0);
     /// ```
-    pub fn get<'l>(
-        obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
-        index: usize,
-    ) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn get<'l>(obj: &LeanBound<'l, Self>, index: usize) -> Option<LeanBound<'l, LeanAny>> {
         if index >= Self::size(obj) {
             return None;
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let ptr = ffi::array::lean_array_uget(obj.as_ptr(), index);
             Some(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -253,15 +250,15 @@ impl LeanArray {
     ///
     /// ```rust,ignore
     /// let val = LeanNat::from_usize(lean, 42)?;
-    /// let arr = LeanArray::replicate(lean, 10, val.unbind())?;
+    /// let arr = LeanArray::replicate(10, val.unbind())?;
     /// assert_eq!(LeanArray::size(&arr), 10);
     /// ```
     pub fn replicate<'l>(
-        lean: Lean<'l>,
         n: usize,
         value: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = value.lean_token();
             let n_boxed = ffi::lean_box(n);
             let ptr = ffi::array::lean_mk_array(n_boxed, value.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
@@ -277,12 +274,11 @@ impl LeanArray {
     ///
     /// ```rust,ignore
     /// let default = LeanNat::from_usize(lean, 0)?;
-    /// let elem = LeanArray::getD(&arr, lean, 100, default.unbind())?;
+    /// let elem = LeanArray::getD(&arr, 100, default.unbind())?;
     /// ```
     #[allow(non_snake_case)]
     pub fn getD<'l>(
         obj: &LeanBound<'l, Self>,
-        lean: Lean<'l>,
         index: usize,
         default: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, LeanAny>> {
@@ -291,6 +287,7 @@ impl LeanArray {
         }
 
         unsafe {
+            let lean = obj.lean_token();
             let ptr = ffi::array::lean_array_uget(obj.as_ptr(), index);
             // Need to decrement the default value since we're not using it
             ffi::lean_dec(default.into_ptr());
@@ -308,16 +305,16 @@ impl LeanArray {
     /// # Example
     ///
     /// ```rust,ignore
-    /// if let Some(last) = LeanArray::back(&arr, lean) {
+    /// if let Some(last) = LeanArray::back(&arr) {
     ///     // Process last element
     /// }
     /// ```
-    pub fn back<'l>(obj: &LeanBound<'l, Self>, lean: Lean<'l>) -> Option<LeanBound<'l, LeanAny>> {
+    pub fn back<'l>(obj: &LeanBound<'l, Self>) -> Option<LeanBound<'l, LeanAny>> {
         let size = Self::size(obj);
         if size == 0 {
             return None;
         }
-        Self::get(obj, lean, size - 1)
+        Self::get(obj, size - 1)
     }
 
     /// Create an array from a Lean list.
@@ -332,10 +329,8 @@ impl LeanArray {
     /// # Safety
     ///
     /// The list object must be a valid Lean list.
-    pub unsafe fn mk<'l>(
-        lean: Lean<'l>,
-        list: LeanBound<'l, LeanAny>,
-    ) -> LeanResult<LeanBound<'l, Self>> {
+    pub unsafe fn mk<'l>(list: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = list.lean_token();
         let ptr = ffi::array::lean_array_mk(list.into_ptr());
         Ok(LeanBound::from_owned_ptr(lean, ptr))
     }

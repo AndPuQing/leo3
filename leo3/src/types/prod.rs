@@ -3,7 +3,6 @@
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
-use crate::marker::Lean;
 
 /// A Lean product (pair) object.
 ///
@@ -30,16 +29,16 @@ impl LeanProd {
     /// leo3::with_lean(|lean| {
     ///     let a = LeanNat::from_usize(lean, 42)?;
     ///     let b = LeanNat::from_usize(lean, 100)?;
-    ///     let pair = LeanProd::mk(lean, a.unbind(), b.unbind())?;
+    ///     let pair = LeanProd::mk(a.unbind(), b.unbind())?;
     ///     Ok(())
     /// })
     /// ```
     pub fn mk<'l>(
-        lean: Lean<'l>,
         fst: LeanBound<'l, LeanAny>,
         snd: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
+            let lean = fst.lean_token();
             // Prod.mk is constructor 0 with 2 fields (fst, snd)
             let ptr = ffi::lean_alloc_ctor(0, 2, 0);
             ffi::lean_ctor_set(ptr, 0, fst.into_ptr());
@@ -56,11 +55,12 @@ impl LeanProd {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let pair = LeanProd::mk(lean, a, b)?;
-    /// let first = LeanProd::fst(lean, &pair);
+    /// let pair = LeanProd::mk(a, b)?;
+    /// let first = LeanProd::fst(&pair);
     /// ```
-    pub fn fst<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
+    pub fn fst<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
         unsafe {
+            let lean = obj.lean_token();
             let fst_ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(fst_ptr);
@@ -76,11 +76,12 @@ impl LeanProd {
     /// # Example
     ///
     /// ```rust,ignore
-    /// let pair = LeanProd::mk(lean, a, b)?;
-    /// let second = LeanProd::snd(lean, &pair);
+    /// let pair = LeanProd::mk(a, b)?;
+    /// let second = LeanProd::snd(&pair);
     /// ```
-    pub fn snd<'l>(lean: Lean<'l>, obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
+    pub fn snd<'l>(obj: &LeanBound<'l, Self>) -> LeanBound<'l, LeanAny> {
         unsafe {
+            let lean = obj.lean_token();
             let snd_ptr = ffi::lean_ctor_get(obj.as_ptr(), 1) as *mut ffi::lean_object;
             // Increment ref count since we're borrowing
             ffi::lean_inc(snd_ptr);
@@ -92,10 +93,10 @@ impl LeanProd {
     ///
     /// # Lean4 Reference
     /// Corresponds to `Prod.swap` in Lean4.
-    pub fn swap<'l>(lean: Lean<'l>, obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        let fst = Self::fst(lean, &obj);
-        let snd = Self::snd(lean, &obj);
-        Self::mk(lean, snd, fst)
+    pub fn swap<'l>(obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let fst = Self::fst(&obj);
+        let snd = Self::snd(&obj);
+        Self::mk(snd, fst)
     }
 }
 
