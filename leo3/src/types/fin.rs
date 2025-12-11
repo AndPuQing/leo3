@@ -161,6 +161,9 @@ impl LeanFin {
     ///
     /// ```rust,ignore
     /// // (3 : Fin 11) - (5 : Fin 11) = (9 : Fin 11)
+    /// let a = LeanFin::ofNat(lean, &three, &eleven)?;
+    /// let b = LeanFin::ofNat(lean, &five, &eleven)?;
+    /// let diff = LeanFin::sub(lean, &a, &b, &eleven)?;
     /// ```
     pub fn sub<'l>(
         lean: Lean<'l>,
