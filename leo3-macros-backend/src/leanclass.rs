@@ -47,7 +47,7 @@ enum MethodReceiver {
     Owned,  // self
 }
 
-/// Build the #[leanclass] expansion for a struct
+/// Build the #\[leanclass\] expansion for a struct
 pub fn build_lean_class_struct(
     item: &mut syn::ItemStruct,
     options: LeanClassOptions,
@@ -84,7 +84,7 @@ pub fn build_lean_class_struct(
     })
 }
 
-/// Build the #[leanclass] expansion for an impl block
+/// Build the #\[leanclass\] expansion for an impl block
 pub fn build_lean_class_impl(
     item: &mut syn::ItemImpl,
     options: LeanClassOptions,
