@@ -299,6 +299,17 @@ impl<'l> FromLean<'l> for bool {
     }
 }
 
+// () ↔ Unit (Lean's Unit type)
+// In Lean4, Unit is represented as a constructor with no data
+impl<'l> FromLean<'l> for () {
+    type Source = LeanAny;
+
+    fn from_lean(_obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        // Unit has no data, just return ()
+        Ok(())
+    }
+}
+
 // String ↔ LeanString
 impl<'l> IntoLean<'l> for String {
     type Target = LeanString;

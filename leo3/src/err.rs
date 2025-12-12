@@ -52,3 +52,9 @@ impl fmt::Display for LeanError {
 }
 
 impl std::error::Error for LeanError {}
+
+impl From<std::io::Error> for LeanError {
+    fn from(err: std::io::Error) -> Self {
+        LeanError::runtime(&err.to_string())
+    }
+}

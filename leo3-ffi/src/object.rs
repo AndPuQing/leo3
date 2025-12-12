@@ -22,6 +22,20 @@ pub type u_lean_obj_arg = *mut lean_object; // Unique (exclusive) object argumen
 pub type lean_obj_res = *mut lean_object; // Standard object result
 pub type b_lean_obj_res = *const lean_object; // Borrowed object result
 
+/// External object class descriptor (opaque)
+#[repr(C)]
+pub struct lean_external_class {
+    _private: [u8; 0],
+}
+
+/// External object structure
+#[repr(C)]
+pub struct lean_external_object {
+    pub m_header: lean_object,
+    pub m_class: *mut lean_external_class,
+    pub m_data: *mut c_void,
+}
+
 // ============================================================================
 // Reference Counting
 // ============================================================================
@@ -63,6 +77,13 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
+    /// Allocate a small object
+    ///
+    /// # Safety
+    /// - Must initialize the object header after allocation
+    /// - `sz` must be <= LEAN_MAX_SMALL_OBJECT_SIZE
+    pub fn lean_alloc_small(sz: size_t, slot_idx: c_uint) -> *mut c_void;
+
     /// Allocate a "big" object (arrays, strings)
     ///
     /// # Safety
@@ -183,6 +204,12 @@ extern "C" {
     /// # Safety
     /// - `o` must be a valid external object
     pub fn lean_get_external_data(o: b_lean_obj_arg) -> *mut c_void;
+
+    /// Get the external class of an external object
+    ///
+    /// # Safety
+    /// - `o` must be a valid external object
+    pub fn lean_get_external_class(o: b_lean_obj_arg) -> *mut c_void; // Returns lean_external_class*
 }
 
 // ============================================================================

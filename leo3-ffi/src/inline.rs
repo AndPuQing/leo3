@@ -2871,3 +2871,42 @@ pub unsafe fn lean_isize_dec_lt(a1: size_t, a2: size_t) -> bool {
 pub unsafe fn lean_isize_dec_le(a1: size_t, a2: size_t) -> bool {
     (a1 as isize) <= (a2 as isize)
 }
+
+// ============================================================================
+// External Object Functions
+// ============================================================================
+
+/// Allocate a small object (inline helper)
+///
+/// This is a simplified version that uses lean_alloc_object
+#[inline(always)]
+pub unsafe fn lean_alloc_small_object(sz: c_uint) -> *mut lean_object {
+    use crate::object::lean_alloc_object;
+    lean_alloc_object(sz as size_t)
+}
+
+/// Allocate an external object (inline from lean.h)
+#[inline(always)]
+pub unsafe fn lean_alloc_external(cls: *mut c_void, data: *mut c_void) -> lean_obj_res {
+    let o = lean_alloc_small_object(std::mem::size_of::<lean_external_object>() as c_uint);
+    lean_set_st_header(o, crate::LEAN_EXTERNAL, 0);
+
+    let ext = o as *mut lean_external_object;
+    (*ext).m_class = cls;
+    (*ext).m_data = data;
+
+    o
+}
+
+/// Get the external class from an external object (inline from lean.h)
+#[inline(always)]
+pub unsafe fn lean_get_external_class(o: b_lean_obj_arg) -> *mut c_void {
+    let ext = lean_to_external(o as lean_obj_arg);
+    (*(ext as *const lean_external_object)).m_class
+}
+
+/// Get the data pointer from an external object (inline from lean.h)
+#[inline(always)]
+pub unsafe fn lean_get_external_data(o: b_lean_obj_arg) -> *mut c_void {
+    (*(lean_to_external(o as lean_obj_arg) as *const lean_external_object)).m_data
+}

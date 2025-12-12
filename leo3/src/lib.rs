@@ -65,7 +65,9 @@ pub use leo3_ffi as ffi;
 
 pub mod conversion;
 pub mod err;
+pub mod external;
 pub mod instance;
+pub mod io;
 pub mod marker;
 pub mod module;
 pub mod types;
@@ -120,12 +122,17 @@ pub mod prelude {
 /// ```
 pub fn prepare_freethreaded_lean() {
     use std::sync::Once;
-    static INIT: Once = Once::new();
+    static RUNTIME_INIT: Once = Once::new();
 
-    INIT.call_once(|| unsafe {
+    RUNTIME_INIT.call_once(|| unsafe {
         ffi::lean_initialize_runtime_module();
-        ffi::lean_initialize_thread();
     });
+
+    // Lean requires per-thread initialization; the test runner executes tests on
+    // multiple OS threads by default.
+    unsafe {
+        ffi::lean_initialize_thread();
+    }
 }
 
 /// Execute a closure with access to the Lean runtime.

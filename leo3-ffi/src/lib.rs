@@ -33,6 +33,7 @@ pub mod array;
 pub mod closure;
 pub mod float;
 pub mod int;
+pub mod io;
 pub mod nat;
 pub mod object;
 pub mod string;
@@ -61,6 +62,8 @@ pub use object::{
     lean_obj_res,
     lean_obj_tag,
     lean_object,
+    // External object class registration (extern C function)
+    lean_register_external_class,
     lean_unbox,
     u_lean_obj_arg,
 };
@@ -238,11 +241,15 @@ extern "C" {
 // ============================================================================
 
 pub use inline::{
+    // External object inline functions
+    lean_alloc_external,
     // Float inline functions
     lean_box_float,
     // ByteArray inline functions
     lean_byte_array_uget,
     lean_byte_array_uset,
+    lean_get_external_class,
+    lean_get_external_data,
     lean_is_array,
     lean_is_closure,
     lean_is_ctor,
