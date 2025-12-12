@@ -148,19 +148,52 @@ pub fn derive_from_lean(input: TokenStream) -> TokenStream {
 /// use leo3::prelude::*;
 ///
 /// #[leanclass]
-/// struct Point {
-///     x: f64,
-///     y: f64,
+/// struct Counter {
+///     value: i32,
+/// }
+///
+/// #[leanclass]
+/// impl Counter {
+///     fn new() -> Self {
+///         Counter { value: 0 }
+///     }
+///
+///     fn increment(&mut self) {
+///         self.value += 1;
+///     }
+///
+///     fn get(&self) -> i32 {
+///         self.value
+///     }
 /// }
 /// ```
 ///
-/// This macro is planned for future implementation.
+/// This macro generates:
+/// - An `ExternalClass` implementation for the struct
+/// - FFI wrappers for each method
+/// - Metadata for Lean code generation
 #[proc_macro_attribute]
-pub fn leanclass(_attr: TokenStream, input: TokenStream) -> TokenStream {
-    let input2: TokenStream2 = input.into();
+pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
+    use leo3_macros_backend::LeanClassOptions;
+
+    let options = parse_macro_input!(attr as LeanClassOptions);
+
+    // Try to parse as struct first, then as impl
+    if let Ok(mut item_struct) = syn::parse::<syn::ItemStruct>(input.clone()) {
+        let expanded = leo3_macros_backend::build_lean_class_struct(&mut item_struct, options)
+            .unwrap_or_compile_error();
+        return expanded.into();
+    }
+
+    if let Ok(mut item_impl) = syn::parse::<syn::ItemImpl>(input.clone()) {
+        let expanded = leo3_macros_backend::build_lean_class_impl(&mut item_impl, options)
+            .unwrap_or_compile_error();
+        return expanded.into();
+    }
+
+    // If neither struct nor impl, return error
     quote!(
-        compile_error!("#[leanclass] is not yet implemented. Coming soon!");
-        #input2
+        compile_error!("#[leanclass] can only be applied to structs or impl blocks");
     )
     .into()
 }
