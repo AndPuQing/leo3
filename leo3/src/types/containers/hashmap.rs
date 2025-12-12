@@ -3,6 +3,12 @@
 //! This module provides a Rust wrapper for Lean's HashMap type, which is
 //! a hash table implementation with efficient lookup and insertion.
 //!
+//! **IMPORTANT**: This is currently a **placeholder implementation** with a simplified
+//! linked-list structure. It does not use the actual Lean HashMap implementation.
+//!
+//! For the real Lean HashMap FFI bindings, see `leo3_ffi::hashmap`.
+//! See `containers/README.md` for information on how to properly implement these using FFI.
+//!
 //! # Example
 //!
 //! ```rust,ignore

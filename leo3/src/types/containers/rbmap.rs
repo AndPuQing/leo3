@@ -3,6 +3,12 @@
 //! This module provides a Rust wrapper for Lean's RBMap type, which is
 //! a balanced binary search tree implementation that maintains sorted order.
 //!
+//! **IMPORTANT**: This is currently a **placeholder implementation** with a simplified
+//! tree structure. It does not use the actual Lean RBMap implementation.
+//!
+//! For the real Lean RBMap FFI bindings, see `leo3_ffi::rbmap`.
+//! See `containers/README.md` for information on how to properly implement these using FFI.
+//!
 //! # Example
 //!
 //! ```rust,ignore

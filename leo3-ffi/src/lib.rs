@@ -25,6 +25,9 @@
 //! - `nat` - Natural number operations
 //! - `closure` - Closures, thunks, tasks, and promises
 //! - `inline` - Rust re-implementations of Lean4's static inline functions
+//! - `hashmap` - HashMap FFI bindings (Std.HashMap)
+//! - `hashset` - HashSet FFI bindings (Std.HashSet)
+//! - `rbmap` - RBMap FFI bindings (Lean.RBMap)
 
 // Re-export libc types used across modules
 pub use libc::{c_char, c_int, c_uint, c_void, size_t};
@@ -32,10 +35,13 @@ pub use libc::{c_char, c_int, c_uint, c_void, size_t};
 pub mod array;
 pub mod closure;
 pub mod float;
+pub mod hashmap;
+pub mod hashset;
 pub mod int;
 pub mod io;
 pub mod nat;
 pub mod object;
+pub mod rbmap;
 pub mod string;
 
 // Inline function implementations

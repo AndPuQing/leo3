@@ -3,6 +3,12 @@
 //! This module provides a Rust wrapper for Lean's HashSet type, which is
 //! a hash table-based set implementation for efficient membership testing.
 //!
+//! **IMPORTANT**: This is currently a **placeholder implementation** with a simplified
+//! linked-list structure. It does not use the actual Lean HashSet implementation.
+//!
+//! For the real Lean HashSet FFI bindings, see `leo3_ffi::hashset`.
+//! See `containers/README.md` for information on how to properly implement these using FFI.
+//!
 //! # Example
 //!
 //! ```rust,ignore
