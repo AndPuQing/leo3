@@ -69,6 +69,7 @@ pub mod external;
 pub mod instance;
 pub mod io;
 pub mod marker;
+pub mod meta;
 pub mod module;
 pub mod types;
 
@@ -122,18 +123,28 @@ pub mod prelude {
 /// }
 /// ```
 pub fn prepare_freethreaded_lean() {
+    use std::cell::Cell;
     use std::sync::Once;
-    static RUNTIME_INIT: Once = Once::new();
 
+    static RUNTIME_INIT: Once = Once::new();
+    thread_local! {
+        static THREAD_INIT: Cell<bool> = const { Cell::new(false) };
+    }
+
+    // Initialize runtime module once globally
     RUNTIME_INIT.call_once(|| unsafe {
         ffi::lean_initialize_runtime_module();
     });
 
-    // Lean requires per-thread initialization; the test runner executes tests on
-    // multiple OS threads by default.
-    unsafe {
-        ffi::lean_initialize_thread();
-    }
+    // Initialize thread only once per thread
+    THREAD_INIT.with(|initialized| {
+        if !initialized.get() {
+            unsafe {
+                ffi::lean_initialize_thread();
+            }
+            initialized.set(true);
+        }
+    });
 }
 
 /// Execute a closure with access to the Lean runtime.
@@ -156,6 +167,34 @@ where
 {
     let lean = unsafe { Lean::assume_initialized() };
     f(lean)
+}
+
+/// Execute a test with proper Lean thread lifecycle management.
+///
+/// This is specifically for testing - it ensures Lean is properly initialized
+/// before running the test.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// #[test]
+/// fn my_test() {
+///     leo3::test_with_lean(|lean| {
+///         let s = LeanString::mk(lean, "Hello!");
+///         assert!(!s.cstr().unwrap().is_empty());
+///         Ok(())
+///     }).unwrap();
+/// }
+/// ```
+pub fn test_with_lean<F, R>(f: F) -> R
+where
+    F: for<'l> FnOnce(Lean<'l>) -> R,
+{
+    // Initialize if needed (idempotent per thread)
+    prepare_freethreaded_lean();
+
+    // Run the test
+    with_lean(f)
 }
 
 /// Metadata about a Lean function (used by macros)

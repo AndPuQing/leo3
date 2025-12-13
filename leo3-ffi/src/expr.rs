@@ -297,23 +297,6 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
-    /// Get the tag/kind of an expression
-    ///
-    /// # Parameters
-    /// - `expr`: Expression object (borrowed)
-    ///
-    /// # Returns
-    /// Expression tag (LEAN_EXPR_*) as u8
-    ///
-    /// # Example
-    /// ```c
-    /// uint8_t tag = lean_expr_tag(e);
-    /// if (tag == LEAN_EXPR_APP) {
-    ///     // e is an application
-    /// }
-    /// ```
-    pub fn lean_expr_tag(expr: lean_obj_arg) -> u8;
-
     /// Get the hash code of an expression
     ///
     /// # Parameters
@@ -590,7 +573,7 @@ extern "C" {
     /// 0 if not alpha equivalent, non-zero if alpha equivalent
     ///
     /// # Example
-    /// ```
+    /// ```text
     /// λ x, x  ≡ λ y, y  (alpha equivalent)
     /// λ x, x  ≢ λ x, 0  (not alpha equivalent)
     /// ```
@@ -672,24 +655,6 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
-    /// Create a natural number literal
-    ///
-    /// # Parameters
-    /// - `val`: Natural number value (consumed)
-    ///
-    /// # Returns
-    /// Literal object (Literal.natVal val)
-    pub fn lean_mk_nat_lit(val: lean_obj_arg) -> lean_obj_res;
-
-    /// Create a string literal
-    ///
-    /// # Parameters
-    /// - `val`: String value (consumed)
-    ///
-    /// # Returns
-    /// Literal object (Literal.strVal val)
-    pub fn lean_mk_string_lit(val: lean_obj_arg) -> lean_obj_res;
-
     /// Get the type of a literal
     ///
     /// Returns the Expr representing the type of the literal.
@@ -711,13 +676,7 @@ extern "C" {
     ///
     /// # Returns
     /// Level object representing level zero
-    pub fn lean_level_zero() -> lean_obj_res;
-
-    /// Create level one (Type)
-    ///
-    /// # Returns
-    /// Level object representing level one
-    pub fn lean_level_one() -> lean_obj_res;
+    pub fn lean_level_mk_zero() -> lean_obj_res;
 
     /// Create successor level
     ///
@@ -726,7 +685,7 @@ extern "C" {
     ///
     /// # Returns
     /// Level object representing succ(level)
-    pub fn lean_level_succ(level: lean_obj_arg) -> lean_obj_res;
+    pub fn lean_level_mk_succ(level: lean_obj_arg) -> lean_obj_res;
 
     /// Create max of two levels
     ///
@@ -736,7 +695,7 @@ extern "C" {
     ///
     /// # Returns
     /// Level object representing max(a, b)
-    pub fn lean_level_max(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
+    pub fn lean_level_mk_max(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
 
     /// Create imax of two levels
     ///
@@ -749,7 +708,7 @@ extern "C" {
     ///
     /// # Returns
     /// Level object representing imax(a, b)
-    pub fn lean_level_imax(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
+    pub fn lean_level_mk_imax(a: lean_obj_arg, b: lean_obj_arg) -> lean_obj_res;
 
     /// Create a level parameter
     ///
@@ -758,5 +717,5 @@ extern "C" {
     ///
     /// # Returns
     /// Level object representing parameter(name)
-    pub fn lean_level_param(name: lean_obj_arg) -> lean_obj_res;
+    pub fn lean_level_mk_param(name: lean_obj_arg) -> lean_obj_res;
 }
