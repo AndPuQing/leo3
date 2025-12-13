@@ -205,21 +205,114 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// ```rust,ignore
 /// use leo3::prelude::*;
 ///
-/// #[leanmodule]
-/// fn my_module(m: &mut LeanModule) {
-///     m.add_function(wrap_leanfn!(add))?;
+/// #[leanmodule(name = "MyRustLib")]
+/// mod my_module {
+///     #[leanfn]
+///     pub fn add(a: u64, b: u64) -> u64 {
+///         a + b
+///     }
 /// }
 /// ```
 ///
-/// This macro is planned for future implementation.
+/// This generates a module initialization function `initialize_MyRustLib` that
+/// can be called from Lean4 to initialize the module.
 #[proc_macro_attribute]
-pub fn leanmodule(_attr: TokenStream, input: TokenStream) -> TokenStream {
-    let input2: TokenStream2 = input.into();
-    quote!(
-        compile_error!("#[leanmodule] is not yet implemented. Coming soon!");
-        #input2
-    )
-    .into()
+pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let item_mod = parse_macro_input!(input as syn::ItemMod);
+
+    // Parse the module name from attributes
+    let attr_str = attr.to_string();
+    let module_name = if attr_str.contains("name") {
+        // Extract name from `name = "..."`
+        attr_str
+            .split('"')
+            .nth(1)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| item_mod.ident.to_string())
+    } else if !attr_str.is_empty() {
+        // Bare identifier
+        attr_str.trim().to_string()
+    } else {
+        // Default to module name
+        item_mod.ident.to_string()
+    };
+
+    let init_fn_name = syn::Ident::new(
+        &format!("initialize_{}", module_name),
+        proc_macro2::Span::call_site(),
+    );
+
+    let expanded = quote! {
+        #item_mod
+
+        /// Module initialization function for Lean4.
+        ///
+        /// This function is called by Lean when loading the module.
+        #[no_mangle]
+        pub unsafe extern "C" fn #init_fn_name(
+            builtin: u8,
+            _world: *mut ::std::ffi::c_void,
+        ) -> *mut ::std::ffi::c_void {
+            if builtin == 0 {
+                ::leo3::ffi::lean_initialize_runtime_module();
+                ::leo3::ffi::lean_initialize_thread();
+            }
+
+            // Return IO.ok ()
+            let unit = ::leo3::ffi::lean_alloc_ctor(0, 0, 0);
+            let io_ok = ::leo3::ffi::lean_alloc_ctor(1, 1, 0);
+            ::leo3::ffi::object::lean_ctor_set(io_ok, 0, unit);
+            io_ok as *mut ::std::ffi::c_void
+        }
+    };
+
+    expanded.into()
+}
+
+/// A proc macro to implement Lean type classes for Rust types.
+///
+/// # Supported Type Classes
+///
+/// - `BEq` - Boolean equality (requires `fn beq(&self, other: &Self) -> bool`)
+/// - `Hashable` - Hashing (requires `fn hash(&self) -> u64`)
+/// - `Repr` - Representation (requires `fn repr(&self) -> String`)
+/// - `ToString` - String conversion (requires `fn to_string(&self) -> String`)
+/// - `Ord` - Ordering (requires `fn compare(&self, other: &Self) -> Ordering`)
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use leo3::prelude::*;
+///
+/// struct Point { x: i32, y: i32 }
+///
+/// #[lean_instance(BEq)]
+/// impl Point {
+///     fn beq(&self, other: &Self) -> bool {
+///         self.x == other.x && self.y == other.y
+///     }
+/// }
+///
+/// #[lean_instance(Hashable)]
+/// impl Point {
+///     fn hash(&self) -> u64 {
+///         (self.x as u64) ^ (self.y as u64).wrapping_shl(32)
+///     }
+/// }
+/// ```
+///
+/// This generates FFI functions that can be used as type class instances in Lean4.
+#[proc_macro_attribute]
+pub fn lean_instance(attr: TokenStream, input: TokenStream) -> TokenStream {
+    use leo3_macros_backend::LeanInstanceOptions;
+
+    let mut item_impl = parse_macro_input!(input as syn::ItemImpl);
+    let options = parse_macro_input!(attr as LeanInstanceOptions);
+
+    let expanded =
+        leo3_macros_backend::build_lean_instance(&mut item_impl, options).unwrap_or_compile_error();
+
+    expanded.into()
 }
 
 trait UnwrapOrCompileError {

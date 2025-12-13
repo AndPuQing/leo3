@@ -63,6 +63,7 @@
 
 pub use leo3_ffi as ffi;
 
+pub mod closure;
 pub mod conversion;
 pub mod err;
 pub mod external;
@@ -71,16 +72,19 @@ pub mod io;
 pub mod marker;
 pub mod meta;
 pub mod module;
+pub mod promise;
+pub mod task;
+pub mod thunk;
 pub mod types;
 
 // Re-export key types
 pub use err::{LeanError, LeanResult};
-pub use instance::{LeanBound, LeanRef};
+pub use instance::{LeanBorrowed, LeanBound, LeanRef};
 pub use marker::Lean;
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::{Lean, LeanBound, LeanError, LeanRef, LeanResult};
+    pub use crate::{Lean, LeanBorrowed, LeanBound, LeanError, LeanRef, LeanResult};
 
     // Re-export conversion traits and macros
     pub use crate::conversion::{FromLean, IntoLean};

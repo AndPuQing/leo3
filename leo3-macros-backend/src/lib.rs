@@ -8,9 +8,11 @@ use quote::quote;
 use syn::{parse::Parse, punctuated::Punctuated, Token};
 
 pub mod derive;
+pub mod lean_instance;
 pub mod leanclass;
 pub mod leanfn;
 
+pub use lean_instance::{build_lean_instance, LeanInstanceOptions};
 pub use leanclass::{build_lean_class_impl, build_lean_class_struct, LeanClassOptions};
 pub use leanfn::{build_lean_function, LeanFunctionOptions};
 

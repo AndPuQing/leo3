@@ -219,6 +219,145 @@ pub struct LeanAny {
     _private: (),
 }
 
+/// A borrowed reference to a Lean object with no reference counting overhead.
+///
+/// This provides zero-cost access to Lean objects when you don't need ownership.
+/// Unlike [`LeanBound`], this type does not increment or decrement the reference
+/// count, making it more efficient for temporary access patterns.
+///
+/// # Lifetimes
+///
+/// - `'a`: The lifetime of the borrow (how long this reference is valid)
+/// - `'l`: The Lean runtime lifetime (proves the runtime is initialized)
+///
+/// # Safety
+///
+/// Because `LeanBorrowed` does not manage reference counts, the underlying
+/// object must be kept alive by another reference (like a [`LeanBound`])
+/// for the duration of the borrow. This is enforced by the `'a` lifetime.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use leo3::prelude::*;
+///
+/// fn example<'l>(lean: Lean<'l>, bound: &LeanBound<'l, LeanString>) {
+///     let borrowed = bound.as_borrowed();
+///     // Use borrowed for efficient read access
+///     // borrowed is automatically valid for the same lifetime as the borrow of bound
+/// }
+/// ```
+#[repr(transparent)]
+pub struct LeanBorrowed<'a, 'l, T = LeanAny> {
+    inner: *const ffi::lean_object,
+    _borrow: PhantomData<&'a ()>,
+    _lean: PhantomData<&'l T>,
+}
+
+// LeanBorrowed is Copy because it doesn't manage any resources
+impl<'a, 'l, T> Copy for LeanBorrowed<'a, 'l, T> {}
+
+impl<'a, 'l, T> Clone for LeanBorrowed<'a, 'l, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'a, 'l, T> LeanBorrowed<'a, 'l, T> {
+    /// Create a `LeanBorrowed` from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// - `ptr` must be a valid Lean object pointer
+    /// - The caller must ensure the object remains valid for lifetime `'a`
+    /// - The Lean runtime must be initialized for lifetime `'l`
+    #[inline]
+    pub unsafe fn from_ptr(ptr: *const ffi::lean_object) -> Self {
+        Self {
+            inner: ptr,
+            _borrow: PhantomData,
+            _lean: PhantomData,
+        }
+    }
+
+    /// Get the raw pointer to the Lean object.
+    ///
+    /// The pointer is valid as long as the underlying object is alive.
+    #[inline]
+    pub fn as_ptr(&self) -> *const ffi::lean_object {
+        self.inner
+    }
+
+    /// Get a mutable pointer to the Lean object.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure exclusive access to the object.
+    #[inline]
+    pub fn as_mut_ptr(&self) -> *mut ffi::lean_object {
+        self.inner as *mut ffi::lean_object
+    }
+
+    /// Get a `Lean<'l>` token from this borrowed reference.
+    ///
+    /// This is safe because `LeanBorrowed<'a, 'l, T>` can only exist if
+    /// the Lean runtime is initialized for the `'l` lifetime.
+    #[inline]
+    pub fn lean_token(&self) -> Lean<'l> {
+        unsafe { Lean::assume_initialized() }
+    }
+
+    /// Upgrade this borrowed reference to an owned [`LeanBound`].
+    ///
+    /// This increments the reference count and returns an owned reference
+    /// that will decrement the count when dropped.
+    #[inline]
+    pub fn to_owned(&self) -> LeanBound<'l, T> {
+        unsafe {
+            ffi::object::lean_inc(self.inner as *mut _);
+            LeanBound::from_owned_ptr(self.lean_token(), self.inner as *mut _)
+        }
+    }
+
+    /// Cast this `LeanBorrowed<'a, 'l, T>` to `LeanBorrowed<'a, 'l, U>`.
+    ///
+    /// This is safe because all Lean objects share the same underlying
+    /// representation. The type parameter is only used for type safety
+    /// at the Rust level.
+    #[inline]
+    pub fn cast<U>(self) -> LeanBorrowed<'a, 'l, U> {
+        LeanBorrowed {
+            inner: self.inner,
+            _borrow: PhantomData,
+            _lean: PhantomData,
+        }
+    }
+}
+
+impl<'l, T> LeanBound<'l, T> {
+    /// Borrow this `LeanBound` as a `LeanBorrowed`.
+    ///
+    /// This provides zero-cost access without affecting the reference count.
+    /// The returned `LeanBorrowed` is valid for the lifetime of the borrow.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let bound: LeanBound<LeanString> = ...;
+    /// let borrowed = bound.as_borrowed();
+    /// // Use borrowed for efficient read access
+    /// ```
+    #[inline]
+    pub fn as_borrowed(&self) -> LeanBorrowed<'_, 'l, T> {
+        LeanBorrowed {
+            inner: self.inner.as_ptr() as *const _,
+            _borrow: PhantomData,
+            _lean: PhantomData,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +378,21 @@ mod tests {
             std::mem::size_of::<LeanRef<LeanAny>>(),
             std::mem::size_of::<*mut ()>()
         );
+    }
+
+    #[test]
+    fn test_leanborrowed_size() {
+        // LeanBorrowed should be pointer-sized (same as LeanBound)
+        assert_eq!(
+            std::mem::size_of::<LeanBorrowed<LeanAny>>(),
+            std::mem::size_of::<*mut ()>()
+        );
+    }
+
+    #[test]
+    fn test_leanborrowed_is_copy() {
+        // Verify LeanBorrowed implements Copy by using it in a context that requires Copy
+        fn assert_copy<T: Copy>() {}
+        assert_copy::<LeanBorrowed<LeanAny>>();
     }
 }
