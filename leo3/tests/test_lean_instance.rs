@@ -66,6 +66,7 @@ struct StringPoint {
 // Implement ToString type class
 #[leo3_macros::lean_instance(ToString)]
 impl StringPoint {
+    #[allow(clippy::inherent_to_string)]
     fn to_string(&self) -> String {
         format!("({}, {})", self.x, self.y)
     }
