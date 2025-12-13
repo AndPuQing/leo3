@@ -127,6 +127,8 @@ pub fn prepare_freethreaded_lean() {
     use std::sync::Once;
 
     static RUNTIME_INIT: Once = Once::new();
+    static PRELUDE_INIT: Once = Once::new();
+    static EXPR_INIT: Once = Once::new();
     thread_local! {
         static THREAD_INIT: Cell<bool> = const { Cell::new(false) };
     }
@@ -144,6 +146,18 @@ pub fn prepare_freethreaded_lean() {
             }
             initialized.set(true);
         }
+    });
+
+    // Initialize Init.Prelude module for Name functions
+    // This must be called after runtime and thread initialization
+    PRELUDE_INIT.call_once(|| unsafe {
+        ffi::initialize_Init_Prelude(1, std::ptr::null_mut());
+    });
+
+    // Initialize Lean.Expr module for metaprogramming functions
+    // This must be called after Init.Prelude
+    EXPR_INIT.call_once(|| unsafe {
+        ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
     });
 }
 

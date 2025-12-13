@@ -607,6 +607,8 @@ impl LeanExpr {
             return Err(LeanError::runtime("Not a lambda"));
         }
         unsafe {
+            // lean_expr_binder_info consumes the reference
+            ffi::lean_inc(expr.as_ptr());
             let info_u8 = ffi::expr::lean_expr_binder_info(expr.as_ptr());
             Ok(BinderInfo::from_u8(info_u8))
         }
@@ -657,6 +659,8 @@ impl LeanExpr {
             return Err(LeanError::runtime("Not a forall"));
         }
         unsafe {
+            // lean_expr_binder_info consumes the reference
+            ffi::lean_inc(expr.as_ptr());
             let info_u8 = ffi::expr::lean_expr_binder_info(expr.as_ptr());
             Ok(BinderInfo::from_u8(info_u8))
         }
@@ -874,7 +878,11 @@ impl LeanExpr {
     ///
     /// Returns the maximum de Bruijn index + 1, or 0 if no loose bvars.
     pub fn loose_bvar_range<'l>(expr: &LeanBound<'l, Self>) -> u32 {
-        unsafe { ffi::expr::lean_expr_loose_bvar_range(expr.as_ptr()) }
+        unsafe {
+            // Note: lean_expr_loose_bvar_range consumes the reference
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_loose_bvar_range(expr.as_ptr())
+        }
     }
 
     /// Lift loose bound variables
@@ -978,27 +986,48 @@ impl LeanExpr {
     ///
     /// Returns a hash value for this expression.
     pub fn hash<'l>(expr: &LeanBound<'l, Self>) -> u64 {
-        unsafe { ffi::expr::lean_expr_hash(expr.as_ptr()) }
+        unsafe {
+            // Note: lean_expr_hash consumes the reference even though it shouldn't
+            // We must increment before calling to avoid double-free
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_hash(expr.as_ptr())
+        }
     }
 
     /// Check if expression contains free variables
     pub fn has_fvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::expr::lean_expr_has_fvar(expr.as_ptr()) != 0 }
+        unsafe {
+            // Note: lean_expr_has_fvar consumes the reference
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_has_fvar(expr.as_ptr()) != 0
+        }
     }
 
     /// Check if expression contains expression meta variables
     pub fn has_expr_mvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::expr::lean_expr_has_expr_mvar(expr.as_ptr()) != 0 }
+        unsafe {
+            // Note: lean_expr_has_expr_mvar consumes the reference
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_has_expr_mvar(expr.as_ptr()) != 0
+        }
     }
 
     /// Check if expression contains level meta variables
     pub fn has_level_mvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::expr::lean_expr_has_level_mvar(expr.as_ptr()) != 0 }
+        unsafe {
+            // Note: lean_expr_has_level_mvar consumes the reference
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_has_level_mvar(expr.as_ptr()) != 0
+        }
     }
 
     /// Check if expression contains level parameters
     pub fn has_level_param<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::expr::lean_expr_has_level_param(expr.as_ptr()) != 0 }
+        unsafe {
+            // Note: lean_expr_has_level_param consumes the reference
+            ffi::lean_inc(expr.as_ptr());
+            ffi::expr::lean_expr_has_level_param(expr.as_ptr()) != 0
+        }
     }
 
     /// Get the debug string representation of an expression

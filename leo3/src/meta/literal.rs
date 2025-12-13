@@ -65,7 +65,14 @@ impl LeanLiteral {
     ) -> LeanResult<LeanBound<'l, super::expr::LeanExpr>> {
         unsafe {
             let lean = lit.lean_token();
+            // Note: lean_lit_type consumes the reference
+            ffi::lean_inc(lit.as_ptr());
             let ptr = ffi::expr::lean_lit_type(lit.as_ptr());
+            if ptr.is_null() {
+                return Err(crate::err::LeanError::runtime(
+                    "lean_lit_type returned null pointer",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

@@ -124,6 +124,32 @@ extern "C" {
     ///
     /// Used by the Lean runtime to check for interrupts and resource limits.
     pub fn lean_inc_heartbeat();
+
+    /// Initialize the Lean.Expr module
+    ///
+    /// Must be called before using exported functions from Lean.Expr like
+    /// `lean_expr_mk_const`, `lean_lit_type`, etc.
+    ///
+    /// # Parameters
+    /// - `builtin`: Set to 1 for builtin initialization
+    /// - `w`: World token (pass null_mut for first call)
+    ///
+    /// # Returns
+    /// Updated world token (can be ignored for initialization purposes)
+    pub fn initialize_Lean_Expr(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+
+    /// Initialize the Init.Prelude module
+    ///
+    /// Must be called before using exported functions from Init.Prelude like
+    /// `lean_name_mk_string`, `lean_name_mk_numeral`, etc.
+    ///
+    /// # Parameters
+    /// - `builtin`: Set to 1 for builtin initialization
+    /// - `w`: World token (pass null_mut for first call)
+    ///
+    /// # Returns
+    /// Updated world token (can be ignored for initialization purposes)
+    pub fn initialize_Init_Prelude(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
 }
 
 // ============================================================================

@@ -43,8 +43,10 @@ impl LeanName {
     /// ```
     pub fn anonymous<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Name.anonymous has tag 0, no fields
-            let ptr = ffi::lean_alloc_ctor(0, 0, 0);
+            // Name.anonymous is represented as a SCALAR (lean_box(0)), not a heap object!
+            // This is because in the C++ runtime, Name.anonymous is checked via is_scalar().
+            // See: lean4/src/util/name.h line 57: static bool is_anonymous(object * o) { return is_scalar(o); }
+            let ptr = ffi::lean_box(0);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
