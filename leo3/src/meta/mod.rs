@@ -50,6 +50,40 @@
 //! })?;
 //! ```
 
+use leo3_ffi as ffi;
+use std::sync::Once;
+
+// ============================================================================
+// Lazy Initialization
+// ============================================================================
+
+static PRELUDE_INIT: Once = Once::new();
+static EXPR_INIT: Once = Once::new();
+
+/// Ensure Init.Prelude module is initialized (for Name functions)
+///
+/// This is called lazily when Name-related functions are first used.
+/// Safe to call multiple times - initialization happens only once.
+#[inline]
+pub(crate) fn ensure_prelude_initialized() {
+    PRELUDE_INIT.call_once(|| unsafe {
+        ffi::initialize_Init_Prelude(1, std::ptr::null_mut());
+    });
+}
+
+/// Ensure Lean.Expr module is initialized (for metaprogramming functions)
+///
+/// This is called lazily when Expr-related functions are first used.
+/// Safe to call multiple times - initialization happens only once.
+/// Note: This depends on Init.Prelude, so it initializes that first.
+#[inline]
+pub(crate) fn ensure_expr_initialized() {
+    ensure_prelude_initialized(); // Expr depends on Prelude
+    EXPR_INIT.call_once(|| unsafe {
+        ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
+    });
+}
+
 pub mod declaration;
 pub mod environment;
 pub mod expr;

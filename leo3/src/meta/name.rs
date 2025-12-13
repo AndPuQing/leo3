@@ -98,6 +98,7 @@ impl LeanName {
         lean: Lean<'l>,
         s: &str,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_prelude_initialized();
         unsafe {
             let str_val = LeanString::mk(lean, s)?;
             let ptr = ffi::name::lean_name_mk_string(pre.into_ptr(), str_val.into_ptr());
@@ -120,6 +121,7 @@ impl LeanName {
         lean: Lean<'l>,
         n: usize,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_prelude_initialized();
         unsafe {
             let num_val = LeanNat::from_usize(lean, n)?;
             let ptr = ffi::name::lean_name_mk_numeral(pre.into_ptr(), num_val.into_ptr());

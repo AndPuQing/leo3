@@ -63,6 +63,7 @@ impl LeanLiteral {
     pub fn type_<'l>(
         lit: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, super::expr::LeanExpr>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = lit.lean_token();
             // Note: lean_lit_type consumes the reference

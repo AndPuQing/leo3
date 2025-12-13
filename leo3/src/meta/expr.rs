@@ -136,6 +136,7 @@ impl LeanExpr {
         name: LeanBound<'l, LeanName>,
         levels: LeanBound<'l, LeanList>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_expr_mk_const(name.into_ptr(), levels.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
