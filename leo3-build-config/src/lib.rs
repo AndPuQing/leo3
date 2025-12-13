@@ -287,7 +287,20 @@ fn emit_link_config(config: &LeanConfig) {
         let lib_lean_shared_dll_a = config.lean_lib_dir.join("libLean_shared.dll.a");
 
         if lib_lean_a.exists() {
-            println!("cargo:rustc-link-lib=static:+verbatim=libLean.a");
+            // On MSVC, use /WHOLEARCHIVE to force the linker to include all symbols
+            // from libLean.a. Without this, MinGW-style archives may not have their
+            // symbols properly extracted by link.exe.
+            if target_env == "msvc" {
+                println!(
+                    "cargo:rustc-link-arg=/WHOLEARCHIVE:{}",
+                    lib_lean_a.display()
+                );
+            } else {
+                // GNU toolchains on Windows (MinGW) - use --whole-archive
+                println!("cargo:rustc-link-arg=-Wl,--whole-archive");
+                println!("cargo:rustc-link-lib=static:+verbatim=libLean.a");
+                println!("cargo:rustc-link-arg=-Wl,--no-whole-archive");
+            }
         } else if lib_lean_shared_dll_a.exists() {
             // Some Lean builds ship a dedicated Lean shared library.
             println!("cargo:rustc-link-lib=dylib:+verbatim=libLean_shared.dll.a");
@@ -295,7 +308,7 @@ fn emit_link_config(config: &LeanConfig) {
             // Some distributions may ship MSVC import/static libraries instead.
             let lean_lib = config.lean_lib_dir.join("Lean.lib");
             if lean_lib.exists() {
-                println!("cargo:rustc-link-lib=static=Lean");
+                println!("cargo:rustc-link-arg=/WHOLEARCHIVE:{}", lean_lib.display());
             }
         } else {
             // GNU toolchains can resolve by name if a suitable archive exists.
