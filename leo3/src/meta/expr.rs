@@ -758,7 +758,7 @@ impl LeanExpr {
     /// Instantiate bound variables with expressions
     ///
     /// Replaces de Bruijn indices with expressions from the substitution array.
-    /// Index 0 is replaced with subst[0], index 1 with subst[1], etc.
+    /// Index 0 is replaced with subst\[0\], index 1 with subst\[1\], etc.
     ///
     /// # Example
     ///

@@ -1,7 +1,7 @@
 //! FFI bindings for Lean's Lean.RBMap
 //!
 //! This module provides FFI declarations for Lean's RBMap (Red-Black Map) functions.
-//! These functions are exposed from the Lean runtime with the @[expose] attribute.
+//! These functions are exposed from the Lean runtime with the @\[expose\] attribute.
 //!
 //! Note: RBMap uses Ord typeclass for comparison, not BEq/Hashable like HashMap.
 

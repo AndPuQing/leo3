@@ -378,7 +378,7 @@ extern "C" {
     /// Instantiate bound variables with expressions
     ///
     /// Replaces de Bruijn indices with expressions from the substitution array.
-    /// Variable n is replaced with subst[n].
+    /// Variable n is replaced with subst\[n\].
     ///
     /// # Parameters
     /// - `expr`: Expression to instantiate (borrowed)
@@ -468,7 +468,7 @@ extern "C" {
     /// Abstract free variables to bound variables
     ///
     /// Replaces occurrences of free variables with de Bruijn indices.
-    /// fvar subst[i] is replaced with variable i.
+    /// fvar subst\[i\] is replaced with variable i.
     ///
     /// # Parameters
     /// - `expr`: Expression to abstract (borrowed)

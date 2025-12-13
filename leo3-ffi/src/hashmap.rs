@@ -1,7 +1,7 @@
 //! FFI bindings for Lean's Std.HashMap
 //!
 //! This module provides FFI declarations for Lean's HashMap functions.
-//! These functions are exposed from the Lean runtime with the @[expose] attribute.
+//! These functions are exposed from the Lean runtime with the @\[expose\] attribute.
 
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 
