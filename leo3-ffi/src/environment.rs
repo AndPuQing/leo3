@@ -227,7 +227,6 @@ extern "C" {
 }
 
 /// Create an axiom declaration.
-#[inline]
 pub unsafe fn lean_mk_axiom(
     name: lean_obj_arg,
     level_params: lean_obj_arg,
@@ -238,7 +237,6 @@ pub unsafe fn lean_mk_axiom(
 }
 
 /// Create a definition declaration.
-#[inline]
 pub unsafe fn lean_mk_definition(
     name: lean_obj_arg,
     level_params: lean_obj_arg,
@@ -251,7 +249,6 @@ pub unsafe fn lean_mk_definition(
 }
 
 /// Create a theorem declaration.
-#[inline]
 pub unsafe fn lean_mk_theorem(
     name: lean_obj_arg,
     level_params: lean_obj_arg,
@@ -276,32 +273,26 @@ extern "C" {
     fn l_Lean_ConstantKind_ofConstantInfo(cinfo: lean_obj_arg) -> u8;
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_name(cinfo: lean_obj_arg) -> lean_obj_res {
     l_Lean_ConstantInfo_name(cinfo)
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_type(cinfo: lean_obj_arg) -> lean_obj_res {
     l_Lean_ConstantInfo_type(cinfo)
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_level_params(cinfo: lean_obj_arg) -> lean_obj_res {
     l_Lean_ConstantInfo_levelParams(cinfo)
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_kind(cinfo: lean_obj_arg) -> u8 {
     l_Lean_ConstantKind_ofConstantInfo(cinfo)
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_has_value(cinfo: lean_obj_arg) -> u8 {
     l_Lean_ConstantInfo_hasValue(cinfo)
 }
 
-#[inline]
 pub unsafe fn lean_constant_info_value(cinfo: lean_obj_arg) -> lean_obj_res {
     l_Lean_ConstantInfo_value_x21(cinfo)
 }
