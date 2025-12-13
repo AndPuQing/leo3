@@ -78,7 +78,11 @@ fn test_read_nonexistent_file() {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| {
-        let result = fs::read_file(lean, "/tmp/nonexistent_file_12345.txt");
+        let nonexistent = std::env::temp_dir()
+            .join("nonexistent_file_12345.txt")
+            .to_string_lossy()
+            .into_owned();
+        let result = fs::read_file(lean, &nonexistent);
 
         // Should return an error
         assert!(result.is_err(), "Reading nonexistent file should fail");
@@ -312,12 +316,23 @@ fn test_set_cwd() {
         // Get original cwd
         let original_cwd = fs::get_cwd(lean)?;
 
-        // Change to /tmp
-        fs::set_cwd(lean, "/tmp")?;
+        // Use temp directory that exists on all platforms
+        let temp_dir = if cfg!(windows) {
+            std::env::var("TEMP").unwrap_or_else(|_| "C:\\Windows\\Temp".to_string())
+        } else {
+            "/tmp".to_string()
+        };
+
+        // Change to temp directory
+        fs::set_cwd(lean, &temp_dir)?;
 
         // Verify the change
         let new_cwd = fs::get_cwd(lean)?;
-        assert!(new_cwd.ends_with("tmp") || new_cwd == "/tmp");
+        assert!(
+            new_cwd.contains("tmp") || new_cwd.contains("Temp"),
+            "Expected temp directory, got: {}",
+            new_cwd
+        );
 
         // Restore original cwd
         fs::set_cwd(lean, &original_cwd)?;
