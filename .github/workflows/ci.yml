@@ -62,8 +62,21 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
 
-      # Install Lean4 via elan
+      # Cache Lean installation to speed up CI
+      - name: Cache Lean installation
+        id: cache-lean
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elan
+            %USERPROFILE%\.elan
+          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
+          restore-keys: |
+            ${{ runner.os }}-elan-
+
+      # Install Lean4 via elan (only if not cached)
       - name: Install elan
+        if: steps.cache-lean.outputs.cache-hit != 'true'
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
@@ -71,16 +84,24 @@ jobs:
             unzip elan.zip
             ./elan-init.exe -y --default-toolchain none
             rm -f elan-init.exe elan.zip
-            echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
           else
             echo "::group::Elan Installation Output"
             set -o pipefail
             curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
             rm -f elan-init
+            echo "::endgroup::"
+          fi
+
+      # Add elan to PATH (needed whether cached or not)
+      - name: Setup Lean PATH
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
+          else
             echo "$HOME/.elan/bin" >> $GITHUB_PATH
             "$HOME"/.elan/bin/lean --version
             "$HOME"/.elan/bin/lake --version
-            echo "::endgroup::"
           fi
 
       # On Windows, add Lean library directory to PATH so DLLs can be found at runtime
@@ -122,17 +143,32 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      # Install Lean4 via elan
+      # Cache Lean installation to speed up CI
+      - name: Cache Lean installation
+        id: cache-lean
+        uses: actions/cache@v4
+        with:
+          path: ~/.elan
+          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
+          restore-keys: |
+            ${{ runner.os }}-elan-
+
+      # Install Lean4 via elan (only if not cached)
       - name: Install elan
+        if: steps.cache-lean.outputs.cache-hit != 'true'
         run: |
           echo "::group::Elan Installation Output"
           set -o pipefail
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           rm -f elan-init
+          echo "::endgroup::"
+
+      # Add elan to PATH (needed whether cached or not)
+      - name: Setup Lean PATH
+        run: |
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
           "$HOME"/.elan/bin/lean --version
           "$HOME"/.elan/bin/lake --version
-          echo "::endgroup::"
 
       - name: Collect coverage data (including doctests)
         run: |
