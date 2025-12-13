@@ -5,12 +5,10 @@
 
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::LeanString;
 use crate::LeanResult;
 use leo3_ffi as ffi;
 
-// TODO: Implement proper LeanName type wrapper
-type LeanName = LeanString;
+use super::name::LeanName;
 
 /// Universe level
 ///

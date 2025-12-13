@@ -67,9 +67,14 @@ fn test_expression_sort() {
 
 #[test]
 fn test_expression_const() {
-    // TODO: This test requires proper Name construction using lean_name_mk_string
-    // For now, skip creating consts until we implement Name FFI bindings
-    let result: LeanResult<()> = leo3::test_with_lean(|_lean| Ok(()));
+    // TODO: Full Name and Const testing requires more investigation
+    // Name FFI bindings are implemented and ready to use
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Test basic Name creation
+        let _name = LeanName::from_str(lean, "x")?;
+
+        Ok(())
+    });
 
     assert!(result.is_ok(), "Const test failed: {:?}", result.err());
 }
@@ -107,7 +112,7 @@ fn test_expression_app() {
 fn test_expression_lambda() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create λ x : Prop, x
-        let x_name = LeanString::mk(lean, "x")?;
+        let x_name = LeanName::from_str(lean, "x")?;
         let prop_level = LeanLevel::zero(lean)?;
         let prop_sort = LeanExpr::sort(lean, prop_level)?;
         let x_body = LeanExpr::bvar(lean, 0)?;
@@ -117,10 +122,9 @@ fn test_expression_lambda() {
         // Check it's a lambda
         assert!(LeanExpr::is_lambda(&lambda));
 
-        // Extract parts
-        let name = LeanExpr::lambda_name(&lambda)?;
-        let name_str = LeanString::cstr(&name)?.to_string();
-        assert_eq!(name_str, "x");
+        // Extract parts and verify name
+        let extracted_name = LeanExpr::lambda_name(&lambda)?;
+        assert!(LeanName::eq(&extracted_name, &x_name));
 
         let binder_type = LeanExpr::lambda_type(&lambda)?;
         assert!(LeanExpr::is_sort(&binder_type));
@@ -141,7 +145,7 @@ fn test_expression_lambda() {
 fn test_expression_forall() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create ∀ (n : Prop), Prop
-        let n_name = LeanString::mk(lean, "n")?;
+        let n_name = LeanName::from_str(lean, "n")?;
         let prop_level = LeanLevel::zero(lean)?;
         let prop_sort = LeanExpr::sort(lean, prop_level.clone())?;
         let prop_body = LeanExpr::sort(lean, prop_level)?;
@@ -221,7 +225,7 @@ fn test_expression_dbg_string() {
 fn test_expression_alpha_eqv() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create λ x, x
-        let x_name = LeanString::mk(lean, "x")?;
+        let x_name = LeanName::from_str(lean, "x")?;
         let prop_level = LeanLevel::zero(lean)?;
         let prop_sort = LeanExpr::sort(lean, prop_level.clone())?;
         let x_body = LeanExpr::bvar(lean, 0)?;
@@ -234,7 +238,7 @@ fn test_expression_alpha_eqv() {
         )?;
 
         // Create λ y, y
-        let y_name = LeanString::mk(lean, "y")?;
+        let y_name = LeanName::from_str(lean, "y")?;
         let lambda_y = LeanExpr::lambda(y_name, prop_sort, x_body, BinderInfo::Default)?;
 
         // They should be alpha equivalent
@@ -292,7 +296,7 @@ fn test_level_operations() {
         let _imax_level = LeanLevel::imax(one, two)?;
 
         // Create param
-        let u_name = LeanString::mk(lean, "u")?;
+        let u_name = LeanName::from_str(lean, "u")?;
         let _param_level = LeanLevel::param(lean, u_name)?;
 
         // All operations should succeed

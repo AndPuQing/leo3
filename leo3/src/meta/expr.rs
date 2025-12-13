@@ -11,8 +11,7 @@ use crate::types::{LeanList, LeanNat, LeanString};
 use crate::LeanResult;
 use leo3_ffi as ffi;
 
-// TODO: Implement proper LeanName type wrapper
-type LeanName = LeanString;
+use super::name::LeanName;
 
 /// Lean expression - the core term language
 ///
@@ -263,7 +262,7 @@ impl LeanExpr {
         codomain: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         let lean = domain.lean_token();
-        let dummy_name = LeanString::mk(lean, "_")?;
+        let dummy_name = LeanName::from_str(lean, "_")?;
         Self::forall(dummy_name, domain, codomain, BinderInfo::Default)
     }
 

@@ -44,6 +44,7 @@ pub mod hashmap;
 pub mod hashset;
 pub mod int;
 pub mod io;
+pub mod name;
 pub mod nat;
 pub mod object;
 pub mod rbmap;
