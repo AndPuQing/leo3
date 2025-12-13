@@ -200,45 +200,16 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
-    /// Create an axiom declaration
-    ///
-    /// Axioms are constants assumed without proof.
-    ///
-    /// # Parameters
-    /// - `name`: Name of the axiom (consumed)
-    /// - `level_params`: List of universe level parameters (consumed)
-    /// - `type_`: Type expression of the axiom (consumed)
-    /// - `is_unsafe`: 0 for safe axiom, non-zero for unsafe axiom
-    ///
-    /// # Returns
-    /// Declaration object
-    ///
-    /// # Lean type
-    /// ```lean
-    /// axiom_decl : Name → List Name → Expr → Bool → Declaration
-    /// ```
-    pub fn lean_mk_axiom(
+    // These constructors are emitted by the Lean compiler and are available as
+    // `*_val` symbols (there is no `lean_mk_*` symbol in Lean's shipped libraries).
+    fn lean_mk_axiom_val(
         name: lean_obj_arg,
         level_params: lean_obj_arg,
         type_: lean_obj_arg,
         is_unsafe: u8,
     ) -> lean_obj_res;
 
-    /// Create a definition declaration
-    ///
-    /// Definitions are constants with computational content.
-    ///
-    /// # Parameters
-    /// - `name`: Name of the definition (consumed)
-    /// - `level_params`: List of universe level parameters (consumed)
-    /// - `type_`: Type expression (consumed)
-    /// - `value`: Value expression (consumed)
-    /// - `hints`: Reducibility hints (consumed)
-    /// - `safety`: Safety level (0 = safe, 1 = partial, 2 = unsafe)
-    ///
-    /// # Returns
-    /// Declaration object
-    pub fn lean_mk_definition(
+    fn lean_mk_definition_val(
         name: lean_obj_arg,
         level_params: lean_obj_arg,
         type_: lean_obj_arg,
@@ -247,19 +218,7 @@ extern "C" {
         safety: u8,
     ) -> lean_obj_res;
 
-    /// Create a theorem declaration
-    ///
-    /// Theorems are definitions in Prop that are never reduced.
-    ///
-    /// # Parameters
-    /// - `name`: Name of the theorem (consumed)
-    /// - `level_params`: List of universe level parameters (consumed)
-    /// - `type_`: Type expression (consumed)
-    /// - `value`: Proof term (consumed)
-    ///
-    /// # Returns
-    /// Declaration object
-    pub fn lean_mk_theorem(
+    fn lean_mk_theorem_val(
         name: lean_obj_arg,
         level_params: lean_obj_arg,
         type_: lean_obj_arg,
@@ -267,75 +226,84 @@ extern "C" {
     ) -> lean_obj_res;
 }
 
+/// Create an axiom declaration.
+#[inline]
+pub unsafe fn lean_mk_axiom(
+    name: lean_obj_arg,
+    level_params: lean_obj_arg,
+    type_: lean_obj_arg,
+    is_unsafe: u8,
+) -> lean_obj_res {
+    lean_mk_axiom_val(name, level_params, type_, is_unsafe)
+}
+
+/// Create a definition declaration.
+#[inline]
+pub unsafe fn lean_mk_definition(
+    name: lean_obj_arg,
+    level_params: lean_obj_arg,
+    type_: lean_obj_arg,
+    value: lean_obj_arg,
+    hints: lean_obj_arg,
+    safety: u8,
+) -> lean_obj_res {
+    lean_mk_definition_val(name, level_params, type_, value, hints, safety)
+}
+
+/// Create a theorem declaration.
+#[inline]
+pub unsafe fn lean_mk_theorem(
+    name: lean_obj_arg,
+    level_params: lean_obj_arg,
+    type_: lean_obj_arg,
+    value: lean_obj_arg,
+) -> lean_obj_res {
+    lean_mk_theorem_val(name, level_params, type_, value)
+}
+
 // ============================================================================
 // ConstantInfo Accessors
 // ============================================================================
 
 extern "C" {
-    /// Get the name of a constant
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// Name object
-    pub fn lean_constant_info_name(cinfo: lean_obj_arg) -> lean_obj_res;
+    // These are Lean-compiled helper functions (from `Lean/Declaration`), shipped in Lean's
+    // libraries as `l_Lean_*` symbols.
+    fn l_Lean_ConstantInfo_name(cinfo: lean_obj_arg) -> lean_obj_res;
+    fn l_Lean_ConstantInfo_type(cinfo: lean_obj_arg) -> lean_obj_res;
+    fn l_Lean_ConstantInfo_levelParams(cinfo: lean_obj_arg) -> lean_obj_res;
+    fn l_Lean_ConstantInfo_hasValue(cinfo: lean_obj_arg) -> u8;
+    fn l_Lean_ConstantInfo_value_x21(cinfo: lean_obj_arg) -> lean_obj_res;
+    fn l_Lean_ConstantKind_ofConstantInfo(cinfo: lean_obj_arg) -> u8;
+}
 
-    /// Get the type of a constant
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// Expression representing the type
-    pub fn lean_constant_info_type(cinfo: lean_obj_arg) -> lean_obj_res;
+#[inline]
+pub unsafe fn lean_constant_info_name(cinfo: lean_obj_arg) -> lean_obj_res {
+    l_Lean_ConstantInfo_name(cinfo)
+}
 
-    /// Get the universe level parameters of a constant
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// List of level parameter names
-    pub fn lean_constant_info_level_params(cinfo: lean_obj_arg) -> lean_obj_res;
+#[inline]
+pub unsafe fn lean_constant_info_type(cinfo: lean_obj_arg) -> lean_obj_res {
+    l_Lean_ConstantInfo_type(cinfo)
+}
 
-    /// Get the kind of a constant
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// Kind as u8:
-    /// - 0: Axiom
-    /// - 1: Definition
-    /// - 2: Theorem
-    /// - 3: Opaque
-    /// - 4: Quot
-    /// - 5: Inductive
-    /// - 6: Constructor
-    /// - 7: Recursor
-    pub fn lean_constant_info_kind(cinfo: lean_obj_arg) -> u8;
+#[inline]
+pub unsafe fn lean_constant_info_level_params(cinfo: lean_obj_arg) -> lean_obj_res {
+    l_Lean_ConstantInfo_levelParams(cinfo)
+}
 
-    /// Check if a constant has a value (is a definition or theorem)
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// 0 if no value (axiom), non-zero if has value (definition/theorem)
-    pub fn lean_constant_info_has_value(cinfo: lean_obj_arg) -> u8;
+#[inline]
+pub unsafe fn lean_constant_info_kind(cinfo: lean_obj_arg) -> u8 {
+    l_Lean_ConstantKind_ofConstantInfo(cinfo)
+}
 
-    /// Get the value of a constant (only valid if has_value returns true)
-    ///
-    /// # Parameters
-    /// - `cinfo`: ConstantInfo object (borrowed)
-    ///
-    /// # Returns
-    /// Expression representing the value
-    ///
-    /// # Safety
-    /// Must check `lean_constant_info_has_value` before calling this
-    pub fn lean_constant_info_value(cinfo: lean_obj_arg) -> lean_obj_res;
+#[inline]
+pub unsafe fn lean_constant_info_has_value(cinfo: lean_obj_arg) -> u8 {
+    l_Lean_ConstantInfo_hasValue(cinfo)
+}
+
+#[inline]
+pub unsafe fn lean_constant_info_value(cinfo: lean_obj_arg) -> lean_obj_res {
+    l_Lean_ConstantInfo_value_x21(cinfo)
 }
 
 // ============================================================================

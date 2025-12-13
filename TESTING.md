@@ -82,6 +82,10 @@ export LD_LIBRARY_PATH=~/.elan/toolchains/leanprover--lean4---v4.25.2/lib/lean:$
 - Check if the function is a static inline (needs Rust implementation in `inline.rs`)
 - Verify Lean4 is properly linked
 
+**Windows: `link.exe` LNK2019/LNK1120 for `lean_mk_*` / `lean_constant_info_*`**
+- Ensure the Lean toolchain’s `lib/lean` directory is on the linker search path (handled by `leo3-build-config`)
+- Ensure Lean core libraries (e.g. `libLean.a` / `Lean.lib`) are present in the Lean installation and are being linked
+
 **Compilation errors but Lean4 is installed**
 - Use `LEO3_NO_LEAN=1` to isolate the issue
 - Check `leo3-build-config` output for detection errors

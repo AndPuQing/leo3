@@ -238,6 +238,7 @@ fn get_lean_version(lean_bin: &Path) -> Result<String, String> {
 /// Emit link configuration for cargo
 fn emit_link_config(config: &LeanConfig) {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
 
     // Add library search path
     // On Windows: need both lib/lean (for .lib import libraries) and bin (for DLLs at runtime)
@@ -257,8 +258,10 @@ fn emit_link_config(config: &LeanConfig) {
     // Based on lean4/tests/lake/examples/reverse-ffi/Makefile
     // Order matters: dependencies first, then base libraries
     //
-    // On Windows, Lean is built with MinGW and provides .dll.a import libraries,
-    // not .lib files. We need to use +verbatim to specify the exact library names.
+    // On Windows, the Lean toolchains installed by elan commonly ship MinGW-style
+    // `.dll.a` import libraries. For MSVC targets, we still use `link.exe`; these
+    // archives are typically COFF and can be consumed by the MSVC linker when
+    // passed verbatim.
     if target_os == "windows" {
         // Use verbatim to link against .dll.a files (MinGW import libraries)
         println!("cargo:rustc-link-lib=dylib:+verbatim=libInit_shared.dll.a");
@@ -271,6 +274,38 @@ fn emit_link_config(config: &LeanConfig) {
         println!("cargo:rustc-link-lib=dylib=leanshared_2");
         println!("cargo:rustc-link-lib=dylib=leanshared_1");
         println!("cargo:rustc-link-lib=dylib=leanshared");
+    }
+
+    // `leo3::meta` calls into Lean-compiled helpers that live in Lean's core libraries
+    // (e.g. `l_Lean_ConstantInfo_name`). Ensure `libLean` is available at link time.
+    //
+    // On Unix, this is a normal `libLean.a`.
+    // On Windows, elan toolchains typically provide `libLean.a` (MinGW-style); we pass
+    // it verbatim so the linker can consume it if present.
+    if target_os == "windows" {
+        let lib_lean_a = config.lean_lib_dir.join("libLean.a");
+        let lib_lean_shared_dll_a = config.lean_lib_dir.join("libLean_shared.dll.a");
+
+        if lib_lean_a.exists() {
+            println!("cargo:rustc-link-lib=static:+verbatim=libLean.a");
+        } else if lib_lean_shared_dll_a.exists() {
+            // Some Lean builds ship a dedicated Lean shared library.
+            println!("cargo:rustc-link-lib=dylib:+verbatim=libLean_shared.dll.a");
+        } else if target_env == "msvc" {
+            // Some distributions may ship MSVC import/static libraries instead.
+            let lean_lib = config.lean_lib_dir.join("Lean.lib");
+            if lean_lib.exists() {
+                println!("cargo:rustc-link-lib=static=Lean");
+            }
+        } else {
+            // GNU toolchains can resolve by name if a suitable archive exists.
+            println!("cargo:rustc-link-lib=static=Lean");
+        }
+    } else {
+        let lib_lean_a = config.lean_lib_dir.join("libLean.a");
+        if lib_lean_a.exists() {
+            println!("cargo:rustc-link-lib=static=Lean");
+        }
     }
 
     // On Windows, link additional system libraries required by Lean
