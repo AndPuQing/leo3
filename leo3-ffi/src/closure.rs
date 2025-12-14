@@ -257,38 +257,17 @@ extern "C" {
 // ============================================================================
 // Thunk Functions
 // ============================================================================
-
-extern "C" {
-    /// Allocate a thunk (lazy computation)
-    ///
-    /// # Safety
-    /// - `c` must be a valid closure object (consumed)
-    pub fn lean_alloc_thunk(c: lean_obj_arg) -> lean_obj_res;
-
-    /// Get the value of a thunk (forcing evaluation if needed)
-    ///
-    /// # Safety
-    /// - `t` must be a valid thunk object
-    pub fn lean_thunk_get(t: b_lean_obj_arg) -> b_lean_obj_res;
-
-    /// Get the value of a thunk (core implementation)
-    ///
-    /// # Safety
-    /// - `t` must be a valid thunk object (consumed)
-    pub fn lean_thunk_get_core(t: lean_obj_arg) -> lean_obj_res;
-
-    /// Get the value of an owned thunk (forcing evaluation if needed)
-    ///
-    /// # Safety
-    /// - `t` must be a valid thunk object (consumed)
-    pub fn lean_thunk_get_own(t: lean_obj_arg) -> lean_obj_res;
-
-    /// Check if thunk is pure (no side effects)
-    ///
-    /// # Safety
-    /// - `t` must be a valid thunk object
-    pub fn lean_thunk_is_pure(t: b_lean_obj_arg) -> bool;
-}
+//
+// NOTE: Most thunk functions are static inline in lean.h and are NOT exported
+// from libleanshared.so. Only lean_thunk_get_core is exported. The inline
+// implementations are provided in inline.rs:
+// - lean_mk_thunk (creates a thunk from a closure)
+// - lean_thunk_pure (creates a pre-evaluated thunk)
+// - lean_thunk_get (gets value, forcing evaluation if needed)
+// - lean_thunk_get_own (gets owned value)
+//
+// The extern declaration for lean_thunk_get_core is in inline.rs since it's
+// used by the inline implementations.
 
 // ============================================================================
 // Task Functions (Async/Parallel Computation)
@@ -319,24 +298,11 @@ extern "C" {
     /// - `keep_alive` indicates if the task should prevent thread pool shutdown
     pub fn lean_task_spawn_core(c: lean_obj_arg, prio: c_uint, keep_alive: bool) -> lean_obj_res;
 
-    /// Spawn a new task
-    ///
-    /// # Safety
-    /// - `c` must be a valid closure object (consumed)
-    /// - `prio` is the task priority
-    pub fn lean_task_spawn(c: lean_obj_arg, prio: c_uint) -> lean_obj_res;
-
     /// Get task result (blocking if not finished)
     ///
     /// # Safety
     /// - `t` must be a valid task object
     pub fn lean_task_get(t: b_lean_obj_arg) -> b_lean_obj_res;
-
-    /// Get owned task result (blocking if not finished)
-    ///
-    /// # Safety
-    /// - `t` must be a valid task object (consumed)
-    pub fn lean_task_get_own(t: lean_obj_arg) -> lean_obj_res;
 
     /// Map a function over a task (core implementation)
     ///
@@ -354,14 +320,6 @@ extern "C" {
         keep_alive: bool,
     ) -> lean_obj_res;
 
-    /// Map a function over a task
-    ///
-    /// # Safety
-    /// - `f` must be a valid closure object (consumed)
-    /// - `t` must be a valid task object (consumed)
-    /// - `prio` is the priority for the new task
-    pub fn lean_task_map(f: lean_obj_arg, t: lean_obj_arg, prio: c_uint) -> lean_obj_res;
-
     /// Bind a function over a task (core implementation)
     ///
     /// # Safety
@@ -377,16 +335,6 @@ extern "C" {
         sync: bool,
         keep_alive: bool,
     ) -> lean_obj_res;
-
-    /// Bind a function over a task (monadic bind)
-    ///
-    /// # Safety
-    /// - `t` must be a valid task object (consumed)
-    /// - `f` must be a valid closure object (consumed)
-    /// - `sync` indicates if the task should be forced synchronously
-    /// - `prio` is the priority for the new task
-    pub fn lean_task_bind(t: lean_obj_arg, f: lean_obj_arg, sync: u8, prio: c_uint)
-        -> lean_obj_res;
 
     /// Create a pure task (already completed)
     ///
@@ -422,26 +370,15 @@ extern "C" {
 // ============================================================================
 // Promise Functions
 // ============================================================================
-
-extern "C" {
-    /// Create a new promise
-    ///
-    /// Returns a promise object that can be resolved later
-    pub fn lean_promise_new() -> lean_obj_res;
-
-    /// Resolve a promise with a value
-    ///
-    /// # Safety
-    /// - `p` must be a valid promise object (consumed)
-    /// - `v` is the value to set (consumed)
-    pub fn lean_promise_resolve(p: lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
-
-    /// Get the task associated with a promise
-    ///
-    /// # Safety
-    /// - `p` must be a valid promise object
-    pub fn lean_promise_get_task(p: b_lean_obj_arg) -> b_lean_obj_res;
-}
+//
+// NOTE: The following promise functions are NOT exported from libleanshared.so
+// in current Lean versions (tested up to 4.25.2). They are internal functions.
+// The promise types are still available for type-checking purposes.
+//
+// If you need promise functionality, you may need to:
+// 1. Link against a static Lean build that exports these symbols
+// 2. Wait for a future Lean version that exports these functions
+// 3. Use alternative patterns (e.g., Task + channel)
 
 // ============================================================================
 // Reference Objects (Mutable Cells)

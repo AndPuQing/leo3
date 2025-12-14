@@ -58,7 +58,7 @@ fn test_basic_string_creation() {
 
         // Read it back
         assert_eq!(LeanString::cstr(&s)?, "Hello, Lean!");
-        assert_eq!(LeanString::len(&s), 12);
+        assert_eq!(LeanString::length(&s), 12);
 
         Ok(())
     });

@@ -119,7 +119,7 @@ fn test_uint8_to_char() {
         let val = LeanUInt8::mk(lean, 255)?;
         assert!(LeanUInt8::isValidChar(&val));
         let c = LeanUInt8::toChar(&val, lean)?;
-        assert_eq!(LeanChar::to_u32(&c), 255);
+        assert_eq!(LeanChar::toNat(&c), 255);
 
         Ok(())
     })
@@ -133,7 +133,7 @@ fn test_uint32_to_char() {
         let val = LeanUInt32::mk(lean, 0x1F600)?; // 😀
         assert!(LeanUInt32::isValidChar(&val));
         let c = LeanUInt32::toChar(&val, lean)?;
-        assert_eq!(LeanChar::to_u32(&c), 0x1F600);
+        assert_eq!(LeanChar::toNat(&c), 0x1F600);
 
         // Invalid Unicode scalar (surrogate range)
         let val = LeanUInt32::mk(lean, 0xD800)?;

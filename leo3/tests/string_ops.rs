@@ -13,7 +13,7 @@ fn test_string_creation_and_conversion() {
         let s = LeanString::mk(lean, "Hello, Lean4!")?;
 
         assert_eq!(LeanString::cstr(&s)?, "Hello, Lean4!");
-        assert_eq!(LeanString::len(&s), 13);
+        assert_eq!(LeanString::length(&s), 13);
         assert!(!LeanString::isEmpty(&s));
 
         Ok(())
@@ -30,7 +30,7 @@ fn test_empty_string() {
         let s = LeanString::mk(lean, "")?;
 
         assert_eq!(LeanString::cstr(&s)?, "");
-        assert_eq!(LeanString::len(&s), 0);
+        assert_eq!(LeanString::length(&s), 0);
         assert!(LeanString::isEmpty(&s));
 
         Ok(())
@@ -45,10 +45,10 @@ fn test_string_push() {
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         let s = LeanString::mk(lean, "Hello")?;
-        let s = LeanString::push(s, '!' as u32)?;
+        let s = LeanString::push(s, '!')?;
 
         assert_eq!(LeanString::cstr(&s)?, "Hello!");
-        assert_eq!(LeanString::len(&s), 6);
+        assert_eq!(LeanString::length(&s), 6);
 
         Ok(())
     });
@@ -66,7 +66,7 @@ fn test_string_append() {
         let result = LeanString::append(s1, &s2)?;
 
         assert_eq!(LeanString::cstr(&result)?, "Hello, World!");
-        assert_eq!(LeanString::len(&result), 13);
+        assert_eq!(LeanString::length(&result), 13);
 
         Ok(())
     });
@@ -121,7 +121,7 @@ fn test_string_unicode() {
         assert_eq!(LeanString::cstr(&s)?, "Hello, 世界!");
         // UTF-8 length: "Hello, " = 7, "世界" = 6 bytes (2 chars), "!" = 1
         // But len() returns character count, not byte count
-        assert!(LeanString::len(&s) > 0);
+        assert!(LeanString::length(&s) > 0);
 
         Ok(())
     });
@@ -137,11 +137,11 @@ fn test_string_substring() {
         let s = LeanString::mk(lean, "Hello, World!")?;
 
         // Extract "Hello" (bytes 0-5)
-        let sub = LeanString::substring(lean, &s, 0, 5)?;
+        let sub = LeanString::extract(lean, &s, 0, 5)?;
         assert_eq!(LeanString::cstr(&sub)?, "Hello");
 
         // Extract "World" (bytes 7-12)
-        let sub = LeanString::substring(lean, &s, 7, 12)?;
+        let sub = LeanString::extract(lean, &s, 7, 12)?;
         assert_eq!(LeanString::cstr(&sub)?, "World");
 
         Ok(())
@@ -157,12 +157,12 @@ fn test_string_chaining() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // Chain multiple string operations
         let s = LeanString::mk(lean, "Hello")?;
-        let s = LeanString::push(s, ',' as u32)?;
-        let s = LeanString::push(s, ' ' as u32)?;
+        let s = LeanString::push(s, ',')?;
+        let s = LeanString::push(s, ' ')?;
 
         let world = LeanString::mk(lean, "World")?;
         let s = LeanString::append(s, &world)?;
-        let s = LeanString::push(s, '!' as u32)?;
+        let s = LeanString::push(s, '!')?;
 
         assert_eq!(LeanString::cstr(&s)?, "Hello, World!");
 

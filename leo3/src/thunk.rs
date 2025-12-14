@@ -55,7 +55,7 @@ impl<'l, T> LeanThunk<'l, T> {
     pub fn is_thunk(obj: &LeanBound<'l, LeanAny>) -> bool {
         unsafe {
             let ptr = obj.as_ptr();
-            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_ptr_tag(ptr) == ffi::LEAN_THUNK
+            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_is_thunk(ptr)
         }
     }
 
@@ -82,7 +82,22 @@ impl<'l, T> LeanThunk<'l, T> {
     pub fn new(closure: LeanClosure<'l>) -> Self {
         let lean = closure.lean_token();
         unsafe {
-            let ptr = ffi::closure::lean_alloc_thunk(closure.into_ptr());
+            let ptr = ffi::inline::lean_mk_thunk(closure.into_ptr());
+            LeanBound::from_owned_ptr(lean, ptr)
+        }
+    }
+
+    /// Create a pure (already evaluated) thunk from a value.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Thunk.pure` in Lean4.
+    ///
+    /// This creates a thunk that is already evaluated with the given value.
+    /// Useful when you need a thunk but already have the computed result.
+    pub fn pure(value: LeanBound<'l, T>) -> Self {
+        let lean = value.lean_token();
+        unsafe {
+            let ptr = ffi::inline::lean_thunk_pure(value.into_ptr());
             LeanBound::from_owned_ptr(lean, ptr)
         }
     }
@@ -96,7 +111,14 @@ impl<'l, T> LeanThunk<'l, T> {
     /// A pure thunk has already been forced and its value is cached.
     #[inline]
     pub fn is_pure(&self) -> bool {
-        unsafe { ffi::closure::lean_thunk_is_pure(self.as_ptr()) }
+        unsafe {
+            // A thunk is pure if m_value is not null
+            let thunk = ffi::inline::lean_to_thunk(self.as_ptr());
+            !(*thunk)
+                .m_value
+                .load(std::sync::atomic::Ordering::Acquire)
+                .is_null()
+        }
     }
 
     // ========================================================================
@@ -111,7 +133,7 @@ impl<'l, T> LeanThunk<'l, T> {
     /// The returned reference is valid as long as this thunk is alive.
     pub fn get(&self) -> LeanBorrowed<'_, 'l, T> {
         unsafe {
-            let result = ffi::closure::lean_thunk_get(self.as_ptr());
+            let result = ffi::inline::lean_thunk_get(self.as_ptr());
             LeanBorrowed::from_ptr(result as *const _)
         }
     }
@@ -123,7 +145,10 @@ impl<'l, T> LeanThunk<'l, T> {
     pub fn get_owned(self) -> LeanBound<'l, T> {
         let lean = self.lean_token();
         unsafe {
-            let result = ffi::closure::lean_thunk_get_own(self.into_ptr());
+            // lean_thunk_get_own borrows the thunk, gets the result, and increments ref count
+            let result = ffi::inline::lean_thunk_get_own(self.as_ptr());
+            // Drop self (which will dec ref the thunk)
+            drop(self);
             LeanBound::from_owned_ptr(lean, result)
         }
     }
@@ -134,6 +159,49 @@ impl<'l, T> LeanThunk<'l, T> {
     /// of the result.
     pub fn get_cloned(&self) -> LeanBound<'l, T> {
         self.get().to_owned()
+    }
+
+    // ========================================================================
+    // Combinators
+    // ========================================================================
+
+    /// Map a function over the thunk result.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Thunk.map` in Lean4.
+    ///
+    /// Returns a new thunk that will apply `f` to the result of this thunk
+    /// when forced. The original thunk is not evaluated until the new thunk
+    /// is forced.
+    pub fn map<F>(self, f: F) -> LeanThunk<'l, LeanAny>
+    where
+        F: FnOnce(LeanBound<'l, T>) -> LeanBound<'l, LeanAny>,
+    {
+        let lean = self.lean_token();
+        // Force evaluation and apply the function
+        let result = self.get_owned();
+        let mapped = f(result);
+        // Create a pure thunk with the mapped result
+        unsafe {
+            let ptr = ffi::inline::lean_thunk_pure(mapped.into_ptr());
+            LeanBound::from_owned_ptr(lean, ptr)
+        }
+    }
+
+    /// Monadic bind over the thunk result.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Thunk.bind` in Lean4.
+    ///
+    /// Returns a new thunk that will apply `f` to the result of this thunk
+    /// and then force the resulting thunk.
+    pub fn bind<F>(self, f: F) -> LeanThunk<'l, LeanAny>
+    where
+        F: FnOnce(LeanBound<'l, T>) -> LeanThunk<'l, LeanAny>,
+    {
+        // Force evaluation and apply the function
+        let result = self.get_owned();
+        f(result)
     }
 }
 

@@ -61,7 +61,7 @@ impl<'l> LeanClosure<'l> {
     pub fn is_closure(obj: &LeanBound<'l, LeanAny>) -> bool {
         unsafe {
             let ptr = obj.as_ptr();
-            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_ptr_tag(ptr) == ffi::LEAN_CLOSURE
+            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_is_closure(ptr)
         }
     }
 

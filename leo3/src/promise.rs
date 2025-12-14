@@ -74,7 +74,7 @@ impl<'l, T> LeanPromise<'l, T> {
     pub fn is_promise(obj: &LeanBound<'l, LeanAny>) -> bool {
         unsafe {
             let ptr = obj.as_ptr();
-            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_ptr_tag(ptr) == ffi::LEAN_PROMISE
+            !ffi::inline::lean_is_scalar(ptr) && ffi::inline::lean_is_promise(ptr)
         }
     }
 
@@ -97,11 +97,19 @@ impl<'l, T> LeanPromise<'l, T> {
     /// Create a new unresolved promise.
     ///
     /// The promise can be resolved later with [`resolve`](Self::resolve).
-    pub fn new(lean: Lean<'l>) -> Self {
-        unsafe {
-            let ptr = ffi::closure::lean_promise_new();
-            LeanBound::from_owned_ptr(lean, ptr)
-        }
+    ///
+    /// # Note
+    ///
+    /// This function requires Lean runtime promise support which may not be
+    /// available in all Lean versions. The `lean_promise_new` function is not
+    /// currently exported from the Lean shared library.
+    #[allow(unreachable_code)]
+    pub fn new(_lean: Lean<'l>) -> Self {
+        // TODO: lean_promise_new is not exported from libleanshared.so
+        // This needs to be implemented when/if Lean exports these functions
+        unimplemented!(
+            "Promise creation requires lean_promise_new which is not exported from Lean shared library"
+        );
     }
 
     // ========================================================================
@@ -116,10 +124,17 @@ impl<'l, T> LeanPromise<'l, T> {
     ///
     /// - This consumes the promise (it can only be resolved once)
     /// - The value is consumed and transferred to the waiting task
-    pub fn resolve(self, value: LeanBound<'l, T>) {
-        unsafe {
-            ffi::closure::lean_promise_resolve(self.into_ptr(), value.into_ptr());
-        }
+    ///
+    /// # Note
+    ///
+    /// This function requires Lean runtime promise support which may not be
+    /// available in all Lean versions.
+    #[allow(unreachable_code)]
+    pub fn resolve(self, _value: LeanBound<'l, T>) {
+        // TODO: lean_promise_resolve is not exported from libleanshared.so
+        unimplemented!(
+            "Promise resolution requires lean_promise_resolve which is not exported from Lean shared library"
+        );
     }
 
     // ========================================================================
@@ -130,15 +145,17 @@ impl<'l, T> LeanPromise<'l, T> {
     ///
     /// The returned task will complete when this promise is resolved.
     /// Multiple calls return independent references to the same underlying task.
+    ///
+    /// # Note
+    ///
+    /// This function requires Lean runtime promise support which may not be
+    /// available in all Lean versions.
+    #[allow(unreachable_code)]
     pub fn task(&self) -> LeanTask<'l, T> {
-        let lean = self.lean_token();
-        unsafe {
-            // lean_promise_get_task returns a borrowed reference
-            let task_ptr = ffi::closure::lean_promise_get_task(self.as_ptr());
-            // Increment reference count since we're creating an owned reference
-            ffi::object::lean_inc(task_ptr as *mut _);
-            LeanBound::from_owned_ptr(lean, task_ptr as *mut _)
-        }
+        // TODO: lean_promise_get_task is not exported from libleanshared.so
+        unimplemented!(
+            "Promise task access requires lean_promise_get_task which is not exported from Lean shared library"
+        );
     }
 }
 

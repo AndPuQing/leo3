@@ -27,11 +27,20 @@
 //! - **`LeanBound<'l, T>`**: A Lean object bound to a `Lean<'l>` lifetime
 //! - **`LeanRef<T>`**: An owned reference to a Lean object (can cross initialization boundaries)
 //! - **`LeanBorrowed<'a, 'l, T>`**: A borrowed reference (zero-cost)
+//! - **`LeanUnbound<T>`**: A thread-safe reference with automatic MT marking (`Send + Sync`)
 //!
 //! ### Reference Counting
 //!
 //! Lean4 uses reference counting for memory management. Leo3's smart pointers
 //! automatically handle reference counting to prevent memory leaks and use-after-free.
+//!
+//! ### Thread Safety
+//!
+//! Lean4 uses a dual-mode reference counting system:
+//! - **ST (Single-Threaded)**: Non-atomic, faster reference counting
+//! - **MT (Multi-Threaded)**: Atomic reference counting for thread safety
+//!
+//! Use `LeanUnbound<T>` or `unbind_mt()` for objects that need to cross thread boundaries.
 //!
 //! ## Feature Flags
 //!
@@ -73,18 +82,21 @@ pub mod marker;
 pub mod meta;
 pub mod module;
 pub mod promise;
+pub mod sync;
 pub mod task;
 pub mod thunk;
 pub mod types;
+pub mod unbound;
 
 // Re-export key types
 pub use err::{LeanError, LeanResult};
 pub use instance::{LeanBorrowed, LeanBound, LeanRef};
 pub use marker::Lean;
+pub use unbound::LeanUnbound;
 
 /// Prelude module for convenient imports
 pub mod prelude {
-    pub use crate::{Lean, LeanBorrowed, LeanBound, LeanError, LeanRef, LeanResult};
+    pub use crate::{Lean, LeanBorrowed, LeanBound, LeanError, LeanRef, LeanResult, LeanUnbound};
 
     // Re-export conversion traits and macros
     pub use crate::conversion::{FromLean, IntoLean};

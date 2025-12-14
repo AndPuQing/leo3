@@ -2,9 +2,23 @@
 //!
 //! This module provides safe wrappers around Lean object pointers with
 //! automatic reference counting.
+//!
+//! # Type Hierarchy
+//!
+//! ```text
+//! LeanBound<'l, T>  ──unbind()──────>  LeanRef<T>
+//!       │                                  │
+//!       │                                  │
+//!       └──unbind_mt()──> LeanUnbound<T> <─┴─into_unbound()
+//! ```
+//!
+//! - **`LeanBound<'l, T>`**: Lifetime-bound, `!Send + !Sync` (tied to runtime)
+//! - **`LeanRef<T>`**: Unbound but NOT guaranteed MT-safe
+//! - **`LeanUnbound<T>`**: Thread-safe, automatically marked for MT use
 
 use crate::ffi;
 use crate::marker::Lean;
+use crate::unbound::LeanUnbound;
 use std::marker::PhantomData;
 use std::ptr::NonNull;
 
@@ -120,6 +134,41 @@ impl<'l, T> LeanBound<'l, T> {
         let ptr = self.into_ptr();
         unsafe { LeanBound::from_owned_ptr(lean, ptr) }
     }
+
+    /// Unbind this object for thread-safe use.
+    ///
+    /// This converts `LeanBound<'l, T>` to `LeanUnbound<T>`, which is `Send + Sync`.
+    /// The object is automatically marked for multi-threaded use via `lean_mark_mt()`,
+    /// enabling atomic reference counting.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::thread;
+    ///
+    /// let s = LeanString::mk(lean, "Hello").unwrap();
+    /// let unbound = s.unbind_mt();
+    ///
+    /// // Can now be sent to another thread
+    /// thread::spawn(move || {
+    ///     with_lean(|lean| {
+    ///         let bound = unbound.bind(lean);
+    ///         // use bound...
+    ///     });
+    /// });
+    /// ```
+    ///
+    /// # Performance Note
+    ///
+    /// This method marks the object (and all reachable objects) for multi-threaded
+    /// use, which switches to atomic reference counting. For single-threaded code,
+    /// prefer `unbind()` which doesn't incur this overhead.
+    #[inline]
+    pub fn unbind_mt(self) -> LeanUnbound<T> {
+        let ptr = self.into_ptr();
+        // SAFETY: We just consumed a valid LeanBound, the pointer is valid
+        unsafe { LeanUnbound::from_owned_ptr(ptr) }
+    }
 }
 
 impl<'l, T> Drop for LeanBound<'l, T> {
@@ -186,6 +235,23 @@ impl<T> LeanRef<T> {
     #[inline]
     pub fn as_ptr(&self) -> *mut ffi::lean_object {
         self.inner.as_ptr()
+    }
+
+    /// Convert this `LeanRef` to a thread-safe `LeanUnbound`.
+    ///
+    /// This marks the object for multi-threaded use via `lean_mark_mt()`,
+    /// enabling atomic reference counting.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let lean_ref: LeanRef<LeanString> = bound.unbind();
+    /// let unbound: LeanUnbound<LeanString> = lean_ref.into_unbound();
+    /// // unbound can now be safely sent across threads
+    /// ```
+    #[inline]
+    pub fn into_unbound(self) -> LeanUnbound<T> {
+        LeanUnbound::from_ref(self)
     }
 }
 

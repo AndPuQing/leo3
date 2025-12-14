@@ -168,13 +168,13 @@ fn test_string_lengths() {
     let result: LeanResult<()> = leo3::with_lean(|lean| {
         // ASCII - byte length == char length
         let s = LeanString::mk(lean, "Hello")?;
-        assert_eq!(LeanString::len(&s), 5);
-        assert_eq!(LeanString::byte_size(&s), 6);
+        assert_eq!(LeanString::length(&s), 5);
+        assert_eq!(LeanString::utf8ByteSize(&s), 6);
 
         // Empty
         let s = LeanString::mk(lean, "")?;
-        assert_eq!(LeanString::len(&s), 0);
-        assert_eq!(LeanString::byte_size(&s), 1);
+        assert_eq!(LeanString::length(&s), 0);
+        assert_eq!(LeanString::utf8ByteSize(&s), 1);
 
         // Note: For multibyte characters, byte_size > len
         // The exact values depend on Lean's UTF-8 handling
