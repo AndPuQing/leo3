@@ -1,6 +1,10 @@
 //! FFI bindings for Lean4 closure, thunk, and task operations
 //!
 //! Based on the closure/thunk/task functions from lean.h
+//!
+//! Note: `lean_alloc_closure` and related closure accessor functions are
+//! implemented as inline functions in `inline.rs` (matching Lean4's static
+//! inline implementations), rather than as extern declarations.
 
 use crate::object::{b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res};
 use libc::c_uint;
@@ -8,20 +12,14 @@ use libc::c_uint;
 // ============================================================================
 // Closure Functions
 // ============================================================================
+//
+// NOTE: lean_alloc_closure, lean_closure_get, lean_closure_set, and other
+// closure accessor functions are static inline in Lean4's lean.h.
+// They are implemented in inline.rs.
+//
+// The lean_apply_* functions below ARE exported from libleanshared.so.
 
 extern "C" {
-    /// Allocate a closure object
-    ///
-    /// # Safety
-    /// - `fun` must be a valid function pointer
-    /// - `arity` is the number of arguments the function expects
-    /// - `num_fixed` is the number of arguments already applied
-    pub fn lean_alloc_closure(
-        fun: *mut std::ffi::c_void,
-        arity: c_uint,
-        num_fixed: c_uint,
-    ) -> lean_obj_res;
-
     /// Apply a closure to an argument
     ///
     /// # Safety
