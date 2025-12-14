@@ -1142,13 +1142,12 @@ extern "C" {
 #[inline]
 pub unsafe fn lean_alloc_sarray(elem_size: c_uint, size: size_t, capacity: size_t) -> lean_obj_res {
     let total_size = std::mem::size_of::<lean_sarray_object>() + (elem_size as usize) * capacity;
-    let o = lean_to_sarray(crate::object::lean_alloc_object(total_size));
+    let o_raw = crate::object::lean_alloc_object(total_size);
 
-    lean_set_st_header(
-        &mut (*o).m_header as *mut lean_object,
-        LEAN_SCALAR_ARRAY,
-        elem_size as u8,
-    );
+    lean_set_st_header(o_raw, LEAN_SCALAR_ARRAY, elem_size as u8);
+
+    // Now it's safe to cast to sarray after setting the header
+    let o = lean_to_sarray(o_raw);
 
     // Initialize size and capacity
     (*o).m_size = size;
