@@ -31,6 +31,14 @@ criterion.workspace = true
 name = "array_conversion"
 harness = false
 
+[[bench]]
+name = "int_ops_small"
+harness = false
+
+[[bench]]
+name = "int_ops_big"
+harness = false
+
 [features]
 default = ["macros"]
 macros = ["leo3-macros"]
