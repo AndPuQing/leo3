@@ -1142,7 +1142,7 @@ extern "C" {
 #[inline]
 pub unsafe fn lean_alloc_sarray(elem_size: c_uint, size: size_t, capacity: size_t) -> lean_obj_res {
     let total_size = std::mem::size_of::<lean_sarray_object>() + (elem_size as usize) * capacity;
-    let o = crate::object::lean_alloc_object(total_size) as *mut lean_sarray_object;
+    let o = lean_to_sarray(crate::object::lean_alloc_object(total_size));
 
     lean_set_st_header(
         &mut (*o).m_header as *mut lean_object,
@@ -1191,66 +1191,30 @@ pub unsafe fn lean_unbox_float32(o: b_lean_obj_arg) -> f32 {
 
 #[inline]
 pub unsafe fn lean_float32_to_uint8(a: f32) -> u8 {
-    if 0.0 <= a {
-        if a < 256.0 {
-            a as u8
-        } else {
-            u8::MAX
-        }
-    } else {
-        0
-    }
+    a as u8
 }
 
 #[inline]
 pub unsafe fn lean_float32_to_uint16(a: f32) -> u16 {
-    if 0.0 <= a {
-        if a < 65536.0 {
-            a as u16
-        } else {
-            u16::MAX
-        }
-    } else {
-        0
-    }
+    a as u16
 }
 
 /// Convert Float32 to UInt32
 #[inline]
 pub unsafe fn lean_float32_to_uint32(a: f32) -> u32 {
-    if 0.0 <= a {
-        if a < 4294967296.0 {
-            a as u32
-        } else {
-            u32::MAX
-        }
-    } else {
-        0
-    }
+    a as u32
 }
 
 /// Convert Float32 to UInt64
 #[inline]
 pub unsafe fn lean_float32_to_uint64(a: f32) -> u64 {
-    if 0.0 <= a {
-        if a < 18446744073709551616.0 {
-            a as u64
-        } else {
-            u64::MAX
-        }
-    } else {
-        0
-    }
+    a as u64
 }
 
 /// Convert Float32 to USize
 #[inline]
 pub unsafe fn lean_float32_to_usize(a: f32) -> usize {
-    if std::mem::size_of::<usize>() == std::mem::size_of::<u64>() {
-        lean_float32_to_uint64(a) as usize
-    } else {
-        lean_float32_to_uint32(a) as usize
-    }
+    a as usize
 }
 
 /// Convert Float32 to Int8
@@ -1811,7 +1775,7 @@ pub unsafe fn lean_sarray_capacity(o: lean_obj_arg) -> size_t {
 /// - `o` must be a valid scalar array object
 #[inline]
 pub unsafe fn lean_sarray_cptr(o: lean_obj_arg) -> *mut u8 {
-    let sarray = o as *mut lean_sarray_object;
+    let sarray = lean_to_sarray(o);
     (*sarray).m_data.as_mut_ptr()
 }
 
@@ -2995,7 +2959,7 @@ pub unsafe fn lean_mk_thunk(c: lean_obj_arg) -> lean_obj_res {
     let o = lean_alloc_small_object(std::mem::size_of::<lean_thunk_object>() as c_uint);
     lean_set_st_header(o, crate::LEAN_THUNK, 0);
 
-    let thunk = o as *mut lean_thunk_object;
+    let thunk = lean_to_thunk(o);
     // Use atomic stores for consistency with lean_thunk_object definition
     (*thunk)
         .m_value
@@ -3016,7 +2980,7 @@ pub unsafe fn lean_thunk_pure(v: lean_obj_arg) -> lean_obj_res {
     let o = lean_alloc_small_object(std::mem::size_of::<lean_thunk_object>() as c_uint);
     lean_set_st_header(o, crate::LEAN_THUNK, 0);
 
-    let thunk = o as *mut lean_thunk_object;
+    let thunk = lean_to_thunk(o);
     // Use atomic stores for consistency with lean_thunk_object definition
     (*thunk).m_value.store(v, Ordering::Relaxed);
     (*thunk)
