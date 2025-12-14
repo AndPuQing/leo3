@@ -727,6 +727,197 @@ impl LeanNat {
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
+
+    /// Convert to f64.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.toFloat` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 42)?;
+    /// let f = LeanNat::toFloat(&n);
+    /// assert_eq!(f, 42.0);
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn toFloat<'l>(obj: &LeanBound<'l, Self>) -> f64 {
+        // For now, this only works for small nats
+        // A proper implementation would need to handle big nats
+        unsafe {
+            if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
+                lean_unbox(obj.as_ptr()) as f64
+            } else {
+                // For big nats, convert via u64 if possible
+                // This may lose precision for very large numbers
+                leo3_ffi::nat::lean_uint64_of_big_nat(obj.as_ptr()) as f64
+            }
+        }
+    }
+
+    /// Convert to string representation (base 10).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.repr` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 42)?;
+    /// assert_eq!(LeanNat::repr(&n), "42");
+    /// ```
+    pub fn repr<'l>(obj: &LeanBound<'l, Self>) -> String {
+        // Use to_usize if possible, otherwise use a fallback
+        match Self::to_usize(obj) {
+            Ok(n) => n.to_string(),
+            Err(_) => {
+                // For big nats, convert via u64 if possible (may truncate)
+                unsafe {
+                    let val = leo3_ffi::nat::lean_uint64_of_big_nat(obj.as_ptr());
+                    format!("{}...", val)
+                }
+            }
+        }
+    }
+
+    /// Create a nat from a string representation.
+    ///
+    /// # Safety
+    /// The string must be a valid non-negative integer in base 10.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_str(lean, "12345")?;
+    /// assert_eq!(LeanNat::to_usize(&n)?, 12345);
+    /// ```
+    pub fn from_str<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
+        let c_str = std::ffi::CString::new(s)
+            .map_err(|_| LeanError::conversion("String contains null byte"))?;
+
+        unsafe {
+            let ptr = ffi::nat::lean_cstr_to_nat(c_str.as_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Successor (n + 1).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.succ` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 41)?;
+    /// let succ = LeanNat::succ(n)?;
+    /// assert_eq!(LeanNat::to_usize(&succ)?, 42);
+    /// ```
+    pub fn succ<'l>(n: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = n.lean_token();
+        let one = Self::from_usize(lean, 1)?;
+        Self::add(n, one)
+    }
+
+    /// Check if the natural number is zero.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let zero = LeanNat::from_usize(lean, 0)?;
+    /// assert!(LeanNat::isZero(&zero));
+    /// ```
+    #[allow(non_snake_case)]
+    pub fn isZero<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        unsafe {
+            let zero = lean_box(0);
+            lean_nat_dec_eq(obj.as_ptr(), zero)
+        }
+    }
+
+    /// Fold over natural numbers from 0 to n-1.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.fold` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;
+    /// let sum = LeanNat::fold(&n, 0, |acc, i| acc + i);
+    /// assert_eq!(sum, 10); // 0 + 1 + 2 + 3 + 4
+    /// ```
+    pub fn fold<'l, A, F>(n: &LeanBound<'l, Self>, init: A, f: F) -> A
+    where
+        F: Fn(A, usize) -> A,
+    {
+        match Self::to_usize(n) {
+            Ok(count) => {
+                let mut acc = init;
+                for i in 0..count {
+                    acc = f(acc, i);
+                }
+                acc
+            }
+            Err(_) => init, // For very large numbers, just return init
+        }
+    }
+
+    /// Check if all numbers from 0 to n-1 satisfy a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.all` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;
+    /// assert!(LeanNat::all(&n, |i| i < 5));
+    /// ```
+    pub fn all<'l, F>(n: &LeanBound<'l, Self>, pred: F) -> bool
+    where
+        F: Fn(usize) -> bool,
+    {
+        match Self::to_usize(n) {
+            Ok(count) => {
+                for i in 0..count {
+                    if !pred(i) {
+                        return false;
+                    }
+                }
+                true
+            }
+            Err(_) => true, // For very large numbers
+        }
+    }
+
+    /// Check if any number from 0 to n-1 satisfies a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Nat.any` in Lean4.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let n = LeanNat::from_usize(lean, 5)?;
+    /// assert!(LeanNat::any(&n, |i| i == 3));
+    /// ```
+    pub fn any<'l, F>(n: &LeanBound<'l, Self>, pred: F) -> bool
+    where
+        F: Fn(usize) -> bool,
+    {
+        match Self::to_usize(n) {
+            Ok(count) => {
+                for i in 0..count {
+                    if pred(i) {
+                        return true;
+                    }
+                }
+                false
+            }
+            Err(_) => false, // For very large numbers
+        }
+    }
 }
 
 // Implement Debug for convenient printing

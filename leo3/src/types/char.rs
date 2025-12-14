@@ -50,18 +50,46 @@ impl LeanChar {
         }
     }
 
-    /// Create a Lean character from a u32 codepoint.
+    /// Create a Lean character from a natural number (codepoint).
     ///
     /// # Lean4 Reference
     /// Corresponds to `Char.ofNat` in Lean4.
     ///
     /// Returns None if the codepoint is not a valid Unicode scalar value.
-    pub fn from_u32<'l>(lean: Lean<'l>, codepoint: u32) -> LeanResult<Option<LeanBound<'l, Self>>> {
+    #[allow(non_snake_case)]
+    pub fn ofNat<'l>(lean: Lean<'l>, codepoint: u32) -> LeanResult<Option<LeanBound<'l, Self>>> {
         // Check if valid Unicode scalar value
         match char::from_u32(codepoint) {
             Some(c) => Ok(Some(Self::mk(lean, c)?)),
             None => Ok(None),
         }
+    }
+
+    /// Create a Lean character from a UInt8.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.ofUInt8` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn ofUInt8<'l>(lean: Lean<'l>, byte: u8) -> LeanResult<LeanBound<'l, Self>> {
+        Self::mk(lean, byte as char)
+    }
+
+    /// Convert a Lean character to a natural number (codepoint).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.toNat` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toNat<'l>(obj: &LeanBound<'l, Self>) -> u32 {
+        unsafe { lean_ctor_get_uint32(obj.as_ptr(), 0) }
+    }
+
+    /// Convert a Lean character to UInt8 (truncating if necessary).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.toUInt8` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUInt8<'l>(obj: &LeanBound<'l, Self>) -> u8 {
+        Self::toNat(obj) as u8
     }
 
     /// Convert a Lean character to a Rust char.
@@ -70,43 +98,126 @@ impl LeanChar {
     /// Corresponds to `Char.val` in Lean4.
     #[allow(non_snake_case)]
     pub fn toChar<'l>(obj: &LeanBound<'l, Self>) -> Option<char> {
-        unsafe {
-            // Get the UInt32 value from the structure
-            let codepoint = lean_ctor_get_uint32(obj.as_ptr(), 0);
-            char::from_u32(codepoint)
-        }
+        char::from_u32(Self::toNat(obj))
     }
 
-    /// Get the Unicode codepoint value.
+    /// Check if a natural number is a valid Unicode scalar value.
     ///
     /// # Lean4 Reference
-    /// Corresponds to `Char.val` in Lean4.
-    pub fn to_u32<'l>(obj: &LeanBound<'l, Self>) -> u32 {
-        unsafe { lean_ctor_get_uint32(obj.as_ptr(), 0) }
-    }
-
-    /// Check if the character is ASCII.
-    ///
-    /// # Lean4 Reference
-    /// Similar to checking if `Char.val < 128` in Lean4.
+    /// Corresponds to `Char.isValidCharNat` in Lean4.
     #[allow(non_snake_case)]
-    pub fn isAscii<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::to_u32(obj) < 128
+    pub fn isValidCharNat(n: u32) -> bool {
+        char::from_u32(n).is_some()
     }
 
     /// Check if the character is alphabetic.
-    pub fn is_alphabetic<'l>(obj: &LeanBound<'l, Self>) -> bool {
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isAlpha` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isAlpha<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::toChar(obj).map_or(false, |c| c.is_alphabetic())
     }
 
-    /// Check if the character is numeric.
-    pub fn is_numeric<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_numeric())
+    /// Check if the character is alphanumeric.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isAlphanum` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isAlphanum<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::toChar(obj).map_or(false, |c| c.is_alphanumeric())
+    }
+
+    /// Check if the character is a digit.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isDigit` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isDigit<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::toChar(obj).map_or(false, |c| c.is_ascii_digit())
+    }
+
+    /// Check if the character is lowercase.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isLower` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isLower<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::toChar(obj).map_or(false, |c| c.is_lowercase())
+    }
+
+    /// Check if the character is uppercase.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isUpper` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isUpper<'l>(obj: &LeanBound<'l, Self>) -> bool {
+        Self::toChar(obj).map_or(false, |c| c.is_uppercase())
     }
 
     /// Check if the character is whitespace.
-    pub fn is_whitespace<'l>(obj: &LeanBound<'l, Self>) -> bool {
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.isWhitespace` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isWhitespace<'l>(obj: &LeanBound<'l, Self>) -> bool {
         Self::toChar(obj).map_or(false, |c| c.is_whitespace())
+    }
+
+    /// Convert to uppercase.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.toUpper` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toUpper<'l>(obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = obj.lean_token();
+        let c = Self::toChar(&obj).unwrap_or('\0');
+        Self::mk(lean, c.to_ascii_uppercase())
+    }
+
+    /// Convert to lowercase.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.toLower` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toLower<'l>(obj: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = obj.lean_token();
+        let c = Self::toChar(&obj).unwrap_or('\0');
+        Self::mk(lean, c.to_ascii_lowercase())
+    }
+
+    /// Check if this character is less than or equal to another.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.le` in Lean4.
+    pub fn le<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::toNat(a) <= Self::toNat(b)
+    }
+
+    /// Check if this character is less than another.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.lt` in Lean4.
+    pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::toNat(a) < Self::toNat(b)
+    }
+
+    /// Get the UTF-8 encoded size in bytes.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.utf8Size` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn utf8Size<'l>(obj: &LeanBound<'l, Self>) -> usize {
+        Self::toChar(obj).map_or(0, |c| c.len_utf8())
+    }
+
+    /// Get the UTF-16 encoded size in 16-bit code units.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Char.utf16Size` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn utf16Size<'l>(obj: &LeanBound<'l, Self>) -> usize {
+        Self::toChar(obj).map_or(0, |c| c.len_utf16())
     }
 }
 

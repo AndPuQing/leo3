@@ -285,6 +285,100 @@ impl LeanInt {
     pub fn lt<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
         unsafe { ffi::inline::lean_int_lt(a.as_ptr(), b.as_ptr()) }
     }
+
+    /// Decidable equality.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Int.decEq` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn decEq<'l>(a: &LeanBound<'l, Self>, b: &LeanBound<'l, Self>) -> bool {
+        Self::eq(a, b)
+    }
+
+    /// Get the sign of the integer.
+    ///
+    /// Returns 1 for positive, -1 for negative, 0 for zero.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Int.sign` in Lean4.
+    pub fn sign<'l>(obj: &LeanBound<'l, Self>) -> i32 {
+        match Self::to_i64(obj) {
+            Some(v) if v > 0 => 1,
+            Some(v) if v < 0 => -1,
+            Some(_) => 0,
+            None => {
+                // For large integers, check if it's ofNat or negSucc
+                if Self::isNonNeg(obj) {
+                    1
+                } else {
+                    -1
+                }
+            }
+        }
+    }
+
+    /// Get the absolute value as a natural number.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Int.natAbs` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn natAbs<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanNat>> {
+        let lean = obj.lean_token();
+        match Self::to_i64(obj) {
+            Some(v) => {
+                let abs_val = v.unsigned_abs() as usize;
+                LeanNat::from_usize(lean, abs_val)
+            }
+            None => {
+                // For large integers, we would need to implement this with Lean FFI
+                // For now, this is a limitation
+                unsafe {
+                    if Self::isNonNeg(obj) {
+                        // It's ofNat, so we can get the nat directly
+                        let ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
+                        ffi::lean_inc(ptr);
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
+                    } else {
+                        // It's negSucc n, need to compute n + 1
+                        let n = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
+                        ffi::lean_inc(n);
+                        let one = ffi::inline::lean_box(1);
+                        let result = ffi::inline::lean_nat_add(n, one);
+                        Ok(LeanBound::from_owned_ptr(lean, result))
+                    }
+                }
+            }
+        }
+    }
+
+    /// Convert to a natural number if non-negative.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Int.toNat` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toNat<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanNat>> {
+        let lean = obj.lean_token();
+        if Self::isNonNeg(obj) {
+            Self::natAbs(obj)
+        } else {
+            LeanNat::from_usize(lean, 0)
+        }
+    }
+
+    /// Try to convert to a natural number, returning None if negative.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Int.toNat?` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toNatOption<'l>(
+        obj: &LeanBound<'l, Self>,
+    ) -> Option<LeanResult<LeanBound<'l, LeanNat>>> {
+        if Self::isNonNeg(obj) {
+            Some(Self::natAbs(obj))
+        } else {
+            None
+        }
+    }
 }
 
 // Implement Debug for convenient printing

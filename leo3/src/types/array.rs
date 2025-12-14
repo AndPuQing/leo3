@@ -4,6 +4,7 @@ use crate::err::{LeanError, LeanResult};
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
+use crate::types::LeanList;
 
 /// A Lean array object.
 ///
@@ -335,15 +336,6 @@ impl LeanArray {
         Ok(LeanBound::from_owned_ptr(lean, ptr))
     }
 
-    /// Convert the array to a Lean list.
-    pub fn to_list<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanAny>> {
-        unsafe {
-            let lean = arr.lean_token();
-            let ptr = ffi::array::lean_array_to_list(arr.into_ptr());
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
-        }
-    }
-
     /// Create an array with pre-allocated capacity.
     ///
     /// This is useful for building arrays when you know the final size upfront.
@@ -411,6 +403,400 @@ impl LeanArray {
         ffi::array::lean_array_set_size(ptr, size + 1);
 
         Ok(LeanBound::from_owned_ptr(lean, ptr))
+    }
+
+    /// Create a singleton array containing one element.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.singleton` in Lean4.
+    pub fn singleton<'l>(elem: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = elem.lean_token();
+        let arr = Self::empty(lean)?;
+        Self::push(arr, elem)
+    }
+
+    /// Create an array containing 0, 1, 2, ..., n-1.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.range` in Lean4.
+    pub fn range<'l>(lean: Lean<'l>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
+        let mut arr = Self::emptyWithCapacity(lean, n)?;
+        for i in 0..n {
+            unsafe {
+                let nat_ptr = ffi::lean_box(i);
+                let elem = LeanBound::from_owned_ptr(lean, nat_ptr);
+                arr = Self::push(arr, elem)?;
+            }
+        }
+        Ok(arr)
+    }
+
+    /// Extract a sub-array from start to end (exclusive).
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.extract` in Lean4.
+    pub fn extract<'l>(
+        arr: &LeanBound<'l, Self>,
+        start: usize,
+        end: usize,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = arr.lean_token();
+        let size = Self::size(arr);
+        let start = start.min(size);
+        let end = end.min(size);
+        let count = end.saturating_sub(start);
+
+        let mut result = Self::emptyWithCapacity(lean, count)?;
+        for i in start..end {
+            if let Some(elem) = Self::get(arr, i) {
+                result = Self::push(result, elem)?;
+            }
+        }
+        Ok(result)
+    }
+
+    /// Convert the array to a Lean list.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.toList` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn toList<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanList>> {
+        unsafe {
+            let lean = arr.lean_token();
+            let ptr = ffi::array::lean_array_to_list(arr.into_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Reverse the array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.reverse` in Lean4.
+    pub fn reverse<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = arr.lean_token();
+        let size = Self::size(&arr);
+        if size <= 1 {
+            return Ok(arr);
+        }
+
+        let mut result = Self::emptyWithCapacity(lean, size)?;
+        for i in (0..size).rev() {
+            if let Some(elem) = Self::get(&arr, i) {
+                result = Self::push(result, elem)?;
+            }
+        }
+        Ok(result)
+    }
+
+    /// Take the first n elements.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.take` in Lean4.
+    pub fn take<'l>(arr: &LeanBound<'l, Self>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
+        Self::extract(arr, 0, n)
+    }
+
+    /// Drop the first n elements.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.drop` in Lean4.
+    pub fn drop<'l>(arr: &LeanBound<'l, Self>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
+        Self::extract(arr, n, Self::size(arr))
+    }
+
+    /// Append another array to this array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.append` in Lean4 (also `++` operator).
+    pub fn append<'l>(
+        xs: LeanBound<'l, Self>,
+        ys: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let mut result = xs;
+        let ys_size = Self::size(ys);
+        for i in 0..ys_size {
+            if let Some(elem) = Self::get(ys, i) {
+                result = Self::push(result, elem)?;
+            }
+        }
+        Ok(result)
+    }
+
+    /// Check if array contains an element using equality function.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.contains` in Lean4.
+    pub fn contains<'l, F>(arr: &LeanBound<'l, Self>, elem: &LeanBound<'l, LeanAny>, eq: F) -> bool
+    where
+        F: Fn(&LeanBound<'l, LeanAny>, &LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        for i in 0..size {
+            if let Some(e) = Self::get(arr, i) {
+                if eq(&e, elem) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Check if all elements satisfy a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.all` in Lean4.
+    pub fn all<'l, F>(arr: &LeanBound<'l, Self>, pred: F) -> bool
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                if !pred(&elem) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Check if any element satisfies a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.any` in Lean4.
+    pub fn any<'l, F>(arr: &LeanBound<'l, Self>, pred: F) -> bool
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                if pred(&elem) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Find the first element satisfying a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.find?` in Lean4.
+    pub fn find<'l, F>(arr: &LeanBound<'l, Self>, pred: F) -> Option<LeanBound<'l, LeanAny>>
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                if pred(&elem) {
+                    return Some(elem);
+                }
+            }
+        }
+        None
+    }
+
+    /// Find index of first element satisfying a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.findIdx?` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn findIdx<'l, F>(arr: &LeanBound<'l, Self>, pred: F) -> Option<usize>
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                if pred(&elem) {
+                    return Some(i);
+                }
+            }
+        }
+        None
+    }
+
+    /// Filter the array with a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.filter` in Lean4.
+    pub fn filter<'l, F>(arr: LeanBound<'l, Self>, pred: F) -> LeanResult<LeanBound<'l, Self>>
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let lean = arr.lean_token();
+        let size = Self::size(&arr);
+        let mut result = Self::empty(lean)?;
+
+        for i in 0..size {
+            if let Some(elem) = Self::get(&arr, i) {
+                if pred(&elem) {
+                    result = Self::push(result, elem)?;
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Map a function over the array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.map` in Lean4.
+    pub fn map<'l, F>(arr: LeanBound<'l, Self>, f: F) -> LeanResult<LeanBound<'l, Self>>
+    where
+        F: Fn(LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, LeanAny>>,
+    {
+        let lean = arr.lean_token();
+        let size = Self::size(&arr);
+        let mut result = Self::emptyWithCapacity(lean, size)?;
+
+        for i in 0..size {
+            if let Some(elem) = Self::get(&arr, i) {
+                let mapped = f(elem)?;
+                result = Self::push(result, mapped)?;
+            }
+        }
+        Ok(result)
+    }
+
+    /// Fold left over the array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.foldl` in Lean4.
+    pub fn foldl<'l, A, F>(arr: &LeanBound<'l, Self>, init: A, f: F) -> A
+    where
+        F: Fn(A, LeanBound<'l, LeanAny>) -> A,
+    {
+        let size = Self::size(arr);
+        let mut acc = init;
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                acc = f(acc, elem);
+            }
+        }
+        acc
+    }
+
+    /// Fold right over the array.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.foldr` in Lean4.
+    pub fn foldr<'l, A, F>(arr: &LeanBound<'l, Self>, init: A, f: F) -> A
+    where
+        F: Fn(LeanBound<'l, LeanAny>, A) -> A,
+    {
+        let size = Self::size(arr);
+        let mut acc = init;
+        for i in (0..size).rev() {
+            if let Some(elem) = Self::get(arr, i) {
+                acc = f(elem, acc);
+            }
+        }
+        acc
+    }
+
+    /// Count elements satisfying a predicate.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.countP` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn countP<'l, F>(arr: &LeanBound<'l, Self>, pred: F) -> usize
+    where
+        F: Fn(&LeanBound<'l, LeanAny>) -> bool,
+    {
+        let size = Self::size(arr);
+        let mut count = 0;
+        for i in 0..size {
+            if let Some(elem) = Self::get(arr, i) {
+                if pred(&elem) {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    /// Flatten an array of arrays.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.flatten` in Lean4.
+    ///
+    /// # Safety
+    /// All elements must be arrays.
+    pub unsafe fn flatten<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = arr.lean_token();
+        let size = Self::size(&arr);
+        let mut result = Self::empty(lean)?;
+
+        for i in 0..size {
+            if let Some(inner) = Self::get(&arr, i) {
+                let inner_arr: LeanBound<'l, Self> = inner.cast();
+                let inner_size = Self::size(&inner_arr);
+                for j in 0..inner_size {
+                    if let Some(elem) = Self::get(&inner_arr, j) {
+                        result = Self::push(result, elem)?;
+                    }
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Zip two arrays together.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.zip` in Lean4.
+    ///
+    /// Returns an array of pairs. The result length is the minimum of the two input lengths.
+    pub fn zip<'l>(
+        xs: &LeanBound<'l, Self>,
+        ys: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = xs.lean_token();
+        let size = Self::size(xs).min(Self::size(ys));
+        let mut result = Self::emptyWithCapacity(lean, size)?;
+
+        for i in 0..size {
+            if let (Some(x), Some(y)) = (Self::get(xs, i), Self::get(ys, i)) {
+                // Create a pair (constructor 0 with 2 fields)
+                unsafe {
+                    let pair_ptr = ffi::lean_alloc_ctor(0, 2, 0);
+                    ffi::lean_ctor_set(pair_ptr, 0, x.into_ptr());
+                    ffi::lean_ctor_set(pair_ptr, 1, y.into_ptr());
+                    let pair = LeanBound::from_owned_ptr(lean, pair_ptr);
+                    result = Self::push(result, pair)?;
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Check if xs is a prefix of ys.
+    ///
+    /// # Lean4 Reference
+    /// Corresponds to `Array.isPrefixOf` in Lean4.
+    #[allow(non_snake_case)]
+    pub fn isPrefixOf<'l, F>(xs: &LeanBound<'l, Self>, ys: &LeanBound<'l, Self>, eq: F) -> bool
+    where
+        F: Fn(&LeanBound<'l, LeanAny>, &LeanBound<'l, LeanAny>) -> bool,
+    {
+        let xs_size = Self::size(xs);
+        let ys_size = Self::size(ys);
+
+        if xs_size > ys_size {
+            return false;
+        }
+
+        for i in 0..xs_size {
+            if let (Some(x), Some(y)) = (Self::get(xs, i), Self::get(ys, i)) {
+                if !eq(&x, &y) {
+                    return false;
+                }
+            }
+        }
+        true
     }
 }
 
