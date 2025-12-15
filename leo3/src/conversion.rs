@@ -692,3 +692,48 @@ where
 {
     iter_into_lean(slice.iter().cloned(), lean)
 }
+
+// Tuple conversions
+
+use crate::types::LeanProd;
+
+// (A, B) ↔ LeanProd
+impl<'l, A, B> IntoLean<'l> for (A, B)
+where
+    A: IntoLean<'l> + 'l,
+    B: IntoLean<'l> + 'l,
+{
+    type Target = LeanProd;
+
+    /// Convert a Rust tuple `(A, B)` to a Lean `Prod`.
+    ///
+    /// Maps `(a, b)` to `Prod.mk a b`.
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let lean_a = self.0.into_lean(lean)?;
+        let lean_b = self.1.into_lean(lean)?;
+        let any_a: LeanBound<'l, LeanAny> = lean_a.cast();
+        let any_b: LeanBound<'l, LeanAny> = lean_b.cast();
+        LeanProd::mk(any_a, any_b)
+    }
+}
+
+impl<'l, A, B> FromLean<'l> for (A, B)
+where
+    A: FromLean<'l> + 'l,
+    B: FromLean<'l> + 'l,
+{
+    type Source = LeanProd;
+
+    /// Convert a Lean `Prod` to a Rust tuple `(A, B)`.
+    ///
+    /// Maps `Prod.mk a b` to `(a, b)`.
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let any_a = LeanProd::fst(obj);
+        let any_b = LeanProd::snd(obj);
+        let typed_a: LeanBound<'l, A::Source> = any_a.cast();
+        let typed_b: LeanBound<'l, B::Source> = any_b.cast();
+        let rust_a = A::from_lean(&typed_a)?;
+        let rust_b = B::from_lean(&typed_b)?;
+        Ok((rust_a, rust_b))
+    }
+}
