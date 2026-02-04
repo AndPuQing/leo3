@@ -28,7 +28,7 @@ leo3-macros-backend = { path = "leo3-macros-backend", version = "0.1.6" }
 
 libc = "0.2"
 libloading = "0.9"
-criterion = "0.5"
+criterion = "0.8"
 
 [profile.release]
 lto = "thin"
