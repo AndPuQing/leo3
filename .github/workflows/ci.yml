@@ -44,36 +44,17 @@ jobs:
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
   test:
-    name: Test (${{ matrix.os }}, ${{ matrix.rust }}, Lean ${{ matrix.lean }})
+    name: Test (${{ matrix.os }}, Lean ${{ matrix.lean }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        rust: [stable, beta]
-        lean: ['v4.25.2']
-        include:
-          - os: ubuntu-latest
-            rust: nightly
-            lean: 'v4.25.2'
-          # Test with older Lean version (4.20.0) to ensure backward compatibility
-          - os: ubuntu-latest
-            rust: stable
-            lean: 'v4.20.0'
-          # Test with Lean 4.26.0 (introduces new IO handle functions)
-          - os: ubuntu-latest
-            rust: stable
-            lean: 'v4.26.0'
-          # Test with latest Lean 4.27.0
-          - os: ubuntu-latest
-            rust: stable
-            lean: 'v4.27.0'
+        lean: ['v4.20.0', 'v4.25.2', 'v4.26.0', 'v4.27.0']
     steps:
       - uses: actions/checkout@v6
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
+      - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
 
       # Cache Lean installation to speed up CI
