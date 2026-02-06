@@ -60,7 +60,7 @@ jobs:
       # Cache Lean installation to speed up CI
       - name: Cache Lean installation
         id: cache-lean
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.elan
@@ -150,7 +150,7 @@ jobs:
       # Cache Lean installation to speed up CI
       - name: Cache Lean installation
         id: cache-lean
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.elan
           key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
