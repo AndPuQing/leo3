@@ -7,8 +7,8 @@ use crate::conversion::{FromLean, IntoLean};
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
-use crate::marker::Lean;
 use crate::io::LeanIO;
+use crate::marker::Lean;
 
 /// A Lean file handle.
 ///
@@ -243,7 +243,11 @@ pub fn get_line<'l>(lean: Lean<'l>, handle: &LeanHandle<'l>) -> LeanResult<LeanI
 ///     Ok(())
 /// })
 /// ```
-pub fn write<'l>(lean: Lean<'l>, handle: &LeanHandle<'l>, content: &str) -> LeanResult<LeanIO<'l, ()>> {
+pub fn write<'l>(
+    lean: Lean<'l>,
+    handle: &LeanHandle<'l>,
+    content: &str,
+) -> LeanResult<LeanIO<'l, ()>> {
     unsafe {
         let lean_str = content.into_lean(lean)?;
 

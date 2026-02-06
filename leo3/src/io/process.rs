@@ -5,9 +5,9 @@
 
 use crate::err::LeanResult;
 use crate::ffi;
-use crate::instance::{ LeanBound};
-use crate::marker::Lean;
+use crate::instance::LeanBound;
 use crate::io::LeanIO;
+use crate::marker::Lean;
 
 /// Get the current process exit code.
 ///
@@ -90,9 +90,7 @@ pub fn set_exit_code<'l>(lean: Lean<'l>, code: u32) -> LeanResult<LeanIO<'l, ()>
 /// })
 /// ```
 pub fn exit(code: u32) -> ! {
-    unsafe {
-        ffi::io::lean_io_prim_exit(code)
-    }
+    unsafe { ffi::io::lean_io_prim_exit(code) }
 }
 
 #[cfg(test)]

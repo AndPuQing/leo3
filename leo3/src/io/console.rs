@@ -5,8 +5,8 @@
 
 use crate::conversion::IntoLean;
 use crate::err::LeanResult;
-use crate::marker::Lean;
 use crate::io::{handle, LeanIO};
+use crate::marker::Lean;
 
 /// Print a string to stdout without a newline.
 ///

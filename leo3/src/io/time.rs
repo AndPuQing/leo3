@@ -5,9 +5,9 @@
 
 use crate::err::LeanResult;
 use crate::ffi;
-use crate::instance::{ LeanBound};
-use crate::marker::Lean;
+use crate::instance::LeanBound;
 use crate::io::LeanIO;
+use crate::marker::Lean;
 
 /// Get monotonic time in nanoseconds.
 ///

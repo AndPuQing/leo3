@@ -6,8 +6,8 @@ use crate::conversion::FromLean;
 use crate::err::LeanError;
 use crate::ffi;
 use crate::instance::LeanBound;
-use crate::types::LeanString;
 use crate::marker::Lean;
+use crate::types::LeanString;
 use std::fmt;
 
 /// Result type for IO operations.

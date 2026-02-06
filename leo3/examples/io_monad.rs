@@ -3,9 +3,9 @@
 //! This example shows how to use Lean4's IO primitives from Rust,
 //! including console I/O, file handle operations, and IO sequencing.
 
-use leo3::prelude::*;
-use leo3::io::{console, handle};
 use leo3::io::handle::FileMode;
+use leo3::io::{console, handle};
+use leo3::prelude::*;
 
 fn main() -> LeanResult<()> {
     // Initialize Lean runtime
@@ -25,15 +25,51 @@ fn main() -> LeanResult<()> {
         let value = pure_io.run()?;
         println!("Pure value: {}", value);
 
-        // 3. Sequencing IO operations
-        println!("\n3. Sequencing IO operations:");
+        // 3. Using map to transform IO values
+        println!("\n3. Using map to transform IO values:");
+        let io = leo3::io::LeanIO::pure(lean, 21)?;
+        let doubled = io.map(lean, |x| x * 2)?;
+        let result = doubled.run()?;
+        println!("21 * 2 = {}", result);
+
+        // Chain multiple maps
+        let io = leo3::io::LeanIO::pure(lean, 10)?;
+        let result = io
+            .map(lean, |x| x + 5)?
+            .map(lean, |x| x * 2)?
+            .map(lean, |x| format!("Result: {}", x))?
+            .run()?;
+        println!("Chained maps: {}", result);
+
+        // 4. Using bind to chain IO computations
+        println!("\n4. Using bind to chain IO computations:");
+        let io1 = leo3::io::LeanIO::pure(lean, 21)?;
+        let io2 = io1.bind(lean, |x| {
+            leo3::io::LeanIO::pure(lean, format!("The answer is {}", x * 2))
+        })?;
+        let result = io2.run()?;
+        println!("{}", result);
+
+        // Chain multiple binds
+        let io = leo3::io::LeanIO::pure(lean, 5)?;
+        let result = io
+            .bind(lean, |x| leo3::io::LeanIO::pure(lean, x + 10))?
+            .bind(lean, |x| leo3::io::LeanIO::pure(lean, x * 3))?
+            .bind(lean, |x| {
+                leo3::io::LeanIO::pure(lean, format!("Final: {}", x))
+            })?
+            .run()?;
+        println!("Chained binds: {}", result);
+
+        // 5. Sequencing IO operations
+        println!("\n5. Sequencing IO operations:");
         let io1 = console::put_str(lean, "First... ")?;
         let io2 = console::put_str_ln(lean, "Second!")?;
         let sequenced = io1.then(io2);
         sequenced.run()?;
 
-        // 4. File handle operations
-        println!("\n4. File handle operations:");
+        // 6. File handle operations
+        println!("\n6. File handle operations:");
 
         // Write to a file using handles
         let write_handle_io = handle::open(lean, "/tmp/leo3_test.txt", FileMode::Write, false)?;
@@ -64,8 +100,8 @@ fn main() -> LeanResult<()> {
 
         handle::close(lean, read_handle)?.run()?;
 
-        // 5. Standard streams
-        println!("\n5. Standard streams:");
+        // 7. Standard streams
+        println!("\n7. Standard streams:");
         let stdout = handle::stdout(lean);
         handle::write(lean, &stdout, "Writing to stdout via handle\n")?.run()?;
         handle::flush(lean, &stdout)?.run()?;

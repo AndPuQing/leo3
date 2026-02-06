@@ -116,25 +116,28 @@ impl<'l, T: 'l> LeanIO<'l, T> {
     /// This corresponds to Lean's `map` or `<$>` operator.
     /// Transforms the value produced by the IO computation.
     ///
-    /// **Note**: This is currently unimplemented due to trait bound complexities.
-    /// Use `bind` with `pure` instead: `io.bind(lean, |x| LeanIO::pure(lean, f(x)))`
-    ///
     /// # Example
     ///
     /// ```rust,ignore
     /// let io: LeanIO<i32> = LeanIO::pure(lean, 21)?;
-    /// let doubled: LeanIO<i32> = io.bind(lean, |x| LeanIO::pure(lean, x * 2))?;
+    /// let doubled: LeanIO<i32> = io.map(lean, |x| x * 2)?;
     /// assert_eq!(doubled.run()?, 42);
     /// ```
-    #[allow(dead_code)]
-    pub fn map<U, F>(self, _lean: Lean<'l>, _f: F) -> LeanResult<LeanIO<'l, U>>
+    pub fn map<U, F>(self, lean: Lean<'l>, f: F) -> LeanResult<LeanIO<'l, U>>
     where
         U: 'l,
         F: FnOnce(T) -> U + 'l,
         T: FromLean<'l>,
         U: IntoLean<'l>,
     {
-        unimplemented!("map is not yet implemented - use bind with pure instead")
+        // Execute the IO computation
+        let value = self.run()?;
+
+        // Apply the function
+        let result = f(value);
+
+        // Wrap the result back into IO
+        LeanIO::pure(lean, result)
     }
 
     /// Sequentially compose two IO computations, passing the result of the first to the second.
@@ -142,25 +145,26 @@ impl<'l, T: 'l> LeanIO<'l, T> {
     /// This corresponds to Lean's `bind` or `>>=` operator.
     /// Chains IO computations together.
     ///
-    /// **Note**: This is currently unimplemented due to trait bound complexities.
-    /// Compose IO operations by running them sequentially instead.
-    ///
     /// # Example
     ///
     /// ```rust,ignore
     /// let io1: LeanIO<i32> = LeanIO::pure(lean, 21)?;
-    /// let value = io1.run()?;
-    /// let io2: LeanIO<String> = LeanIO::pure(lean, format!("Result: {}", value * 2))?;
+    /// let io2: LeanIO<String> = io1.bind(lean, |x| {
+    ///     LeanIO::pure(lean, format!("Result: {}", x * 2))
+    /// })?;
     /// assert_eq!(io2.run()?, "Result: 42");
     /// ```
-    #[allow(dead_code)]
-    pub fn bind<U, F>(self, _lean: Lean<'l>, _f: F) -> LeanResult<LeanIO<'l, U>>
+    pub fn bind<U, F>(self, _lean: Lean<'l>, f: F) -> LeanResult<LeanIO<'l, U>>
     where
         U: 'l,
         F: FnOnce(T) -> LeanResult<LeanIO<'l, U>> + 'l,
         T: FromLean<'l>,
     {
-        unimplemented!("bind is not yet implemented - run IO operations sequentially instead")
+        // Execute the first IO computation
+        let value = self.run()?;
+
+        // Apply the function to get the next IO computation
+        f(value)
     }
 
     /// Sequence two IO computations, discarding the result of the first.
@@ -299,17 +303,16 @@ unsafe fn create_io_pure(value: *mut ffi::lean_object) -> *mut ffi::lean_object 
 
     // Create a closure that takes world and returns Except.ok (value, world)
     // This is a simplified version - in practice we'd need to properly construct the closure
-    let closure = ffi::inline::lean_alloc_closure(
-        io_pure_impl as *mut std::ffi::c_void,
-        1,
-        1,
-    );
+    let closure = ffi::inline::lean_alloc_closure(io_pure_impl as *mut std::ffi::c_void, 2, 1);
     ffi::inline::lean_closure_set(closure, 0, value);
     closure
 }
 
 /// Implementation function for IO.pure
-extern "C" fn io_pure_impl(value: ffi::object::lean_obj_arg, world: ffi::object::lean_obj_arg) -> ffi::object::lean_obj_res {
+extern "C" fn io_pure_impl(
+    value: ffi::object::lean_obj_arg,
+    world: ffi::object::lean_obj_arg,
+) -> ffi::object::lean_obj_res {
     unsafe {
         // Create pair (value, world)
         let pair = ffi::lean_alloc_ctor(0, 2, 0);
@@ -324,12 +327,11 @@ extern "C" fn io_pure_impl(value: ffi::object::lean_obj_arg, world: ffi::object:
 }
 
 /// Create an IO computation that sequences two IO computations.
-unsafe fn create_io_seq(io1: *mut ffi::lean_object, io2: *mut ffi::lean_object) -> *mut ffi::lean_object {
-    let closure = ffi::inline::lean_alloc_closure(
-        io_seq_impl as *mut std::ffi::c_void,
-        2,
-        2,
-    );
+unsafe fn create_io_seq(
+    io1: *mut ffi::lean_object,
+    io2: *mut ffi::lean_object,
+) -> *mut ffi::lean_object {
+    let closure = ffi::inline::lean_alloc_closure(io_seq_impl as *mut std::ffi::c_void, 2, 2);
     ffi::inline::lean_closure_set(closure, 0, io1);
     ffi::inline::lean_closure_set(closure, 1, io2);
     closure
@@ -370,5 +372,94 @@ mod tests {
             std::mem::size_of::<LeanIO<String>>(),
             std::mem::size_of::<*mut ()>()
         );
+    }
+
+    #[test]
+    fn test_io_pure() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io = LeanIO::pure(lean, 42)?;
+            let result = io.run()?;
+            assert_eq!(result, 42);
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_map() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io = LeanIO::pure(lean, 21)?;
+            let doubled = io.map(lean, |x| x * 2)?;
+            let result = doubled.run()?;
+            assert_eq!(result, 42);
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_map_string() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io = LeanIO::pure(lean, 21)?;
+            let formatted = io.map(lean, |x| format!("Value: {}", x))?;
+            let result = formatted.run()?;
+            assert_eq!(result, "Value: 21");
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_bind() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io1 = LeanIO::pure(lean, 21)?;
+            let io2 = io1.bind(lean, |x| LeanIO::pure(lean, x * 2))?;
+            let result = io2.run()?;
+            assert_eq!(result, 42);
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_bind_string() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io1 = LeanIO::pure(lean, 21)?;
+            let io2 = io1.bind(lean, |x| LeanIO::pure(lean, format!("Result: {}", x * 2)))?;
+            let result = io2.run()?;
+            assert_eq!(result, "Result: 42");
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_map_chain() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io = LeanIO::pure(lean, 10)?;
+            let result = io
+                .map(lean, |x| x + 5)?
+                .map(lean, |x| x * 2)?
+                .map(lean, |x| x - 10)?
+                .run()?;
+            assert_eq!(result, 20); // (10 + 5) * 2 - 10 = 20
+            Ok::<(), crate::err::LeanError>(())
+        });
+    }
+
+    #[test]
+    fn test_io_bind_chain() {
+        crate::prepare_freethreaded_lean();
+        let _ = crate::with_lean(|lean| {
+            let io = LeanIO::pure(lean, 10)?;
+            let result = io
+                .bind(lean, |x| LeanIO::pure(lean, x + 5))?
+                .bind(lean, |x| LeanIO::pure(lean, x * 2))?
+                .bind(lean, |x| LeanIO::pure(lean, x - 10))?
+                .run()?;
+            assert_eq!(result, 20); // (10 + 5) * 2 - 10 = 20
+            Ok::<(), crate::err::LeanError>(())
+        });
     }
 }
