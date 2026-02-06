@@ -25,15 +25,20 @@
 //! }
 //! ```
 
-use crate::conversion::FromLean;
+use crate::conversion::{FromLean, IntoLean};
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
+use crate::marker::Lean;
 use std::marker::PhantomData;
 
+pub mod console;
 pub mod env;
 pub mod error;
 pub mod fs;
+pub mod handle;
+pub mod process;
+pub mod time;
 
 pub use error::{IOError, IOResult};
 
@@ -76,6 +81,110 @@ impl<'l, T: 'l> LeanIO<'l, T> {
         LeanIO {
             inner: obj,
             _phantom: PhantomData,
+        }
+    }
+
+    /// Lift a pure value into the IO monad.
+    ///
+    /// This corresponds to Lean's `pure` or `return` in the IO monad.
+    /// Creates an IO computation that immediately returns the given value.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let io: LeanIO<i32> = LeanIO::pure(lean, 42)?;
+    /// assert_eq!(io.run()?, 42);
+    /// ```
+    pub fn pure(lean: Lean<'l>, value: T) -> LeanResult<Self>
+    where
+        T: IntoLean<'l>,
+    {
+        unsafe {
+            // Convert value to Lean
+            let lean_value = value.into_lean(lean)?;
+
+            // Create IO.pure function: λ _ => pure value
+            // We need to create a closure that ignores the world token and returns (value, world)
+            let pure_fn = create_io_pure(lean_value.into_ptr());
+
+            Ok(LeanIO::from_raw(LeanBound::from_owned_ptr(lean, pure_fn)))
+        }
+    }
+
+    /// Map a function over the result of an IO computation.
+    ///
+    /// This corresponds to Lean's `map` or `<$>` operator.
+    /// Transforms the value produced by the IO computation.
+    ///
+    /// **Note**: This is currently unimplemented due to trait bound complexities.
+    /// Use `bind` with `pure` instead: `io.bind(lean, |x| LeanIO::pure(lean, f(x)))`
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let io: LeanIO<i32> = LeanIO::pure(lean, 21)?;
+    /// let doubled: LeanIO<i32> = io.bind(lean, |x| LeanIO::pure(lean, x * 2))?;
+    /// assert_eq!(doubled.run()?, 42);
+    /// ```
+    #[allow(dead_code)]
+    pub fn map<U, F>(self, _lean: Lean<'l>, _f: F) -> LeanResult<LeanIO<'l, U>>
+    where
+        U: 'l,
+        F: FnOnce(T) -> U + 'l,
+        T: FromLean<'l>,
+        U: IntoLean<'l>,
+    {
+        unimplemented!("map is not yet implemented - use bind with pure instead")
+    }
+
+    /// Sequentially compose two IO computations, passing the result of the first to the second.
+    ///
+    /// This corresponds to Lean's `bind` or `>>=` operator.
+    /// Chains IO computations together.
+    ///
+    /// **Note**: This is currently unimplemented due to trait bound complexities.
+    /// Compose IO operations by running them sequentially instead.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let io1: LeanIO<i32> = LeanIO::pure(lean, 21)?;
+    /// let value = io1.run()?;
+    /// let io2: LeanIO<String> = LeanIO::pure(lean, format!("Result: {}", value * 2))?;
+    /// assert_eq!(io2.run()?, "Result: 42");
+    /// ```
+    #[allow(dead_code)]
+    pub fn bind<U, F>(self, _lean: Lean<'l>, _f: F) -> LeanResult<LeanIO<'l, U>>
+    where
+        U: 'l,
+        F: FnOnce(T) -> LeanResult<LeanIO<'l, U>> + 'l,
+        T: FromLean<'l>,
+    {
+        unimplemented!("bind is not yet implemented - run IO operations sequentially instead")
+    }
+
+    /// Sequence two IO computations, discarding the result of the first.
+    ///
+    /// This corresponds to Lean's `>>` operator.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let io1: LeanIO<()> = console::put_str_ln(lean, "Hello")?;
+    /// let io2: LeanIO<i32> = LeanIO::pure(lean, 42)?;
+    /// let result: LeanIO<i32> = io1.then(io2);
+    /// ```
+    pub fn then<U>(self, next: LeanIO<'l, U>) -> LeanIO<'l, U>
+    where
+        U: 'l,
+    {
+        unsafe {
+            let lean = next.inner.lean_token();
+            let io1_ptr = self.inner.into_ptr();
+            let io2_ptr = next.inner.into_ptr();
+            let seq_fn = create_io_seq(io1_ptr, io2_ptr);
+
+            LeanIO::from_raw(LeanBound::from_owned_ptr(lean, seq_fn))
         }
     }
 
@@ -173,6 +282,81 @@ unsafe fn io_result_get_error(res: *mut ffi::lean_object) -> *mut ffi::lean_obje
 #[inline]
 unsafe fn io_result_get_value(res: *mut ffi::lean_object) -> *mut ffi::lean_object {
     ffi::object::lean_ctor_get(res, 0) as *mut ffi::lean_object
+}
+
+// ============================================================================
+// IO Monad Combinators Implementation
+// ============================================================================
+
+/// Create an IO computation that returns a pure value.
+///
+/// Creates: λ world => Except.ok (value, world)
+unsafe fn create_io_pure(value: *mut ffi::lean_object) -> *mut ffi::lean_object {
+    // Create a closure that returns (value, world)
+    // We'll use a simple approach: create a Lean closure
+    // For now, we'll create the result directly as it's simpler
+    // In a full implementation, we'd create a proper closure
+
+    // Create a closure that takes world and returns Except.ok (value, world)
+    // This is a simplified version - in practice we'd need to properly construct the closure
+    let closure = ffi::inline::lean_alloc_closure(
+        io_pure_impl as *mut std::ffi::c_void,
+        1,
+        1,
+    );
+    ffi::inline::lean_closure_set(closure, 0, value);
+    closure
+}
+
+/// Implementation function for IO.pure
+extern "C" fn io_pure_impl(value: ffi::object::lean_obj_arg, world: ffi::object::lean_obj_arg) -> ffi::object::lean_obj_res {
+    unsafe {
+        // Create pair (value, world)
+        let pair = ffi::lean_alloc_ctor(0, 2, 0);
+        ffi::object::lean_ctor_set(pair, 0, value);
+        ffi::object::lean_ctor_set(pair, 1, world);
+
+        // Wrap in Except.ok (tag 0)
+        let result = ffi::lean_alloc_ctor(0, 1, 0);
+        ffi::object::lean_ctor_set(result, 0, pair);
+        result
+    }
+}
+
+/// Create an IO computation that sequences two IO computations.
+unsafe fn create_io_seq(io1: *mut ffi::lean_object, io2: *mut ffi::lean_object) -> *mut ffi::lean_object {
+    let closure = ffi::inline::lean_alloc_closure(
+        io_seq_impl as *mut std::ffi::c_void,
+        2,
+        2,
+    );
+    ffi::inline::lean_closure_set(closure, 0, io1);
+    ffi::inline::lean_closure_set(closure, 1, io2);
+    closure
+}
+
+/// Implementation function for IO sequencing
+extern "C" fn io_seq_impl(
+    io1: ffi::object::lean_obj_arg,
+    io2: ffi::object::lean_obj_arg,
+    world: ffi::object::lean_obj_arg,
+) -> ffi::object::lean_obj_res {
+    unsafe {
+        // Execute first IO
+        let result1 = ffi::closure::lean_apply_1(io1, world);
+
+        // Check if it's an error
+        if io_result_is_error(result1) {
+            return result1;
+        }
+
+        // Extract the new world token
+        let ok_ptr = io_result_get_value(result1);
+        let world_ptr = ffi::object::lean_ctor_get(ok_ptr, 1);
+
+        // Execute second IO with the new world token
+        ffi::closure::lean_apply_1(io2, world_ptr as *mut ffi::lean_object)
+    }
 }
 
 #[cfg(test)]
