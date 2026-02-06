@@ -95,11 +95,16 @@ jobs:
             echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
           else
             echo "$HOME/.elan/bin" >> $GITHUB_PATH
-            # Override the lean-toolchain file with the matrix version
-            elan override set leanprover/lean4:${{ matrix.lean }}
-            "$HOME"/.elan/bin/lean --version
-            "$HOME"/.elan/bin/lake --version
           fi
+
+      # Override lean-toolchain and verify installation
+      - name: Verify Lean installation
+        shell: bash
+        run: |
+          # Override the lean-toolchain file with the matrix version
+          "$HOME"/.elan/bin/elan override set leanprover/lean4:${{ matrix.lean }}
+          "$HOME"/.elan/bin/lean --version
+          "$HOME"/.elan/bin/lake --version
 
       # On Windows, add Lean library directory to PATH so DLLs can be found at runtime
       - name: Configure Lean library path (Windows)
@@ -107,8 +112,8 @@ jobs:
         shell: bash
         run: |
           # Override the lean-toolchain file with the matrix version
-          elan override set leanprover/lean4:${{ matrix.lean }}
-          LEAN_PATH=$(elan which lean)
+          "$USERPROFILE"/.elan/bin/elan override set leanprover/lean4:${{ matrix.lean }}
+          LEAN_PATH=$("$USERPROFILE"/.elan/bin/elan which lean)
           LEAN_HOME=$(dirname "$(dirname "$LEAN_PATH")")
           # On Windows, Lean DLLs are in the bin directory
           echo "$LEAN_HOME/bin" >> $GITHUB_PATH
