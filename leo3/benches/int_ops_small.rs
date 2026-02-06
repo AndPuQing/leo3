@@ -3,8 +3,9 @@
 //! These benchmarks test operations on small integers (within i32 range)
 //! that use the scalar fast path in lean_int_* functions.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use leo3::prelude::*;
+use std::hint::black_box;
 
 /// Benchmark addition of small integers
 fn bench_int_add_small(c: &mut Criterion) {

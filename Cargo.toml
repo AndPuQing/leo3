@@ -12,7 +12,7 @@ exclude = ["examples", "leo3-ffi-check"]
 [workspace.package]
 version = "0.1.6"
 edition = "2021"
-rust-version = "1.63"
+rust-version = "1.66"
 authors = ["Leo3 Contributors"]
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/AndPuQing/leo3"

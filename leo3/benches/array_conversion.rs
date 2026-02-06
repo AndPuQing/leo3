@@ -6,10 +6,11 @@
 //! 3. ArrayBuilder pattern
 //! 4. Primitive type fast paths
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use leo3::conversion::{vec_u8_into_lean, ArrayBuilder};
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
+use std::hint::black_box;
 
 /// Naive implementation (for comparison) - uses regular push without pre-allocation
 #[allow(dead_code)]

@@ -3,8 +3,9 @@
 //! These benchmarks test operations on big integers (beyond i32 range)
 //! that use the big integer slow path in lean_int_* functions.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use leo3::prelude::*;
+use std::hint::black_box;
 
 /// Create a large integer beyond i32::MAX
 fn create_large_int(lean: Lean, multiplier: i64) -> LeanResult<LeanBound<LeanInt>> {

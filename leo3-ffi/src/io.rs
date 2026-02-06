@@ -267,25 +267,22 @@ extern "C" {
     #[cfg(lean_4_26)]
     pub fn lean_io_prim_handle_get_stderr() -> lean_obj_res;
 
-    /// Get stdin handle (Lean 4.25 and earlier)
+    /// Get stdin handle
     ///
     /// # Safety
     /// - Returns a borrowed handle to stdin
-    #[cfg(not(lean_4_26))]
     pub fn lean_get_stdin() -> lean_obj_res;
 
-    /// Get stdout handle (Lean 4.25 and earlier)
+    /// Get stdout handle
     ///
     /// # Safety
     /// - Returns a borrowed handle to stdout
-    #[cfg(not(lean_4_26))]
     pub fn lean_get_stdout() -> lean_obj_res;
 
-    /// Get stderr handle (Lean 4.25 and earlier)
+    /// Get stderr handle
     ///
     /// # Safety
     /// - Returns a borrowed handle to stderr
-    #[cfg(not(lean_4_26))]
     pub fn lean_get_stderr() -> lean_obj_res;
 }
 
