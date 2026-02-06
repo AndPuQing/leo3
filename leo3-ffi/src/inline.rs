@@ -570,8 +570,8 @@ pub unsafe fn lean_nat_div(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
     if lean_is_scalar(a1) && lean_is_scalar(a2) {
         let n1 = lean_unbox(a1);
         let n2 = lean_unbox(a2);
-        if n2 != 0 {
-            return lean_box(n1 / n2);
+        if let Some(result) = n1.checked_div(n2) {
+            return lean_box(result);
         }
     }
     lean_nat_big_div(a1 as lean_obj_arg, a2 as lean_obj_arg)
@@ -1819,11 +1819,7 @@ pub unsafe fn lean_uint8_mul(a1: u8, a2: u8) -> u8 {
 
 #[inline(always)]
 pub unsafe fn lean_uint8_div(a1: u8, a2: u8) -> u8 {
-    if a2 == 0 {
-        0
-    } else {
-        a1 / a2
-    }
+    a1.checked_div(a2).unwrap_or(0)
 }
 
 #[inline(always)]
@@ -1913,11 +1909,7 @@ pub unsafe fn lean_uint16_mul(a1: u16, a2: u16) -> u16 {
 
 #[inline(always)]
 pub unsafe fn lean_uint16_div(a1: u16, a2: u16) -> u16 {
-    if a2 == 0 {
-        0
-    } else {
-        a1 / a2
-    }
+    a1.checked_div(a2).unwrap_or(0)
 }
 
 #[inline(always)]
@@ -2008,11 +2000,7 @@ pub unsafe fn lean_uint32_mul(a1: u32, a2: u32) -> u32 {
 
 #[inline(always)]
 pub unsafe fn lean_uint32_div(a1: u32, a2: u32) -> u32 {
-    if a2 == 0 {
-        0
-    } else {
-        a1 / a2
-    }
+    a1.checked_div(a2).unwrap_or(0)
 }
 
 #[inline(always)]
@@ -2109,11 +2097,7 @@ pub unsafe fn lean_uint64_mul(a1: u64, a2: u64) -> u64 {
 
 #[inline(always)]
 pub unsafe fn lean_uint64_div(a1: u64, a2: u64) -> u64 {
-    if a2 == 0 {
-        0
-    } else {
-        a1 / a2
-    }
+    a1.checked_div(a2).unwrap_or(0)
 }
 
 #[inline(always)]
@@ -2267,11 +2251,7 @@ pub unsafe fn lean_usize_mul(a1: size_t, a2: size_t) -> size_t {
 
 #[inline(always)]
 pub unsafe fn lean_usize_div(a1: size_t, a2: size_t) -> size_t {
-    if a2 == 0 {
-        0
-    } else {
-        a1 / a2
-    }
+    a1.checked_div(a2).unwrap_or(0)
 }
 
 #[inline(always)]

@@ -3,7 +3,6 @@
 //! This module provides safe wrappers for console I/O,
 //! implemented using file handle operations on stdout/stdin.
 
-use crate::conversion::IntoLean;
 use crate::err::LeanResult;
 use crate::io::{handle, LeanIO};
 use crate::marker::Lean;
