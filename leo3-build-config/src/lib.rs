@@ -277,21 +277,49 @@ fn emit_link_config(config: &LeanConfig) {
     // Based on lean4/tests/lake/examples/reverse-ffi/Makefile
     // Order matters: dependencies first, then base libraries
     //
+    // Different Lean versions have different library structures:
+    // - Lean 4.0-4.19: leanshared only
+    // - Lean 4.20+: Init_shared, leanshared_2, leanshared_1, leanshared
+    //
     // On Windows, the Lean toolchains installed by elan commonly ship MinGW-style
     // `.dll.a` import libraries. For MSVC targets, we still use `link.exe`; these
     // archives are typically COFF and can be consumed by the MSVC linker when
     // passed verbatim.
+
+    // Detect which libraries are available
+    let has_init_shared = if target_os == "windows" {
+        config.lean_lib_dir.join("libInit_shared.dll.a").exists()
+    } else {
+        config.lean_lib_dir.join("libInit_shared.so").exists()
+            || config.lean_lib_dir.join("libInit_shared.dylib").exists()
+    };
+
+    let has_leanshared_2 = if target_os == "windows" {
+        config.lean_lib_dir.join("libleanshared_2.dll.a").exists()
+    } else {
+        config.lean_lib_dir.join("libleanshared_2.so").exists()
+            || config.lean_lib_dir.join("libleanshared_2.dylib").exists()
+    };
+
     if target_os == "windows" {
         // Use verbatim to link against .dll.a files (MinGW import libraries)
-        println!("cargo:rustc-link-lib=dylib:+verbatim=libInit_shared.dll.a");
-        println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_2.dll.a");
-        println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_1.dll.a");
+        if has_init_shared {
+            println!("cargo:rustc-link-lib=dylib:+verbatim=libInit_shared.dll.a");
+        }
+        if has_leanshared_2 {
+            println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_2.dll.a");
+            println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_1.dll.a");
+        }
         println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared.dll.a");
     } else {
         // Unix: standard library names
-        println!("cargo:rustc-link-lib=dylib=Init_shared");
-        println!("cargo:rustc-link-lib=dylib=leanshared_2");
-        println!("cargo:rustc-link-lib=dylib=leanshared_1");
+        if has_init_shared {
+            println!("cargo:rustc-link-lib=dylib=Init_shared");
+        }
+        if has_leanshared_2 {
+            println!("cargo:rustc-link-lib=dylib=leanshared_2");
+            println!("cargo:rustc-link-lib=dylib=leanshared_1");
+        }
         println!("cargo:rustc-link-lib=dylib=leanshared");
     }
 
