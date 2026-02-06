@@ -44,16 +44,30 @@ jobs:
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
   test:
-    name: Test (${{ matrix.os }}, ${{ matrix.rust }})
+    name: Test (${{ matrix.os }}, ${{ matrix.rust }}, Lean ${{ matrix.lean }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         rust: [stable, beta]
+        lean: ['v4.25.2']
         include:
           - os: ubuntu-latest
             rust: nightly
+            lean: 'v4.25.2'
+          # Test with older Lean version (4.20.0) to ensure backward compatibility
+          - os: ubuntu-latest
+            rust: stable
+            lean: 'v4.20.0'
+          # Test with Lean 4.26.0 (introduces new IO handle functions)
+          - os: ubuntu-latest
+            rust: stable
+            lean: 'v4.26.0'
+          # Test with latest Lean 4.27.0
+          - os: ubuntu-latest
+            rust: stable
+            lean: 'v4.27.0'
     steps:
       - uses: actions/checkout@v6
 
@@ -70,7 +84,7 @@ jobs:
           path: |
             ~/.elan
             %USERPROFILE%\.elan
-          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
+          key: ${{ runner.os }}-elan-${{ matrix.lean }}
           restore-keys: |
             ${{ runner.os }}-elan-
 
@@ -82,12 +96,12 @@ jobs:
           if [ "$RUNNER_OS" == "Windows" ]; then
             curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-pc-windows-msvc.zip -o elan.zip
             unzip elan.zip
-            ./elan-init.exe -y --default-toolchain none
+            ./elan-init.exe -y --default-toolchain leanprover/lean4:${{ matrix.lean }}
             rm -f elan-init.exe elan.zip
           else
             echo "::group::Elan Installation Output"
             set -o pipefail
-            curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+            curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:${{ matrix.lean }}
             rm -f elan-init
             echo "::endgroup::"
           fi
@@ -100,6 +114,8 @@ jobs:
             echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
           else
             echo "$HOME/.elan/bin" >> $GITHUB_PATH
+            # Override the lean-toolchain file with the matrix version
+            elan override set leanprover/lean4:${{ matrix.lean }}
             "$HOME"/.elan/bin/lean --version
             "$HOME"/.elan/bin/lake --version
           fi
@@ -109,6 +125,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          # Override the lean-toolchain file with the matrix version
+          elan override set leanprover/lean4:${{ matrix.lean }}
           LEAN_PATH=$(elan which lean)
           LEAN_HOME=$(dirname "$(dirname "$LEAN_PATH")")
           # On Windows, Lean DLLs are in the bin directory
