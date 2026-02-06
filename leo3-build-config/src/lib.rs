@@ -73,6 +73,26 @@ fn print_expected_cfgs() {
     println!("cargo:rustc-check-cfg=cfg(lean_4_8)");
     println!("cargo:rustc-check-cfg=cfg(lean_4_9)");
     println!("cargo:rustc-check-cfg=cfg(lean_4_10)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_11)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_12)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_13)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_14)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_15)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_16)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_17)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_18)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_19)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_20)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_21)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_22)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_23)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_24)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_25)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_26)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_27)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_28)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_29)");
+    println!("cargo:rustc-check-cfg=cfg(lean_4_30)");
 }
 
 /// Detect Lean4 configuration

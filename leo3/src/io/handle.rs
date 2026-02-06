@@ -150,6 +150,7 @@ pub fn open<'l>(
 ///     Ok(())
 /// })
 /// ```
+#[cfg(lean_4_26)]
 pub fn close<'l>(lean: Lean<'l>, handle: LeanHandle<'l>) -> LeanResult<LeanIO<'l, ()>> {
     unsafe {
         let closure = ffi::inline::lean_alloc_closure(
@@ -160,6 +161,45 @@ pub fn close<'l>(lean: Lean<'l>, handle: LeanHandle<'l>) -> LeanResult<LeanIO<'l
         ffi::inline::lean_closure_set(closure, 0, handle.inner.into_ptr());
 
         Ok(LeanIO::from_raw(LeanBound::from_owned_ptr(lean, closure)))
+    }
+}
+
+/// Close a file handle (Lean 4.25 and earlier).
+///
+/// In Lean 4.25 and earlier, there is no explicit close function.
+/// File handles are automatically closed when they are dropped.
+/// This function is a no-op that returns a successful IO action.
+#[cfg(not(lean_4_26))]
+pub fn close<'l>(lean: Lean<'l>, handle: LeanHandle<'l>) -> LeanResult<LeanIO<'l, ()>> {
+    // Drop the handle to release it
+    drop(handle);
+    // Return a pure IO action with unit
+    // In Lean, Unit is represented as lean_box(0)
+    unsafe {
+        let unit_ptr = ffi::lean_box(0);
+        // Create a closure that takes world and returns Except.ok (unit, world)
+        let closure = ffi::inline::lean_alloc_closure(io_unit_impl as *mut std::ffi::c_void, 2, 1);
+        ffi::inline::lean_closure_set(closure, 0, unit_ptr);
+        Ok(LeanIO::from_raw(LeanBound::from_owned_ptr(lean, closure)))
+    }
+}
+
+/// Implementation function for IO.pure Unit
+#[cfg(not(lean_4_26))]
+extern "C" fn io_unit_impl(
+    value: ffi::object::lean_obj_arg,
+    world: ffi::object::lean_obj_arg,
+) -> ffi::object::lean_obj_res {
+    unsafe {
+        // Create pair (value, world)
+        let pair = ffi::lean_alloc_ctor(0, 2, 0);
+        ffi::object::lean_ctor_set(pair, 0, value);
+        ffi::object::lean_ctor_set(pair, 1, world);
+
+        // Wrap in Except.ok (tag 0)
+        let result = ffi::lean_alloc_ctor(0, 1, 0);
+        ffi::object::lean_ctor_set(result, 0, pair);
+        result
     }
 }
 
@@ -334,9 +374,19 @@ pub fn is_eof<'l>(lean: Lean<'l>, handle: &LeanHandle<'l>) -> LeanResult<LeanIO<
 ///     Ok(())
 /// })
 /// ```
+#[cfg(lean_4_26)]
 pub fn stdin<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
     unsafe {
         let handle_ptr = ffi::io::lean_io_prim_handle_get_stdin();
+        LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
+    }
+}
+
+/// Get the stdin handle (Lean 4.25 and earlier).
+#[cfg(not(lean_4_26))]
+pub fn stdin<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
+    unsafe {
+        let handle_ptr = ffi::io::lean_get_stdin();
         LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
     }
 }
@@ -355,9 +405,19 @@ pub fn stdin<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
 ///     Ok(())
 /// })
 /// ```
+#[cfg(lean_4_26)]
 pub fn stdout<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
     unsafe {
         let handle_ptr = ffi::io::lean_io_prim_handle_get_stdout();
+        LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
+    }
+}
+
+/// Get the stdout handle (Lean 4.25 and earlier).
+#[cfg(not(lean_4_26))]
+pub fn stdout<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
+    unsafe {
+        let handle_ptr = ffi::io::lean_get_stdout();
         LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
     }
 }
@@ -376,9 +436,19 @@ pub fn stdout<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
 ///     Ok(())
 /// })
 /// ```
+#[cfg(lean_4_26)]
 pub fn stderr<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
     unsafe {
         let handle_ptr = ffi::io::lean_io_prim_handle_get_stderr();
+        LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
+    }
+}
+
+/// Get the stderr handle (Lean 4.25 and earlier).
+#[cfg(not(lean_4_26))]
+pub fn stderr<'l>(lean: Lean<'l>) -> LeanHandle<'l> {
+    unsafe {
+        let handle_ptr = ffi::io::lean_get_stderr();
         LeanHandle::from_raw(LeanBound::from_borrowed_ptr(lean, handle_ptr))
     }
 }

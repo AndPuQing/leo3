@@ -181,6 +181,9 @@ extern "C" {
     /// # Safety
     /// - `handle` must be a valid file handle object (consumed)
     /// - Returns IO (Except IO.Error Unit)
+    ///
+    /// Note: This function is only available in Lean 4.26+
+    #[cfg(lean_4_26)]
     pub fn lean_io_prim_handle_close(handle: lean_obj_arg, world: lean_obj_arg) -> lean_obj_res;
 
     /// Read from file handle
@@ -241,19 +244,49 @@ extern "C" {
     ///
     /// # Safety
     /// - Returns a borrowed handle to stdin
+    ///
+    /// Note: This function is only available in Lean 4.26+
+    #[cfg(lean_4_26)]
     pub fn lean_io_prim_handle_get_stdin() -> lean_obj_res;
 
     /// Get stdout handle
     ///
     /// # Safety
     /// - Returns a borrowed handle to stdout
+    ///
+    /// Note: This function is only available in Lean 4.26+
+    #[cfg(lean_4_26)]
     pub fn lean_io_prim_handle_get_stdout() -> lean_obj_res;
 
     /// Get stderr handle
     ///
     /// # Safety
     /// - Returns a borrowed handle to stderr
+    ///
+    /// Note: This function is only available in Lean 4.26+
+    #[cfg(lean_4_26)]
     pub fn lean_io_prim_handle_get_stderr() -> lean_obj_res;
+
+    /// Get stdin handle (Lean 4.25 and earlier)
+    ///
+    /// # Safety
+    /// - Returns a borrowed handle to stdin
+    #[cfg(not(lean_4_26))]
+    pub fn lean_get_stdin() -> lean_obj_res;
+
+    /// Get stdout handle (Lean 4.25 and earlier)
+    ///
+    /// # Safety
+    /// - Returns a borrowed handle to stdout
+    #[cfg(not(lean_4_26))]
+    pub fn lean_get_stdout() -> lean_obj_res;
+
+    /// Get stderr handle (Lean 4.25 and earlier)
+    ///
+    /// # Safety
+    /// - Returns a borrowed handle to stderr
+    #[cfg(not(lean_4_26))]
+    pub fn lean_get_stderr() -> lean_obj_res;
 }
 
 // ============================================================================
