@@ -58,7 +58,7 @@ use std::sync::Once;
 // ============================================================================
 
 static PRELUDE_INIT: Once = Once::new();
-#[cfg(not(all(target_os = "macos", lean_4_20)))]
+#[cfg(not(all(target_os = "macos", lean_4_20, not(lean_4_21))))]
 static EXPR_INIT: Once = Once::new();
 
 /// Ensure Init.Prelude module is initialized (for Name functions)
@@ -88,7 +88,7 @@ pub(crate) fn ensure_expr_initialized() {
     ensure_prelude_initialized(); // Expr depends on Prelude
 
     // Skip Lean.Expr initialization on macOS + Lean 4.20.0 due to initialization bug
-    #[cfg(not(all(target_os = "macos", lean_4_20)))]
+    #[cfg(not(all(target_os = "macos", lean_4_20, not(lean_4_21))))]
     {
         EXPR_INIT.call_once(|| unsafe {
             ffi::initialize_Lean_Expr(1, std::ptr::null_mut());

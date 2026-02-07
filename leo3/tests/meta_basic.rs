@@ -25,7 +25,7 @@ fn test_environment_creation() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_bvar() {
@@ -49,7 +49,7 @@ fn test_expression_bvar() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_sort() {
@@ -89,7 +89,7 @@ fn test_expression_const() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_app() {
@@ -122,7 +122,7 @@ fn test_expression_app() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_lambda() {
@@ -159,7 +159,7 @@ fn test_expression_lambda() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_forall() {
@@ -187,7 +187,7 @@ fn test_expression_forall() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_arrow() {
@@ -247,7 +247,7 @@ fn test_expression_dbg_string() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_alpha_eqv() {
@@ -284,7 +284,7 @@ fn test_expression_alpha_eqv() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_expression_mk_app() {
@@ -315,7 +315,7 @@ fn test_expression_mk_app() {
 
 #[test]
 #[cfg_attr(
-    all(target_os = "macos", lean_4_20),
+    all(target_os = "macos", lean_4_20, not(lean_4_21)),
     ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
 )]
 fn test_level_operations() {
