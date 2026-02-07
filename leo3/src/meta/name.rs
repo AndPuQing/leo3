@@ -102,6 +102,11 @@ impl LeanName {
         unsafe {
             let str_val = LeanString::mk(lean, s)?;
             let ptr = ffi::name::lean_name_mk_string(pre.into_ptr(), str_val.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_name_mk_string returned null - prelude may not be initialized correctly",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -125,6 +130,11 @@ impl LeanName {
         unsafe {
             let num_val = LeanNat::from_usize(lean, n)?;
             let ptr = ffi::name::lean_name_mk_numeral(pre.into_ptr(), num_val.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_name_mk_numeral returned null - prelude may not be initialized correctly",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

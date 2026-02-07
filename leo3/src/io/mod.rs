@@ -37,7 +37,12 @@ pub mod env;
 pub mod error;
 pub mod fs;
 pub mod handle;
+
+// These modules use IO primitives that may not be available on all platforms
+// On Windows, some IO primitives are not exported from the Lean DLLs
+#[cfg(not(target_os = "windows"))]
 pub mod process;
+#[cfg(not(target_os = "windows"))]
 pub mod time;
 
 pub use error::{IOError, IOResult};
