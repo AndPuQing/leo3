@@ -4,6 +4,31 @@ use leo3::meta::*;
 use leo3::prelude::*;
 
 #[test]
+fn test_core_context_creation() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Create a Core.Context with default values
+        let ctx = CoreContext::mk_default(lean)?;
+
+        // Should succeed and not be null
+        assert!(!ctx.as_ptr().is_null());
+
+        // Verify it's a constructor with tag 0 (Core.Context)
+        unsafe {
+            let tag = leo3_ffi::lean_obj_tag(ctx.as_ptr());
+            assert_eq!(tag, 0, "Core.Context should have constructor tag 0");
+        }
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "Core.Context creation failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 #[ignore = "Environment requires full IO initialization"]
 fn test_environment_creation() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {

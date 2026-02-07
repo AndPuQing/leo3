@@ -91,6 +91,7 @@ pub(crate) fn ensure_expr_initialized() {
     });
 }
 
+pub mod context;
 pub mod declaration;
 pub mod environment;
 pub mod expr;
@@ -99,6 +100,7 @@ pub mod literal;
 pub mod name;
 
 // Re-export main types
+pub use context::CoreContext;
 pub use declaration::LeanDeclaration;
 pub use environment::{ConstantKind, LeanConstantInfo, LeanEnvironment};
 pub use expr::{BinderInfo, ExprKind, LeanExpr};
