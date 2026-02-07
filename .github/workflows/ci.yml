@@ -57,21 +57,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
 
-      # Cache Lean installation to speed up CI
-      - name: Cache Lean installation
-        id: cache-lean
+      # Cache Lean toolchains only (not entire .elan directory)
+      - name: Cache Lean toolchain
+        id: cache-lean-toolchain
         uses: actions/cache@v5
         with:
           path: |
-            ~/.elan
-            %USERPROFILE%\.elan
-          key: ${{ runner.os }}-elan-${{ matrix.lean }}
-          restore-keys: |
-            ${{ runner.os }}-elan-
+            ~/.elan/toolchains/leanprover--lean4--${{ matrix.lean }}
+            %USERPROFILE%\.elan\toolchains\leanprover--lean4--${{ matrix.lean }}
+          key: ${{ runner.os }}-lean-toolchain-${{ matrix.lean }}
 
-      # Install Lean4 via elan (only if not cached)
+      # Always install elan (lightweight), it will use cached toolchain if available
       - name: Install elan
-        if: steps.cache-lean.outputs.cache-hit != 'true'
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
@@ -147,19 +144,16 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      # Cache Lean installation to speed up CI
-      - name: Cache Lean installation
-        id: cache-lean
+      # Cache Lean toolchain only (not entire .elan directory)
+      - name: Cache Lean toolchain
+        id: cache-lean-toolchain
         uses: actions/cache@v5
         with:
-          path: ~/.elan
-          key: ${{ runner.os }}-elan-${{ hashFiles('lean-toolchain') }}
-          restore-keys: |
-            ${{ runner.os }}-elan-
+          path: ~/.elan/toolchains
+          key: ${{ runner.os }}-lean-toolchain-${{ hashFiles('lean-toolchain') }}
 
-      # Install Lean4 via elan (only if not cached)
+      # Always install elan (lightweight), it will use cached toolchain if available
       - name: Install elan
-        if: steps.cache-lean.outputs.cache-hit != 'true'
         run: |
           echo "::group::Elan Installation Output"
           set -o pipefail
