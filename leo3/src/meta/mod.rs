@@ -58,7 +58,6 @@ use std::sync::Once;
 // ============================================================================
 
 static PRELUDE_INIT: Once = Once::new();
-#[cfg(not(all(target_os = "macos", lean_4_20, not(lean_4_21))))]
 static EXPR_INIT: Once = Once::new();
 
 /// Ensure Init.Prelude module is initialized (for Name functions)
@@ -78,22 +77,18 @@ pub(crate) fn ensure_prelude_initialized() {
 /// Safe to call multiple times - initialization happens only once.
 /// Note: This depends on Init.Prelude, so it initializes that first.
 ///
-/// **Known Issue**: On macOS with Lean 4.20.0, `initialize_Lean_Expr` has a bug
-/// where it incorrectly initializes global variables (e.g., `l_Lean_levelZero` is
-/// set to 0x1 instead of a valid pointer), causing segfaults when calling functions
-/// like `lean_level_mk_zero`. We skip initialization on this specific combination.
-/// The null pointer checks in wrapper functions provide safety without initialization.
+/// **Lean 4.20.0 Compatibility**: On macOS with Lean 4.20.0, there was a bug
+/// where `initialize_Lean_Expr` incorrectly initialized `l_Lean_levelZero` to 0x1
+/// (a tagged immediate) but `lean_level_mk_zero` expected it to be a heap pointer.
+/// This has been fixed by overriding `lean_level_mk_zero` in the FFI layer to
+/// return 0x1 directly, matching the behavior of Lean 4.27.0+.
 #[inline]
 pub(crate) fn ensure_expr_initialized() {
     ensure_prelude_initialized(); // Expr depends on Prelude
 
-    // Skip Lean.Expr initialization on macOS + Lean 4.20.0 due to initialization bug
-    #[cfg(not(all(target_os = "macos", lean_4_20, not(lean_4_21))))]
-    {
-        EXPR_INIT.call_once(|| unsafe {
-            ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
-        });
-    }
+    EXPR_INIT.call_once(|| unsafe {
+        ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
+    });
 }
 
 pub mod declaration;

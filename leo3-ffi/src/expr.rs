@@ -671,13 +671,28 @@ extern "C" {
 // Universe Level Operations (subset)
 // ============================================================================
 
+// Workaround for Lean 4.20.0 bug on macOS where initialize_Lean_Expr
+// incorrectly initializes l_Lean_levelZero to 0x1 (tagged immediate)
+// but lean_level_mk_zero expects it to be a proper heap object pointer.
+// In Lean 4.27.0+, lean_level_mk_zero was changed to return 0x1 directly.
+// We replicate that behavior here for 4.20.0 compatibility.
+#[cfg(all(target_os = "macos", lean_4_20, not(lean_4_21)))]
+#[inline]
+pub unsafe fn lean_level_mk_zero() -> lean_obj_res {
+    // Return tagged immediate value directly, matching Lean 4.27.0+ behavior
+    0x1 as lean_obj_res
+}
+
+#[cfg(not(all(target_os = "macos", lean_4_20, not(lean_4_21))))]
 extern "C" {
     /// Create level zero (Prop)
     ///
     /// # Returns
     /// Level object representing level zero
     pub fn lean_level_mk_zero() -> lean_obj_res;
+}
 
+extern "C" {
     /// Create successor level
     ///
     /// # Parameters
