@@ -1,3 +1,4 @@
+#![feature(linkage)]
 #![allow(non_camel_case_types, non_snake_case, clippy::missing_safety_doc)]
 //! Raw FFI declarations for Lean4's C API.
 //!
@@ -136,7 +137,14 @@ extern "C" {
     ///
     /// # Returns
     /// Updated world token (can be ignored for initialization purposes)
-    pub fn initialize_Lean_Expr(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+    ///
+    /// # Note
+    /// This function may not be available in all Lean versions or platforms.
+    /// Use weak linkage to allow graceful degradation.
+    #[linkage = "extern_weak"]
+    pub static initialize_Lean_Expr: Option<
+        unsafe extern "C" fn(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void,
+    >;
 
     /// Initialize the Init.Prelude module
     ///
