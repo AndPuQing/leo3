@@ -279,7 +279,7 @@ fn emit_link_config(config: &LeanConfig) {
     //
     // Different Lean versions have different library structures:
     // - Lean 4.0-4.19: leanshared only
-    // - Lean 4.20+: Init_shared, leanshared_2, leanshared_1, leanshared
+    // - Lean 4.20+: Init_shared, leanshared_1, leanshared (and in later versions leanshared_2)
     //
     // On Windows, the Lean toolchains installed by elan commonly ship MinGW-style
     // `.dll.a` import libraries. For MSVC targets, we still use `link.exe`; these
@@ -301,6 +301,13 @@ fn emit_link_config(config: &LeanConfig) {
             || config.lean_lib_dir.join("libleanshared_2.dylib").exists()
     };
 
+    let has_leanshared_1 = if target_os == "windows" {
+        config.lean_lib_dir.join("libleanshared_1.dll.a").exists()
+    } else {
+        config.lean_lib_dir.join("libleanshared_1.so").exists()
+            || config.lean_lib_dir.join("libleanshared_1.dylib").exists()
+    };
+
     if target_os == "windows" {
         // Use verbatim to link against .dll.a files (MinGW import libraries)
         if has_init_shared {
@@ -308,6 +315,8 @@ fn emit_link_config(config: &LeanConfig) {
         }
         if has_leanshared_2 {
             println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_2.dll.a");
+        }
+        if has_leanshared_1 {
             println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared_1.dll.a");
         }
         println!("cargo:rustc-link-lib=dylib:+verbatim=libleanshared.dll.a");
@@ -318,22 +327,19 @@ fn emit_link_config(config: &LeanConfig) {
         }
         if has_leanshared_2 {
             println!("cargo:rustc-link-lib=dylib=leanshared_2");
+        }
+        if has_leanshared_1 {
             println!("cargo:rustc-link-lib=dylib=leanshared_1");
         }
         println!("cargo:rustc-link-lib=dylib=leanshared");
     }
 
-    // EXPERIMENTAL: Try linking without libLean.a on Windows to avoid symbol conflicts
-    // The `l_Lean_*` symbols needed by leo3::meta might be available in the shared libraries
+    // Note: we intentionally do *not* link libLean.a here.
     //
-    // TODO: If this works, we can enable it for all platforms. If it doesn't work,
-    // we need to make the meta module optional or find another solution for Windows.
-    if target_os != "windows" {
-        let lib_lean_a = config.lean_lib_dir.join("libLean.a");
-        if lib_lean_a.exists() {
-            println!("cargo:rustc-link-lib=static=Lean");
-        }
-    }
+    // `libleanshared{,_1,_2}` exports the symbols we need (including many `l_Lean_*`
+    // functions used by leo3::meta). Linking libLean.a in addition can duplicate
+    // Lean runtime state, which is especially problematic on macOS (two-level
+    // namespace) and can lead to crashes.
 
     // On Windows, link additional system libraries required by Lean
     if target_os == "windows" {
