@@ -77,18 +77,20 @@ pub(crate) fn ensure_prelude_initialized() {
 /// Safe to call multiple times - initialization happens only once.
 /// Note: This depends on Init.Prelude, so it initializes that first.
 ///
-/// The initialization is optional - if the `initialize_Lean_Expr` function
-/// is not available (e.g., on some platforms or Lean versions), this is a no-op.
+/// On macOS, we skip the Lean.Expr initialization as it can cause segfaults
+/// on some Lean versions (e.g., 4.20.0). The null pointer checks in the
+/// functions provide safety even without initialization.
 #[inline]
 pub(crate) fn ensure_expr_initialized() {
     ensure_prelude_initialized(); // Expr depends on Prelude
-    EXPR_INIT.call_once(|| unsafe {
-        if let Some(init_fn) = ffi::initialize_Lean_Expr {
-            init_fn(1, std::ptr::null_mut());
-        }
-        // If the function is not available, that's okay - the Lean runtime
-        // may have already initialized these modules or they may not be needed
-    });
+
+    // Skip Lean.Expr initialization on macOS due to compatibility issues
+    #[cfg(not(target_os = "macos"))]
+    {
+        EXPR_INIT.call_once(|| unsafe {
+            ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
+        });
+    }
 }
 
 pub mod declaration;
