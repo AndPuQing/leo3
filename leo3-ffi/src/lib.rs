@@ -31,6 +31,7 @@
 //! - `environment` - Environment and declaration FFI bindings
 //! - `expr` - Expression FFI bindings (core term language)
 //! - `io` - IO operations
+//! - `meta` - MetaM monad FFI bindings (type inference, checking)
 
 // Re-export libc types used across modules
 pub use libc::{c_char, c_int, c_uint, c_void, size_t};
@@ -44,6 +45,7 @@ pub mod hashmap;
 pub mod hashset;
 pub mod int;
 pub mod io;
+pub mod meta;
 pub mod name;
 pub mod nat;
 pub mod object;
