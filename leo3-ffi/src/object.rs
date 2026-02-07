@@ -46,6 +46,19 @@ pub use crate::inline::{
 };
 
 extern "C" {
+    /// Increment reference count (cold path for RC >= threshold)
+    ///
+    /// # Safety
+    /// - `o` must be a valid lean_object pointer
+    pub fn lean_inc_ref_cold(o: *mut lean_object);
+
+    /// Increment reference count by n (cold path)
+    ///
+    /// # Safety
+    /// - `o` must be a valid lean_object pointer
+    /// - `n` must be > 0
+    pub fn lean_inc_ref_n_cold(o: *mut lean_object, n: c_uint);
+
     /// Decrement reference count (cold path for RC <= 1)
     ///
     /// # Safety
@@ -83,6 +96,19 @@ extern "C" {
     /// - Must initialize the object header after allocation
     /// - `sz` must be <= LEAN_MAX_SMALL_OBJECT_SIZE
     pub fn lean_alloc_small(sz: size_t, slot_idx: c_uint) -> *mut c_void;
+
+    /// Free a small object
+    ///
+    /// # Safety
+    /// - `p` must be a valid pointer returned by lean_alloc_small
+    /// - Object must not be referenced elsewhere
+    pub fn lean_free_small(p: *mut c_void);
+
+    /// Get the size of a small memory allocation
+    ///
+    /// # Safety
+    /// - `p` must be a valid pointer returned by lean_alloc_small
+    pub fn lean_small_mem_size(p: *mut c_void) -> c_uint;
 
     /// Allocate a "big" object (arrays, strings)
     ///

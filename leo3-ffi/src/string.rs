@@ -175,11 +175,20 @@ extern "C" {
         rstart: b_lean_obj_arg,
         len: b_lean_obj_arg,
     ) -> u8;
+}
 
+// ============================================================================
+// String Slice Operations (Lean 4.26.0+)
+// ============================================================================
+
+#[cfg(lean_4_26)]
+extern "C" {
     /// Compute hash of a string slice
     ///
     /// # Safety
-    /// - `s` must be a valid string object
+    /// - `s` must be a valid string slice object
+    ///
+    /// Note: This function is only available in Lean 4.26.0+
     pub fn lean_slice_hash(s: b_lean_obj_arg) -> u64;
 
     /// Compare two string slices lexicographically (decidable less-than)
@@ -187,7 +196,25 @@ extern "C" {
     /// # Safety
     /// - `s1` and `s2` must be valid string slice objects
     ///   Returns: 1 if s1 < s2, 0 otherwise
+    ///
+    /// Note: This function is only available in Lean 4.26.0+
     pub fn lean_slice_dec_lt(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> u8;
+
+    /// Compare string slice regions using memcmp
+    ///
+    /// # Safety
+    /// - `s1` and `s2` must be valid string slice objects
+    /// - `lstart`, `rstart`, and `len` must be valid byte positions (boxed usize)
+    ///   Returns: 0 if equal, 1 if s1 > s2, 2 if s1 < s2
+    ///
+    /// Note: This function is only available in Lean 4.26.0+
+    pub fn lean_slice_memcmp(
+        s1: b_lean_obj_arg,
+        s2: b_lean_obj_arg,
+        lstart: b_lean_obj_arg,
+        rstart: b_lean_obj_arg,
+        len: b_lean_obj_arg,
+    ) -> u8;
 }
 
 // Inline helper functions from lean.h

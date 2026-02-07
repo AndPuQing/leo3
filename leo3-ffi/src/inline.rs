@@ -526,6 +526,19 @@ pub unsafe fn lean_nat_add(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> lean_obj_r
     lean_nat_big_add(a1 as lean_obj_arg, a2 as lean_obj_arg)
 }
 
+/// Successor of a natural number (inline from lean.h)
+///
+/// # Safety
+/// - `a` must be a valid nat object
+#[inline]
+pub unsafe fn lean_nat_succ(a: b_lean_obj_arg) -> lean_obj_res {
+    if likely(lean_is_scalar(a)) {
+        lean_usize_to_nat(lean_unbox(a) + 1)
+    } else {
+        crate::nat::lean_nat_big_succ(a as lean_obj_arg)
+    }
+}
+
 /// Subtract natural numbers.
 ///
 /// # Safety
@@ -745,6 +758,29 @@ pub unsafe fn lean_int_neg(a: b_lean_obj_arg) -> lean_obj_res {
     } else {
         lean_int_big_neg(a)
     }
+}
+
+/// Create negative integer from successor of nat (inline from lean.h)
+///
+/// # Safety
+/// - `a` must be a valid nat object (consumed)
+#[inline]
+pub unsafe fn lean_int_neg_succ_of_nat(a: lean_obj_arg) -> lean_obj_res {
+    let s = lean_nat_succ(a);
+    lean_dec(a);
+    let i = lean_nat_to_int(s);
+    let r = lean_int_neg(i);
+    lean_dec(i);
+    r
+}
+
+/// Integer decidable equality (inline from lean.h)
+///
+/// # Safety
+/// - `a1` and `a2` must be valid int objects
+#[inline(always)]
+pub unsafe fn lean_int_dec_eq(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool {
+    lean_int_eq(a1, a2)
 }
 
 /// Add two integers.

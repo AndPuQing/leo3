@@ -95,6 +95,11 @@ pub const LEAN_REF: u8 = 253;
 pub const LEAN_EXTERNAL: u8 = 254;
 pub const LEAN_RESERVED: u8 = 255;
 
+// Constructor and object size limits (from lean.h)
+pub const LEAN_MAX_CTOR_FIELDS: c_uint = 256;
+pub const LEAN_MAX_CTOR_SCALARS_SIZE: c_uint = 1024;
+pub const LEAN_MAX_SMALL_OBJECT_SIZE: size_t = 4096;
+
 // ============================================================================
 // Runtime Initialization
 // ============================================================================

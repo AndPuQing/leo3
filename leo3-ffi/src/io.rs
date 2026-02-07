@@ -389,6 +389,208 @@ extern "C" {
 }
 
 // ============================================================================
+// IO Error Constructors
+// ============================================================================
+
+extern "C" {
+    /// Create an "already exists" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_already_exists(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "already exists" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_already_exists_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create an "end of file" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_eof(details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "hardware fault" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_hardware_fault(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "illegal operation" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_illegal_operation(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "inappropriate type" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_inappropriate_type(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "inappropriate type" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_inappropriate_type_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create an "interrupted" IO error
+    ///
+    /// # Safety
+    /// - `syscall` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_interrupted(
+        syscall: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create an "invalid argument" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_invalid_argument(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "invalid argument" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_invalid_argument_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a "no file or directory" IO error
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_no_file_or_directory(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a "no such thing" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_no_such_thing(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "no such thing" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_no_such_thing_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create an "other error" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_other_error(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "permission denied" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_permission_denied(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "permission denied" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_permission_denied_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a "protocol error" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_protocol_error(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "resource busy" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_resource_busy(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "resource exhausted" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_resource_exhausted(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "resource exhausted" IO error with file path
+    ///
+    /// # Safety
+    /// - `file` must be a valid Lean string object (consumed)
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_resource_exhausted_file(
+        file: lean_obj_arg,
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a "resource vanished" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_resource_vanished(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create a "time expired" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_time_expired(errno: u32, details: lean_obj_arg) -> lean_obj_res;
+
+    /// Create an "unsatisfied constraints" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_unsatisfied_constraints(
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create an "unsupported operation" IO error
+    ///
+    /// # Safety
+    /// - `details` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_error_unsupported_operation(
+        errno: u32,
+        details: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a user-defined IO error
+    ///
+    /// # Safety
+    /// - `str` must be a valid Lean string object (consumed)
+    pub fn lean_mk_io_user_error(str: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
 // RealWorld Token
 // ============================================================================
 
