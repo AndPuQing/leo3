@@ -53,9 +53,13 @@ impl LeanExpr {
     /// let var1 = LeanExpr::bvar(lean, 1)?;  // Next outer binding
     /// ```
     pub fn bvar<'l>(lean: Lean<'l>, idx: usize) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let idx_nat = LeanNat::from_usize(lean, idx)?;
             let ptr = ffi::expr::lean_expr_mk_bvar(idx_nat.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime("lean_expr_mk_bvar returned null"));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -114,8 +118,12 @@ impl LeanExpr {
         lean: Lean<'l>,
         level: LeanBound<'l, super::level::LeanLevel>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_expr_mk_sort(level.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime("lean_expr_mk_sort returned null"));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -158,12 +166,16 @@ impl LeanExpr {
         fn_expr: &LeanBound<'l, Self>,
         arg_expr: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = fn_expr.lean_token();
             // Increment reference counts since the FFI will store these pointers
             ffi::lean_inc(fn_expr.as_ptr());
             ffi::lean_inc(arg_expr.as_ptr());
             let ptr = ffi::expr::lean_expr_mk_app(fn_expr.as_ptr(), arg_expr.as_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime("lean_expr_mk_app returned null"));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -237,6 +249,7 @@ impl LeanExpr {
         body: LeanBound<'l, Self>,
         binder_info: BinderInfo,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = binder_name.lean_token();
             let ptr = ffi::expr::lean_expr_mk_forall(
@@ -245,6 +258,11 @@ impl LeanExpr {
                 body.into_ptr(),
                 binder_info.to_u8(),
             );
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_expr_mk_forall returned null",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

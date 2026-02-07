@@ -27,8 +27,14 @@ impl LeanLevel {
     /// let prop_level = LeanLevel::zero(lean)?;
     /// ```
     pub fn zero<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_level_mk_zero();
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_zero returned null - Lean.Expr may not be initialized correctly",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -43,9 +49,20 @@ impl LeanLevel {
     /// let type_level = LeanLevel::one(lean)?;
     /// ```
     pub fn one<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let zero = ffi::expr::lean_level_mk_zero();
+            if zero.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_zero returned null - Lean.Expr may not be initialized correctly",
+                ));
+            }
             let ptr = ffi::expr::lean_level_mk_succ(zero);
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_succ returned null - Lean.Expr may not be initialized correctly",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -59,9 +76,15 @@ impl LeanLevel {
     /// let next_level = LeanLevel::succ(level)?; // Type 1
     /// ```
     pub fn succ<'l>(level: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = level.lean_token();
             let ptr = ffi::expr::lean_level_mk_succ(level.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_succ returned null",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -77,9 +100,13 @@ impl LeanLevel {
         a: LeanBound<'l, Self>,
         b: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_max(a.into_ptr(), b.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime("lean_level_mk_max returned null"));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -92,9 +119,15 @@ impl LeanLevel {
         a: LeanBound<'l, Self>,
         b: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_imax(a.into_ptr(), b.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_imax returned null",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -111,8 +144,14 @@ impl LeanLevel {
         lean: Lean<'l>,
         name: LeanBound<'l, LeanName>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        super::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_level_mk_param(name.into_ptr());
+            if ptr.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "lean_level_mk_param returned null",
+                ));
+            }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
