@@ -100,7 +100,7 @@ pub mod literal;
 pub mod name;
 
 // Re-export main types
-pub use context::{CoreContext, CoreState};
+pub use context::{CoreContext, CoreState, MetaContext};
 pub use declaration::LeanDeclaration;
 pub use environment::{ConstantKind, LeanConstantInfo, LeanEnvironment};
 pub use expr::{BinderInfo, ExprKind, LeanExpr};

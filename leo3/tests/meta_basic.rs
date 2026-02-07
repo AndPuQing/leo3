@@ -386,3 +386,57 @@ fn test_level_operations() {
         result.err()
     );
 }
+
+#[test]
+fn test_meta_context_creation() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Create a Meta.Context with default values
+        let ctx = MetaContext::mk_default(lean)?;
+
+        // Should succeed and not be null
+        assert!(!ctx.as_ptr().is_null());
+
+        // Verify it's a constructor with tag 0 (Meta.Context)
+        unsafe {
+            let tag = leo3_ffi::lean_obj_tag(ctx.as_ptr());
+            assert_eq!(tag, 0, "Meta.Context should have constructor tag 0");
+
+            // Verify it has 5 object fields and 8 scalar bytes (for UInt64)
+            // Field 0 should be config (not null)
+            let config = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 0);
+            assert!(!config.is_null(), "Config field should not be null");
+
+            // Scalar field 0-7: configKey (UInt64, should be 0)
+            let config_key_val = leo3_ffi::lean_ctor_get_uint64(ctx.as_ptr(), 0);
+            assert_eq!(config_key_val, 0, "configKey should be 0");
+
+            // Field 1 should be trackZetaDelta (Bool, should be false)
+            let track_zeta = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 1);
+            let track_zeta_val = leo3_ffi::lean_unbox(track_zeta);
+            assert_eq!(track_zeta_val, 0, "trackZetaDelta should be false (0)");
+
+            // Field 2 should be zetaDeltaSet (empty set)
+            let zeta_set = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 2);
+            assert!(!zeta_set.is_null(), "zetaDeltaSet should not be null");
+
+            // Field 3 should be lctx (empty LocalContext)
+            let lctx = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 3);
+            assert!(!lctx.is_null(), "lctx should not be null");
+
+            // Field 4 should be localInstances (empty array)
+            let local_instances = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 4);
+            assert!(
+                !local_instances.is_null(),
+                "localInstances should not be null"
+            );
+        }
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "Meta.Context creation failed: {:?}",
+        result.err()
+    );
+}

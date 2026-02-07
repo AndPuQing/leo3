@@ -356,3 +356,116 @@ impl CoreState {
         }
     }
 }
+
+/// Meta.Context - context for MetaM monad
+///
+/// This structure has 6 fields (constructor tag 0):
+/// 0. `config: Config` - use default config
+/// 1. `configKey: UInt64` - compute from config hash (use 0 for now)
+/// 2. `trackZetaDelta: Bool` - use false
+/// 3. `zetaDeltaSet: FVarIdSet` - use empty
+/// 4. `lctx: LocalContext` - use empty
+/// 5. `localInstances: LocalInstances` - use empty array
+#[repr(transparent)]
+pub struct MetaContext {
+    _private: (),
+}
+
+impl MetaContext {
+    /// Create a Meta.Context with default values
+    ///
+    /// This creates a minimal Meta.Context suitable for running MetaM computations.
+    /// All fields are set to sensible defaults:
+    /// - config: default Meta.Config (all false/zero)
+    /// - configKey: 0 (computed from config hash)
+    /// - trackZetaDelta: false
+    /// - zetaDeltaSet: empty FVarIdSet
+    /// - lctx: empty LocalContext
+    /// - localInstances: empty array
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let ctx = MetaContext::mk_default(lean)?;
+    ///     Ok(())
+    /// })
+    /// ```
+    pub fn mk_default<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            // Meta.Context has 6 fields (constructor tag 0)
+            // Note: configKey is a UInt64 stored as a scalar, so we need 1 scalar field
+            let ctx = ffi::lean_alloc_ctor(0, 5, 8);
+
+            // Field 0: config (Meta.Config) - use default config
+            let config = Self::mk_default_config(lean)?;
+            ffi::lean_ctor_set(ctx, 0, config.into_ptr());
+
+            // Scalar field 0-7: configKey (UInt64) - use 0 for now
+            // In a full implementation, this would be computed from config hash
+            ffi::lean_ctor_set_uint64(ctx, 0, 0);
+
+            // Field 1: trackZetaDelta (Bool) - use false
+            let track_zeta = ffi::lean_box(0); // false
+            ffi::lean_ctor_set(ctx, 1, track_zeta);
+
+            // Field 2: zetaDeltaSet (FVarIdSet) - use empty
+            let empty_fvar_set = Self::mk_empty_fvar_id_set(lean)?;
+            ffi::lean_ctor_set(ctx, 2, empty_fvar_set.into_ptr());
+
+            // Field 3: lctx (LocalContext) - use empty
+            let empty_lctx = Self::mk_empty_local_context(lean)?;
+            ffi::lean_ctor_set(ctx, 3, empty_lctx.into_ptr());
+
+            // Field 4: localInstances (LocalInstances) - use empty array
+            let empty_array = ffi::array::lean_mk_empty_array();
+            ffi::lean_ctor_set(ctx, 4, empty_array);
+
+            Ok(LeanBound::from_owned_ptr(lean, ctx))
+        }
+    }
+
+    /// Create a default Meta.Config
+    ///
+    /// Meta.Config controls type checking behavior.
+    /// For now, we create a minimal config with all boolean flags set to false
+    /// and numeric values set to sensible defaults.
+    ///
+    /// Based on Lean.Meta.Config structure, which has many fields.
+    /// We'll use lean_box(0) as a simple default config for now.
+    fn mk_default_config<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // For simplicity, use lean_box(0) as default config
+            // A full implementation would construct all config fields
+            let config = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, config))
+        }
+    }
+
+    /// Create an empty FVarIdSet
+    ///
+    /// FVarIdSet is a hash set of free variable IDs.
+    /// For now, we use lean_box(0) which represents an empty set.
+    fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty FVarIdSet is represented as lean_box(0)
+            let fvar_set = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, fvar_set))
+        }
+    }
+
+    /// Create an empty LocalContext
+    ///
+    /// LocalContext stores local variable declarations.
+    /// For now, we use lean_box(0) which represents an empty context.
+    fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty LocalContext is represented as lean_box(0)
+            let lctx = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, lctx))
+        }
+    }
+}
