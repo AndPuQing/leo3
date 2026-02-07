@@ -49,6 +49,58 @@ fn test_environment_creation() {
 }
 
 #[test]
+#[ignore = "Environment requires full IO initialization"]
+fn test_core_state_creation() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Create an empty environment
+        let env = LeanEnvironment::empty(lean, 0)?;
+
+        // Create a Core.State with the environment
+        let state = CoreState::mk_core_state(lean, &env)?;
+
+        // Should succeed and not be null
+        assert!(!state.as_ptr().is_null());
+
+        // Verify it's a constructor with tag 0 (Core.State)
+        unsafe {
+            let tag = leo3_ffi::lean_obj_tag(state.as_ptr());
+            assert_eq!(tag, 0, "Core.State should have constructor tag 0");
+
+            // Verify it has 8 fields
+            // Field 0 should be the environment
+            let env_field = leo3_ffi::lean_ctor_get(state.as_ptr(), 0);
+            assert!(!env_field.is_null(), "Environment field should not be null");
+
+            // Field 1 should be nextMacroScope (should be 1)
+            let macro_scope = leo3_ffi::lean_ctor_get(state.as_ptr(), 1);
+            let macro_scope_val = leo3_ffi::lean_unbox(macro_scope);
+            assert_eq!(macro_scope_val, 1, "nextMacroScope should be 1");
+
+            // Field 2 should be NameGenerator (should be a constructor)
+            let ngen = leo3_ffi::lean_ctor_get(state.as_ptr(), 2);
+            assert!(!ngen.is_null(), "NameGenerator should not be null");
+            let ngen_tag = leo3_ffi::lean_obj_tag(ngen as *mut _);
+            assert_eq!(ngen_tag, 0, "NameGenerator should have constructor tag 0");
+
+            // Field 7 should be empty array (snapshotTasks)
+            let snapshot_tasks = leo3_ffi::lean_ctor_get(state.as_ptr(), 7);
+            assert!(
+                !snapshot_tasks.is_null(),
+                "snapshotTasks should not be null"
+            );
+        }
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "Core.State creation failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
 fn test_expression_bvar() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create a bound variable

@@ -10,7 +10,7 @@
 use crate::err::LeanResult;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::meta::{LeanExpr, LeanName};
+use crate::meta::{LeanEnvironment, LeanExpr, LeanName};
 use crate::types::{LeanList, LeanOption, LeanString};
 use leo3_ffi as ffi;
 
@@ -191,6 +191,168 @@ impl CoreContext {
             // For simplicity, we use lean_box(0) which should work for an empty set
             let hashset = ffi::lean_box(0);
             Ok(LeanBound::from_owned_ptr(lean, hashset))
+        }
+    }
+}
+
+/// Core.State - state for CoreM monad
+///
+/// This structure has 8 fields (constructor tag 0):
+/// 0. `env: Environment` - from parameter
+/// 1. `nextMacroScope: MacroScope` - use default (firstFrontendMacroScope + 1)
+/// 2. `ngen: NameGenerator` - create new
+/// 3. `traceState: TraceState` - use empty
+/// 4. `cache: Cache` - use empty
+/// 5. `messages: MessageLog` - use empty
+/// 6. `infoState: Elab.InfoState` - use empty
+/// 7. `snapshotTasks: Array SnapshotTask` - use empty array
+#[repr(transparent)]
+pub struct CoreState {
+    _private: (),
+}
+
+impl CoreState {
+    /// Create a Core.State with an Environment
+    ///
+    /// This creates a minimal Core.State suitable for running MetaM computations.
+    /// All fields except the environment are set to sensible defaults:
+    /// - env: from parameter
+    /// - nextMacroScope: firstFrontendMacroScope + 1 (= 1)
+    /// - ngen: new NameGenerator
+    /// - All other fields: empty
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let env = LeanEnvironment::empty(lean, 0)?;
+    ///     let state = CoreState::mk_core_state(lean, &env)?;
+    ///     Ok(())
+    /// })
+    /// ```
+    pub fn mk_core_state<'l>(
+        lean: Lean<'l>,
+        env: &LeanBound<'l, LeanEnvironment>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            // Core.State has 8 fields (constructor tag 0)
+            let state = ffi::lean_alloc_ctor(0, 8, 0);
+
+            // Field 0: env (Environment) - from parameter
+            let env_ptr = env.as_ptr();
+            ffi::lean_inc(env_ptr);
+            ffi::lean_ctor_set(state, 0, env_ptr);
+
+            // Field 1: nextMacroScope (MacroScope) - use firstFrontendMacroScope + 1
+            // firstFrontendMacroScope is 0, so we use 1
+            let next_macro_scope = ffi::lean_box(1);
+            ffi::lean_ctor_set(state, 1, next_macro_scope);
+
+            // Field 2: ngen (NameGenerator) - create new
+            let ngen = Self::mk_name_generator(lean)?;
+            ffi::lean_ctor_set(state, 2, ngen.into_ptr());
+
+            // Field 3: traceState (TraceState) - use empty
+            let trace_state = Self::mk_empty_trace_state(lean)?;
+            ffi::lean_ctor_set(state, 3, trace_state.into_ptr());
+
+            // Field 4: cache (Cache) - use empty
+            let cache = Self::mk_empty_cache(lean)?;
+            ffi::lean_ctor_set(state, 4, cache.into_ptr());
+
+            // Field 5: messages (MessageLog) - use empty
+            let messages = Self::mk_empty_message_log(lean)?;
+            ffi::lean_ctor_set(state, 5, messages.into_ptr());
+
+            // Field 6: infoState (Elab.InfoState) - use empty
+            let info_state = Self::mk_empty_info_state(lean)?;
+            ffi::lean_ctor_set(state, 6, info_state.into_ptr());
+
+            // Field 7: snapshotTasks (Array SnapshotTask) - use empty array
+            let empty_array = ffi::array::lean_mk_empty_array();
+            ffi::lean_ctor_set(state, 7, empty_array);
+
+            Ok(LeanBound::from_owned_ptr(lean, state))
+        }
+    }
+
+    /// Create a new NameGenerator
+    ///
+    /// NameGenerator is used to generate fresh names during elaboration.
+    /// Based on Lean.NameGenerator structure:
+    /// - namePrefix: Name (use anonymous)
+    /// - idx: Nat (use 1)
+    fn mk_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // NameGenerator is a structure with 2 fields (constructor tag 0)
+            let ngen = ffi::lean_alloc_ctor(0, 2, 0);
+
+            // Field 0: namePrefix (Name) - use anonymous
+            let anon_name = LeanName::anonymous(lean)?;
+            ffi::lean_ctor_set(ngen, 0, anon_name.into_ptr());
+
+            // Field 1: idx (Nat) - use 1
+            let idx = ffi::lean_box(1);
+            ffi::lean_ctor_set(ngen, 1, idx);
+
+            Ok(LeanBound::from_owned_ptr(lean, ngen))
+        }
+    }
+
+    /// Create an empty TraceState
+    ///
+    /// TraceState tracks trace messages during elaboration.
+    /// For now, we use lean_box(0) which represents an empty trace state.
+    fn mk_empty_trace_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty trace state is represented as lean_box(0)
+            let trace_state = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, trace_state))
+        }
+    }
+
+    /// Create an empty Cache
+    ///
+    /// Cache stores various cached computations.
+    /// For now, we use lean_box(0) which represents an empty cache.
+    fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty cache is represented as lean_box(0)
+            let cache = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, cache))
+        }
+    }
+
+    /// Create an empty MessageLog
+    ///
+    /// MessageLog stores diagnostic messages.
+    /// Based on Lean.MessageLog structure:
+    /// - msgs: PersistentArray Message (use empty array)
+    fn mk_empty_message_log<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // MessageLog is a structure with 1 field (constructor tag 0)
+            let msg_log = ffi::lean_alloc_ctor(0, 1, 0);
+
+            // Field 0: msgs (PersistentArray Message) - use empty array
+            let empty_array = ffi::array::lean_mk_empty_array();
+            ffi::lean_ctor_set(msg_log, 0, empty_array);
+
+            Ok(LeanBound::from_owned_ptr(lean, msg_log))
+        }
+    }
+
+    /// Create an empty Elab.InfoState
+    ///
+    /// InfoState stores elaboration information for IDE support.
+    /// For now, we use lean_box(0) which represents an empty info state.
+    fn mk_empty_info_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty info state is represented as lean_box(0)
+            let info_state = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, info_state))
         }
     }
 }
