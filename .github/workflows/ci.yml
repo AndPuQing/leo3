@@ -57,17 +57,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: Swatinem/rust-cache@v2
 
-      # Cache Lean toolchains only (not entire .elan directory)
-      - name: Cache Lean toolchain
-        id: cache-lean-toolchain
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.elan/toolchains/leanprover--lean4--${{ matrix.lean }}
-            %USERPROFILE%\.elan\toolchains\leanprover--lean4--${{ matrix.lean }}
-          key: ${{ runner.os }}-lean-toolchain-${{ matrix.lean }}
-
-      # Always install elan (lightweight), it will use cached toolchain if available
       - name: Install elan
         shell: bash
         run: |
@@ -144,15 +133,6 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - uses: taiki-e/install-action@nextest
 
-      # Cache Lean toolchain only (not entire .elan directory)
-      - name: Cache Lean toolchain
-        id: cache-lean-toolchain
-        uses: actions/cache@v5
-        with:
-          path: ~/.elan/toolchains
-          key: ${{ runner.os }}-lean-toolchain-${{ hashFiles('lean-toolchain') }}
-
-      # Always install elan (lightweight), it will use cached toolchain if available
       - name: Install elan
         run: |
           echo "::group::Elan Installation Output"
