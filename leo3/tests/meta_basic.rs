@@ -24,6 +24,10 @@ fn test_environment_creation() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_bvar() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create a bound variable
@@ -44,6 +48,10 @@ fn test_expression_bvar() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_sort() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create Prop (level zero)
@@ -80,6 +88,10 @@ fn test_expression_const() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_app() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create f and a as bound variables
@@ -109,6 +121,10 @@ fn test_expression_app() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_lambda() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create λ x : Prop, x
@@ -142,6 +158,10 @@ fn test_expression_lambda() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_forall() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create ∀ (n : Prop), Prop
@@ -166,6 +186,10 @@ fn test_expression_forall() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_arrow() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create Prop → Prop
@@ -222,6 +246,10 @@ fn test_expression_dbg_string() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_alpha_eqv() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create λ x, x
@@ -255,6 +283,10 @@ fn test_expression_alpha_eqv() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_expression_mk_app() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create a function f
@@ -282,6 +314,10 @@ fn test_expression_mk_app() {
 }
 
 #[test]
+#[cfg_attr(
+    all(target_os = "macos", lean_4_20),
+    ignore = "Lean 4.20.0 has initialize_Lean_Expr bug on macOS"
+)]
 fn test_level_operations() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create levels
