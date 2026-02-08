@@ -59,6 +59,7 @@ use std::sync::Once;
 
 static PRELUDE_INIT: Once = Once::new();
 static EXPR_INIT: Once = Once::new();
+static ENV_INIT: Once = Once::new();
 
 /// Ensure Init.Prelude module is initialized (for Name functions)
 ///
@@ -88,6 +89,25 @@ pub(crate) fn ensure_expr_initialized() {
 
     EXPR_INIT.call_once(|| unsafe {
         ffi::initialize_Lean_Expr(1, std::ptr::null_mut());
+    });
+}
+
+/// Ensure Lean.Environment module is initialized (for environment functions)
+///
+/// This is called lazily when Environment-related functions are first used.
+/// Safe to call multiple times - initialization happens only once.
+/// Note: This depends on Init.Prelude and Lean.Expr, so it initializes those first.
+/// `initialize_Lean_Environment` recursively initializes all transitive dependencies
+/// (each guarded by its own `_G_initialized` flag).
+#[inline]
+pub(crate) fn ensure_environment_initialized() {
+    ensure_expr_initialized(); // Environment depends on Expr
+
+    ENV_INIT.call_once(|| unsafe {
+        ffi::initialize_Lean_Environment(1, std::ptr::null_mut());
+        // Mark initialization as complete so IO operations like
+        // lean_mk_empty_environment can proceed
+        ffi::lean_io_mark_end_initialization();
     });
 }
 

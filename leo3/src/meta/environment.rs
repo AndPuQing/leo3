@@ -69,26 +69,26 @@ impl LeanEnvironment {
     /// let env = LeanEnvironment::empty(lean, 0)?;
     /// ```
     pub fn empty<'l>(lean: Lean<'l>, trust_level: u32) -> LeanResult<LeanBound<'l, Self>> {
+        // Ensure Lean.Environment module is initialized
+        crate::meta::ensure_environment_initialized();
+
         unsafe {
+            // Create a RealWorld token for the IO action
+            let world = ffi::io::lean_io_mk_world();
+
             // Call FFI to create environment (returns IO Environment)
-            let io_result = ffi::environment::lean_mk_empty_environment(trust_level);
+            let io_result = ffi::environment::lean_mk_empty_environment(trust_level, world);
 
-            // Check if IO operation succeeded
-            // IO results are Except types: tag 1 = error, tag 0 = ok
+            // IO results are EStateM.Result: tag 0 = ok, tag 1 = error
             let tag = ffi::lean_obj_tag(io_result);
-            if tag == 1 {
-                // Extract error message (field 0 of Except.error)
-                let err_ptr = ffi::lean_ctor_get(io_result, 0) as *mut ffi::lean_object;
-                ffi::lean_inc(err_ptr);
+            if tag != 0 {
                 ffi::lean_dec(io_result);
-
-                // TODO: Convert error object to string message
                 return Err(LeanError::runtime(
                     "Failed to create empty environment: IO error",
                 ));
             }
 
-            // Extract the environment from IO result (field 0 of Except.ok)
+            // Extract the environment from IO result (field 0 of EStateM.Result.ok)
             let env_ptr = ffi::lean_ctor_get(io_result, 0) as *mut ffi::lean_object;
             ffi::lean_inc(env_ptr);
             ffi::lean_dec(io_result);

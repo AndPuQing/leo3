@@ -157,6 +157,23 @@ extern "C" {
     /// # Returns
     /// Updated world token (can be ignored for initialization purposes)
     pub fn initialize_Init_Prelude(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+
+    /// Initialize the Lean.Environment module
+    ///
+    /// Must be called before using environment-related functions like
+    /// `lean_mk_empty_environment`. This initializer recursively initializes
+    /// all transitive dependencies (guarded by `_G_initialized` flags).
+    ///
+    /// # Parameters
+    /// - `builtin`: Set to 1 for builtin initialization
+    /// - `w`: World token (pass null_mut for first call)
+    ///
+    /// # Returns
+    /// Updated world token (can be ignored for initialization purposes)
+    pub fn initialize_Lean_Environment(
+        builtin: u8,
+        w: *mut std::ffi::c_void,
+    ) -> *mut std::ffi::c_void;
 }
 
 // ============================================================================

@@ -29,7 +29,6 @@ fn test_core_context_creation() {
 }
 
 #[test]
-#[ignore = "Environment requires full IO initialization"]
 fn test_environment_creation() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create an empty environment
@@ -49,7 +48,6 @@ fn test_environment_creation() {
 }
 
 #[test]
-#[ignore = "Environment requires full IO initialization"]
 fn test_core_state_creation() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create an empty environment
@@ -488,7 +486,6 @@ fn test_meta_state_creation() {
 }
 
 #[test]
-#[ignore = "Environment requires full IO initialization"]
 fn test_metam_context_creation() {
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create an empty environment

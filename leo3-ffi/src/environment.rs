@@ -26,7 +26,7 @@ extern "C" {
     ///
     /// # Safety
     /// Must be called after lean runtime initialization
-    pub fn lean_mk_empty_environment(trust_level: u32) -> lean_obj_res;
+    pub fn lean_mk_empty_environment(trust_level: u32, world: lean_obj_arg) -> lean_obj_res;
 }
 
 // ============================================================================
