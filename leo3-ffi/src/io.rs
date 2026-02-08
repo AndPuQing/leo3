@@ -11,34 +11,55 @@ use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 // IO Result Type Checking
 // ============================================================================
 
-extern "C" {
-    /// Check if an IO result represents an error
-    ///
-    /// # Safety
-    /// - `r` must be a valid IO result object
-    ///
-    /// Returns true if the result is an error (Except.error), false if ok (Except.ok)
-    pub fn lean_io_result_is_error(r: b_lean_obj_arg) -> bool;
+// These functions are `static inline` in lean.h, not exported symbols.
+// We reimplement them in Rust to match the C semantics exactly.
 
-    /// Check if an IO result represents success
-    ///
-    /// # Safety
-    /// - `r` must be a valid IO result object
-    pub fn lean_io_result_is_ok(r: b_lean_obj_arg) -> bool;
+/// Check if an IO result represents an error.
+///
+/// IO results use constructor tags: tag 0 = `Except.ok`, tag 1 = `Except.error`.
+///
+/// # Safety
+/// - `r` must be a valid IO result object
+#[inline]
+pub unsafe fn lean_io_result_is_error(r: b_lean_obj_arg) -> bool {
+    crate::lean_obj_tag(r as lean_obj_arg) == 1
+}
 
-    /// Get the value from a successful IO result
-    ///
-    /// # Safety
-    /// - `r` must be a valid IO result object with Except.ok
-    /// - Calling this on an error result is undefined behavior
-    pub fn lean_io_result_get_value(r: lean_obj_arg) -> lean_obj_res;
+/// Check if an IO result represents success.
+///
+/// IO results use constructor tags: tag 0 = `Except.ok`, tag 1 = `Except.error`.
+///
+/// # Safety
+/// - `r` must be a valid IO result object
+#[inline]
+pub unsafe fn lean_io_result_is_ok(r: b_lean_obj_arg) -> bool {
+    crate::lean_obj_tag(r as lean_obj_arg) == 0
+}
 
-    /// Get the error from a failed IO result
-    ///
-    /// # Safety
-    /// - `r` must be a valid IO result object with Except.error
-    /// - Calling this on an ok result is undefined behavior
-    pub fn lean_io_result_get_error(r: lean_obj_arg) -> lean_obj_res;
+/// Get the value from a successful IO result (borrowed).
+///
+/// Returns field 0 of the `Except.ok` constructor. The returned pointer
+/// is borrowed — caller must `lean_inc` if they want to own it.
+///
+/// # Safety
+/// - `r` must be a valid IO result object with tag 0 (`Except.ok`)
+/// - Calling this on an error result is undefined behavior
+#[inline]
+pub unsafe fn lean_io_result_get_value(r: b_lean_obj_arg) -> b_lean_obj_arg {
+    crate::lean_ctor_get(r as lean_obj_arg, 0)
+}
+
+/// Get the error from a failed IO result (borrowed).
+///
+/// Returns field 0 of the `Except.error` constructor. The returned pointer
+/// is borrowed — caller must `lean_inc` if they want to own it.
+///
+/// # Safety
+/// - `r` must be a valid IO result object with tag 1 (`Except.error`)
+/// - Calling this on an ok result is undefined behavior
+#[inline]
+pub unsafe fn lean_io_result_get_error(r: b_lean_obj_arg) -> b_lean_obj_arg {
+    crate::lean_ctor_get(r as lean_obj_arg, 0)
 }
 
 // ============================================================================
