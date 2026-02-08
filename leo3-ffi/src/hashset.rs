@@ -14,6 +14,13 @@ extern "C" {
     /// Signature: HashSet.empty [BEq α] [Hashable α] : HashSet α
     pub fn l_Std_HashSet_empty(beq: lean_obj_arg, hashable: lean_obj_arg) -> lean_obj_res;
 
+    /// Create an empty HashSet (reduced-arity version with type-class instances erased)
+    ///
+    /// This is the compiler-generated specialization where BEq and Hashable
+    /// instances are already resolved. Takes only the capacity argument.
+    /// Use `lean_box(8)` for the default capacity.
+    pub fn l_Std_HashSet_empty___rarg(capacity: lean_obj_arg) -> lean_obj_res;
+
     /// Create an empty HashSet with specified capacity
     /// Signature: HashSet.emptyWithCapacity [BEq α] [Hashable α] (capacity := 8) : HashSet α
     pub fn l_Std_HashSet_emptyWithCapacity(

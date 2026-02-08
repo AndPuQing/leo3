@@ -105,10 +105,25 @@ pub(crate) fn ensure_environment_initialized() {
 
     ENV_INIT.call_once(|| unsafe {
         ffi::initialize_Lean_Environment(1, std::ptr::null_mut());
+        // Initialize Lean.Meta before marking end of initialization,
+        // since Meta functions (inferType, check) need their module
+        // globals set up during the initialization phase.
+        ffi::initialize_Lean_Meta(1, std::ptr::null_mut());
         // Mark initialization as complete so IO operations like
         // lean_mk_empty_environment can proceed
         ffi::lean_io_mark_end_initialization();
     });
+}
+
+/// Ensure Lean.Meta module is initialized (for MetaM functions)
+///
+/// This is called lazily when MetaM-related functions are first used
+/// (e.g., `inferType`, `check`). Safe to call multiple times.
+/// Note: Meta initialization is handled inside `ensure_environment_initialized()`
+/// to ensure it runs before `lean_io_mark_end_initialization()`.
+#[inline]
+pub(crate) fn ensure_meta_initialized() {
+    ensure_environment_initialized();
 }
 
 pub mod context;

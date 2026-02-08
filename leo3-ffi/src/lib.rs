@@ -174,6 +174,20 @@ extern "C" {
         builtin: u8,
         w: *mut std::ffi::c_void,
     ) -> *mut std::ffi::c_void;
+
+    /// Initialize the Lean.Meta module
+    ///
+    /// Must be called before using Meta-level functions like `inferType` and
+    /// `check`. This initializer recursively initializes all transitive
+    /// dependencies (guarded by `_G_initialized` flags).
+    ///
+    /// # Parameters
+    /// - `builtin`: Set to 1 for builtin initialization
+    /// - `w`: World token (pass null_mut for first call)
+    ///
+    /// # Returns
+    /// Updated world token (can be ignored for initialization purposes)
+    pub fn initialize_Lean_Meta(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
 }
 
 // ============================================================================
@@ -234,33 +248,38 @@ extern "C" {
     ///
     /// # Safety
     /// - `v` is the initial value (consumed)
-    pub fn lean_st_mk_ref(v: lean_obj_arg) -> lean_obj_res;
+    /// - `w` is the IO world token (consumed)
+    pub fn lean_st_mk_ref(v: lean_obj_arg, w: lean_obj_arg) -> lean_obj_res;
 
     /// Get the value from an ST reference
     ///
     /// # Safety
     /// - `r` must be a valid ST ref object
-    pub fn lean_st_ref_get(r: b_lean_obj_arg) -> lean_obj_res;
+    /// - `w` is the IO world token (consumed)
+    pub fn lean_st_ref_get(r: b_lean_obj_arg, w: lean_obj_arg) -> lean_obj_res;
 
     /// Set the value of an ST reference
     ///
     /// # Safety
     /// - `r` must be a valid ST ref object
     /// - `v` is the new value (consumed)
-    pub fn lean_st_ref_set(r: b_lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
+    /// - `w` is the IO world token (consumed)
+    pub fn lean_st_ref_set(r: b_lean_obj_arg, v: lean_obj_arg, w: lean_obj_arg) -> lean_obj_res;
 
     /// Reset an ST reference (set to default/zero value)
     ///
     /// # Safety
     /// - `r` must be a valid ST ref object
-    pub fn lean_st_ref_reset(r: b_lean_obj_arg) -> lean_obj_res;
+    /// - `w` is the IO world token (consumed)
+    pub fn lean_st_ref_reset(r: b_lean_obj_arg, w: lean_obj_arg) -> lean_obj_res;
 
     /// Swap the value of an ST reference, returning the old value
     ///
     /// # Safety
     /// - `r` must be a valid ST ref object
     /// - `v` is the new value (consumed)
-    pub fn lean_st_ref_swap(r: b_lean_obj_arg, v: lean_obj_arg) -> lean_obj_res;
+    /// - `w` is the IO world token (consumed)
+    pub fn lean_st_ref_swap(r: b_lean_obj_arg, v: lean_obj_arg, w: lean_obj_arg) -> lean_obj_res;
 }
 
 // ============================================================================

@@ -32,22 +32,26 @@ use leo3_ffi as ffi;
 
 /// Core.Context - context for CoreM monad
 ///
-/// This structure has 15 fields (constructor tag 0):
-/// 0. `fileName: String` - use `"<rust>"`
-/// 1. `fileMap: FileMap` - create empty
-/// 2. `options: Options` - use empty
-/// 3. `currRecDepth: Nat` - use 0
-/// 4. `maxRecDepth: Nat` - use 1000
-/// 5. `ref: Syntax` - use `Syntax.missing`
-/// 6. `currNamespace: Name` - use anonymous
-/// 7. `openDecls: List OpenDecl` - use empty list
-/// 8. `initHeartbeats: Nat` - use 0
-/// 9. `maxHeartbeats: Nat` - use 200000000
-/// 10. `currMacroScope: MacroScope` - use default
-/// 11. `diag: Bool` - use false
-/// 12. `cancelTk?: Option IO.CancelToken` - use none
-/// 13. `suppressElabErrors: Bool` - use false
-/// 14. `inheritedTraceOptions: Std.HashSet Name` - use empty
+/// Lean structure with 13 object fields + 2 scalar bytes (constructor tag 0).
+///
+/// Object fields (Bool fields are stored as scalars, not objects):
+/// 0. `fileName: String`
+/// 1. `fileMap: FileMap`
+/// 2. `options: Options`
+/// 3. `currRecDepth: Nat`
+/// 4. `maxRecDepth: Nat`
+/// 5. `ref: Syntax`
+/// 6. `currNamespace: Name`
+/// 7. `openDecls: List OpenDecl`
+/// 8. `initHeartbeats: Nat`
+/// 9. `maxHeartbeats: Nat`
+/// 10. `currMacroScope: MacroScope`
+/// 11. `cancelTk?: Option IO.CancelToken`
+/// 12. `inheritedTraceOptions: Std.HashSet Name`
+///
+/// Scalar fields:
+/// offset 0: `diag: Bool` (1 byte)
+/// offset 1: `suppressElabErrors: Bool` (1 byte)
 #[repr(transparent)]
 pub struct CoreContext {
     _private: (),
@@ -76,136 +80,134 @@ impl CoreContext {
     /// ```
     pub fn mk_default<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Core.Context has 15 fields (constructor tag 0)
-            let ctx = ffi::lean_alloc_ctor(0, 15, 0);
+            // Core.Context: 13 object fields + 2 scalar bytes (constructor tag 0)
+            // Bool fields (diag, suppressElabErrors) are stored as scalars.
+            let ctx = ffi::lean_alloc_ctor(0, 13, 2);
 
-            // Field 0: fileName (String) - use "<rust>"
+            // Object field 0: fileName (String) - use "<rust>"
             let filename = LeanString::mk(lean, "<rust>")?;
             ffi::lean_ctor_set(ctx, 0, filename.into_ptr());
 
-            // Field 1: fileMap (FileMap) - create empty
+            // Object field 1: fileMap (FileMap) - use Inhabited instance
             let filemap = Self::mk_empty_filemap(lean)?;
             ffi::lean_ctor_set(ctx, 1, filemap.into_ptr());
 
-            // Field 2: options (Options) - use empty
+            // Object field 2: options (Options) - use empty
             let options = Self::mk_empty_options(lean)?;
             ffi::lean_ctor_set(ctx, 2, options.into_ptr());
 
-            // Field 3: currRecDepth (Nat) - use 0
-            let curr_rec_depth = ffi::lean_box(0);
-            ffi::lean_ctor_set(ctx, 3, curr_rec_depth);
+            // Object field 3: currRecDepth (Nat) - use 0
+            ffi::lean_ctor_set(ctx, 3, ffi::lean_box(0));
 
-            // Field 4: maxRecDepth (Nat) - use 1000
-            let max_rec_depth = ffi::lean_box(1000);
-            ffi::lean_ctor_set(ctx, 4, max_rec_depth);
+            // Object field 4: maxRecDepth (Nat) - use 1000
+            ffi::lean_ctor_set(ctx, 4, ffi::lean_box(1000));
 
-            // Field 5: ref (Syntax) - use Syntax.missing
+            // Object field 5: ref (Syntax) - use Syntax.missing
             let syntax_missing = Self::mk_syntax_missing(lean)?;
             ffi::lean_ctor_set(ctx, 5, syntax_missing.into_ptr());
 
-            // Field 6: currNamespace (Name) - use anonymous
+            // Object field 6: currNamespace (Name) - use anonymous
             let anon_name = LeanName::anonymous(lean)?;
             ffi::lean_ctor_set(ctx, 6, anon_name.into_ptr());
 
-            // Field 7: openDecls (List OpenDecl) - use empty list
+            // Object field 7: openDecls (List OpenDecl) - use empty list
             let empty_list = LeanList::nil(lean)?;
             ffi::lean_ctor_set(ctx, 7, empty_list.into_ptr());
 
-            // Field 8: initHeartbeats (Nat) - use 0
-            let init_heartbeats = ffi::lean_box(0);
-            ffi::lean_ctor_set(ctx, 8, init_heartbeats);
+            // Object field 8: initHeartbeats (Nat) - use 0
+            ffi::lean_ctor_set(ctx, 8, ffi::lean_box(0));
 
-            // Field 9: maxHeartbeats (Nat) - use 200000000
-            let max_heartbeats = ffi::lean_box(200000000);
-            ffi::lean_ctor_set(ctx, 9, max_heartbeats);
+            // Object field 9: maxHeartbeats (Nat) - use 200000000
+            ffi::lean_ctor_set(ctx, 9, ffi::lean_box(200000000));
 
-            // Field 10: currMacroScope (MacroScope) - use default (0)
-            let macro_scope = ffi::lean_box(0);
-            ffi::lean_ctor_set(ctx, 10, macro_scope);
+            // Object field 10: currMacroScope (MacroScope = Nat) - use 0
+            ffi::lean_ctor_set(ctx, 10, ffi::lean_box(0));
 
-            // Field 11: diag (Bool) - use false
-            let diag = ffi::lean_box(0); // false
-            ffi::lean_ctor_set(ctx, 11, diag);
-
-            // Field 12: cancelTk? (Option IO.CancelToken) - use none
+            // Object field 11: cancelTk? (Option IO.CancelToken) - use none
             let cancel_token = LeanOption::none(lean)?;
-            ffi::lean_ctor_set(ctx, 12, cancel_token.into_ptr());
+            ffi::lean_ctor_set(ctx, 11, cancel_token.into_ptr());
 
-            // Field 13: suppressElabErrors (Bool) - use false
-            let suppress_elab = ffi::lean_box(0); // false
-            ffi::lean_ctor_set(ctx, 13, suppress_elab);
-
-            // Field 14: inheritedTraceOptions (Std.HashSet Name) - use empty
+            // Object field 12: inheritedTraceOptions (Std.HashSet Name) - use empty
             let empty_hashset = Self::mk_empty_hashset(lean)?;
-            ffi::lean_ctor_set(ctx, 14, empty_hashset.into_ptr());
+            ffi::lean_ctor_set(ctx, 12, empty_hashset.into_ptr());
+
+            // Scalar offset 0: diag (Bool) - use false (0)
+            ffi::inline::lean_ctor_set_uint8(ctx, 0, 0);
+
+            // Scalar offset 1: suppressElabErrors (Bool) - use false (0)
+            ffi::inline::lean_ctor_set_uint8(ctx, 1, 0);
 
             Ok(LeanBound::from_owned_ptr(lean, ctx))
         }
     }
 
-    /// Create an empty FileMap
+    /// Get an empty `FileMap` from the Lean runtime's `Inhabited FileMap` instance.
     ///
-    /// FileMap is a structure that maps positions in a file to line/column information.
-    /// For now, we create a minimal empty FileMap.
+    /// Uses the `l_Lean_instInhabitedFileMap` BSS global which is initialized
+    /// during `initialize_Lean_Meta`.
     ///
-    /// Based on Lean.Data.Position.FileMap structure:
-    /// - source: String (empty)
-    /// - positions: Array Nat (empty array)
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_filemap<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // FileMap is a structure with 2 fields (constructor tag 0)
-            let filemap = ffi::lean_alloc_ctor(0, 2, 0);
-
-            // Field 0: source (String) - empty string
-            let empty_source = LeanString::mk(lean, "")?;
-            ffi::lean_ctor_set(filemap, 0, empty_source.into_ptr());
-
-            // Field 1: positions (Array Nat) - empty array
-            // Create empty array
-            let empty_array = ffi::array::lean_mk_empty_array();
-            ffi::lean_ctor_set(filemap, 1, empty_array);
-
+            let filemap = ffi::meta::l_Lean_instInhabitedFileMap;
+            if filemap.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "FileMap Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(filemap);
             Ok(LeanBound::from_owned_ptr(lean, filemap))
         }
     }
 
     /// Create empty Options
     ///
-    /// Options is Lean's key-value store for configuration.
-    /// For now, we use lean_box(0) which represents an empty options object.
+    /// Uses the `Inhabited Options` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_options<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty options is represented as lean_box(0)
-            let options = ffi::lean_box(0);
+            let options = ffi::meta::l_Lean_instInhabitedOptions;
+            if options.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Options Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(options);
             Ok(LeanBound::from_owned_ptr(lean, options))
         }
     }
 
-    /// Create Syntax.missing
+    /// Get `Syntax.missing` from the Lean runtime's `Inhabited Syntax` instance.
     ///
-    /// Syntax.missing is a placeholder syntax node used when no specific
-    /// syntax reference is available.
+    /// Uses the `l_Lean_instInhabitedSyntax` BSS global which is initialized
+    /// during `initialize_Lean_Meta`.
     ///
-    /// Based on Lean.Syntax structure, Syntax.missing is typically
-    /// represented as a specific constructor.
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_syntax_missing<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Syntax.missing is constructor 0 with no fields
-            // This is a simplified representation - the actual Lean implementation
-            // may be more complex, but this should work for basic MetaM operations
-            let syntax = ffi::lean_alloc_ctor(0, 0, 0);
+            let syntax = ffi::meta::l_Lean_instInhabitedSyntax;
+            if syntax.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Syntax Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(syntax);
             Ok(LeanBound::from_owned_ptr(lean, syntax))
         }
     }
 
-    /// Create an empty HashSet
+    /// Create an empty `Std.HashSet Name` for `inheritedTraceOptions`.
     ///
-    /// Creates an empty Std.HashSet for the inheritedTraceOptions field.
+    /// Calls `l_Std_HashSet_empty___rarg` with the default capacity (8),
+    /// which is the reduced-arity specialization with BEq/Hashable instances
+    /// already resolved by the Lean compiler.
     fn mk_empty_hashset<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
-            // Empty HashSet is typically represented as a constructor with empty buckets
-            // For simplicity, we use lean_box(0) which should work for an empty set
-            let hashset = ffi::lean_box(0);
+            let hashset = ffi::hashset::l_Std_HashSet_empty___rarg(ffi::lean_box(8));
             Ok(LeanBound::from_owned_ptr(lean, hashset))
         }
     }
@@ -297,77 +299,96 @@ impl CoreState {
 
     /// Create a new NameGenerator
     ///
-    /// NameGenerator is used to generate fresh names during elaboration.
-    /// Based on Lean.NameGenerator structure:
-    /// - namePrefix: Name (use anonymous)
-    /// - idx: Nat (use 1)
+    /// Uses the `Inhabited NameGenerator` instance from the Lean runtime,
+    /// which provides `{ namePrefix := `_uniq, idx := 1 }`.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // NameGenerator is a structure with 2 fields (constructor tag 0)
-            let ngen = ffi::lean_alloc_ctor(0, 2, 0);
-
-            // Field 0: namePrefix (Name) - use anonymous
-            let anon_name = LeanName::anonymous(lean)?;
-            ffi::lean_ctor_set(ngen, 0, anon_name.into_ptr());
-
-            // Field 1: idx (Nat) - use 1
-            let idx = ffi::lean_box(1);
-            ffi::lean_ctor_set(ngen, 1, idx);
-
+            let ngen = ffi::meta::l_Lean_instInhabitedNameGenerator;
+            if ngen.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "NameGenerator Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(ngen);
             Ok(LeanBound::from_owned_ptr(lean, ngen))
         }
     }
 
     /// Create an empty TraceState
     ///
-    /// TraceState tracks trace messages during elaboration.
-    /// For now, we use lean_box(0) which represents an empty trace state.
+    /// Uses the `Inhabited TraceState` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_trace_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty trace state is represented as lean_box(0)
-            let trace_state = ffi::lean_box(0);
+            let trace_state = ffi::meta::l_Lean_instInhabitedTraceState;
+            if trace_state.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "TraceState Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(trace_state);
             Ok(LeanBound::from_owned_ptr(lean, trace_state))
         }
     }
 
     /// Create an empty Cache
     ///
-    /// Cache stores various cached computations.
-    /// For now, we use lean_box(0) which represents an empty cache.
+    /// Uses the `Inhabited Core.Cache` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty cache is represented as lean_box(0)
-            let cache = ffi::lean_box(0);
+            let cache = ffi::meta::l_Lean_Core_instInhabitedCache;
+            if cache.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Core.Cache Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(cache);
             Ok(LeanBound::from_owned_ptr(lean, cache))
         }
     }
 
     /// Create an empty MessageLog
     ///
-    /// MessageLog stores diagnostic messages.
-    /// Based on Lean.MessageLog structure:
-    /// - msgs: PersistentArray Message (use empty array)
+    /// Uses the `Inhabited MessageLog` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_message_log<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // MessageLog is a structure with 1 field (constructor tag 0)
-            let msg_log = ffi::lean_alloc_ctor(0, 1, 0);
-
-            // Field 0: msgs (PersistentArray Message) - use empty array
-            let empty_array = ffi::array::lean_mk_empty_array();
-            ffi::lean_ctor_set(msg_log, 0, empty_array);
-
+            let msg_log = ffi::meta::l_Lean_instInhabitedMessageLog;
+            if msg_log.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "MessageLog Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(msg_log);
             Ok(LeanBound::from_owned_ptr(lean, msg_log))
         }
     }
 
     /// Create an empty Elab.InfoState
     ///
-    /// InfoState stores elaboration information for IDE support.
-    /// For now, we use lean_box(0) which represents an empty info state.
+    /// Uses the `Inhabited Elab.InfoState` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_info_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty info state is represented as lean_box(0)
-            let info_state = ffi::lean_box(0);
+            let info_state = ffi::meta::l_Lean_Elab_instInhabitedInfoState;
+            if info_state.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Elab.InfoState Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(info_state);
             Ok(LeanBound::from_owned_ptr(lean, info_state))
         }
     }
@@ -375,13 +396,22 @@ impl CoreState {
 
 /// Meta.Context - context for MetaM monad
 ///
-/// This structure has 6 fields (constructor tag 0):
-/// 0. `config: Config` - use default config
-/// 1. `configKey: UInt64` - compute from config hash (use 0 for now)
-/// 2. `trackZetaDelta: Bool` - use false
-/// 3. `zetaDeltaSet: FVarIdSet` - use empty
-/// 4. `lctx: LocalContext` - use empty
-/// 5. `localInstances: LocalInstances` - use empty array
+/// Lean structure with 7 object fields + 11 scalar bytes (constructor tag 0).
+///
+/// Object fields (Bool fields are stored as scalars, not objects):
+/// 0. `config: Config`
+/// 1. `zetaDeltaSet: FVarIdSet`
+/// 2. `lctx: LocalContext`
+/// 3. `localInstances: LocalInstances`
+/// 4. `defEqCtx?: Option DefEqContext`
+/// 5. `synthPendingDepth: Nat`
+/// 6. `canUnfold?: Option (Config → ConstantInfo → CoreM Bool)`
+///
+/// Scalar fields:
+/// offset 0: `configKey: UInt64` (8 bytes)
+/// offset 8: `trackZetaDelta: Bool` (1 byte)
+/// offset 9: `univApprox: Bool` (1 byte)
+/// offset 10: `inTypeClassResolution: Bool` (1 byte)
 #[repr(transparent)]
 pub struct MetaContext {
     _private: (),
@@ -412,33 +442,48 @@ impl MetaContext {
     /// ```
     pub fn mk_default<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Meta.Context has 6 fields (constructor tag 0)
-            // Note: configKey is a UInt64 stored as a scalar, so we need 1 scalar field
-            let ctx = ffi::lean_alloc_ctor(0, 5, 8);
+            // Meta.Context: 7 object fields + 11 scalar bytes (constructor tag 0)
+            // Bool fields (trackZetaDelta, univApprox, inTypeClassResolution) are scalars.
+            let ctx = ffi::lean_alloc_ctor(0, 7, 11);
 
-            // Field 0: config (Meta.Config) - use default config
+            // Object field 0: config (Meta.Config) - use default config
             let config = Self::mk_default_config(lean)?;
             ffi::lean_ctor_set(ctx, 0, config.into_ptr());
 
-            // Scalar field 0-7: configKey (UInt64) - use 0 for now
-            // In a full implementation, this would be computed from config hash
+            // Object field 1: zetaDeltaSet (FVarIdSet) - use empty
+            let empty_fvar_set = Self::mk_empty_fvar_id_set(lean)?;
+            ffi::lean_ctor_set(ctx, 1, empty_fvar_set.into_ptr());
+
+            // Object field 2: lctx (LocalContext) - use empty
+            let empty_lctx = Self::mk_empty_local_context(lean)?;
+            ffi::lean_ctor_set(ctx, 2, empty_lctx.into_ptr());
+
+            // Object field 3: localInstances (LocalInstances) - use empty array
+            let empty_array = ffi::array::lean_mk_empty_array();
+            ffi::lean_ctor_set(ctx, 3, empty_array);
+
+            // Object field 4: defEqCtx? (Option DefEqContext) - use none
+            let none = LeanOption::none(lean)?;
+            ffi::lean_ctor_set(ctx, 4, none.into_ptr());
+
+            // Object field 5: synthPendingDepth (Nat) - use 0
+            ffi::lean_ctor_set(ctx, 5, ffi::lean_box(0));
+
+            // Object field 6: canUnfold? (Option ...) - use none
+            let none2 = LeanOption::none(lean)?;
+            ffi::lean_ctor_set(ctx, 6, none2.into_ptr());
+
+            // Scalar offset 0-7: configKey (UInt64) - use 0
             ffi::lean_ctor_set_uint64(ctx, 0, 0);
 
-            // Field 1: trackZetaDelta (Bool) - use false
-            let track_zeta = ffi::lean_box(0); // false
-            ffi::lean_ctor_set(ctx, 1, track_zeta);
+            // Scalar offset 8: trackZetaDelta (Bool) - use false (0)
+            ffi::inline::lean_ctor_set_uint8(ctx, 8, 0);
 
-            // Field 2: zetaDeltaSet (FVarIdSet) - use empty
-            let empty_fvar_set = Self::mk_empty_fvar_id_set(lean)?;
-            ffi::lean_ctor_set(ctx, 2, empty_fvar_set.into_ptr());
+            // Scalar offset 9: univApprox (Bool) - use false (0)
+            ffi::inline::lean_ctor_set_uint8(ctx, 9, 0);
 
-            // Field 3: lctx (LocalContext) - use empty
-            let empty_lctx = Self::mk_empty_local_context(lean)?;
-            ffi::lean_ctor_set(ctx, 3, empty_lctx.into_ptr());
-
-            // Field 4: localInstances (LocalInstances) - use empty array
-            let empty_array = ffi::array::lean_mk_empty_array();
-            ffi::lean_ctor_set(ctx, 4, empty_array);
+            // Scalar offset 10: inTypeClassResolution (Bool) - use false (0)
+            ffi::inline::lean_ctor_set_uint8(ctx, 10, 0);
 
             Ok(LeanBound::from_owned_ptr(lean, ctx))
         }
@@ -446,17 +491,21 @@ impl MetaContext {
 
     /// Create a default Meta.Config
     ///
-    /// Meta.Config controls type checking behavior.
-    /// For now, we create a minimal config with all boolean flags set to false
-    /// and numeric values set to sensible defaults.
+    /// Uses the `Inhabited Meta.Config` instance from the Lean runtime, which
+    /// provides a properly constructed default configuration with all boolean
+    /// flags at their documented default values.
     ///
-    /// Based on Lean.Meta.Config structure, which has many fields.
-    /// We'll use lean_box(0) as a simple default config for now.
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_default_config<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // For simplicity, use lean_box(0) as default config
-            // A full implementation would construct all config fields
-            let config = ffi::lean_box(0);
+            let config = ffi::meta::l_Lean_Meta_instInhabitedConfig;
+            if config.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Meta.Config Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(config);
             Ok(LeanBound::from_owned_ptr(lean, config))
         }
     }
@@ -475,12 +524,19 @@ impl MetaContext {
 
     /// Create an empty LocalContext
     ///
-    /// LocalContext stores local variable declarations.
-    /// For now, we use lean_box(0) which represents an empty context.
+    /// Uses the `Inhabited LocalContext` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty LocalContext is represented as lean_box(0)
-            let lctx = ffi::lean_box(0);
+            let lctx = ffi::meta::l_Lean_instInhabitedLocalContext;
+            if lctx.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "LocalContext Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(lctx);
             Ok(LeanBound::from_owned_ptr(lean, lctx))
         }
     }
@@ -552,24 +608,38 @@ impl MetaState {
 
     /// Create an empty MetavarContext
     ///
-    /// MetavarContext stores metavariable assignments and declarations.
-    /// For now, we use lean_box(0) which represents an empty context.
+    /// Uses the `Inhabited MetavarContext` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_metavar_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty MetavarContext is represented as lean_box(0)
-            let mctx = ffi::lean_box(0);
+            let mctx = ffi::meta::l_Lean_instInhabitedMetavarContext;
+            if mctx.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "MetavarContext Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(mctx);
             Ok(LeanBound::from_owned_ptr(lean, mctx))
         }
     }
 
     /// Create an empty Cache
     ///
-    /// Cache stores type inference and other computation results.
-    /// For now, we use lean_box(0) which represents an empty cache.
+    /// Uses the `Inhabited Meta.Cache` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty Cache is represented as lean_box(0)
-            let cache = ffi::lean_box(0);
+            let cache = ffi::meta::l_Lean_Meta_instInhabitedCache;
+            if cache.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Meta.Cache Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(cache);
             Ok(LeanBound::from_owned_ptr(lean, cache))
         }
     }
@@ -588,12 +658,19 @@ impl MetaState {
 
     /// Create an empty Diagnostics
     ///
-    /// Diagnostics stores diagnostic information during type checking.
-    /// For now, we use lean_box(0) which represents empty diagnostics.
+    /// Uses the `Inhabited Meta.Diagnostics` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_diagnostics<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Empty Diagnostics is represented as lean_box(0)
-            let diag = ffi::lean_box(0);
+            let diag = ffi::meta::l_Lean_Meta_instInhabitedDiagnostics;
+            if diag.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Meta.Diagnostics Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(diag);
             Ok(LeanBound::from_owned_ptr(lean, diag))
         }
     }

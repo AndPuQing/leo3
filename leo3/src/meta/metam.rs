@@ -44,6 +44,7 @@ use crate::err::{LeanError, LeanResult};
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::meta::context::{CoreContext, CoreState, MetaContext, MetaState};
+use crate::meta::expr::LeanExpr;
 use crate::meta::LeanEnvironment;
 use leo3_ffi as ffi;
 use std::ffi::CStr;
@@ -142,9 +143,9 @@ impl<'l> MetaMContext<'l> {
     ///
     /// # EIO Result Handling
     ///
-    /// `MetaM.run'` returns `EIO Exception T`:
-    /// - Tag 0 (`Except.ok`) -- field 0 contains the result value
-    /// - Tag 1 (`Except.error`) -- field 0 contains the `Exception`
+    /// `MetaM.run'` returns `EIO Exception α` via CoreM:
+    /// - Tag 0 (`EStateM.Result.ok`) -- field 0 is the result value, field 1 is the world
+    /// - Tag 1 (`EStateM.Result.error`) -- field 0 is the `Exception`, field 1 is the world
     pub fn run(
         &mut self,
         computation: LeanBound<'l, LeanAny>,
@@ -156,12 +157,25 @@ impl<'l> MetaMContext<'l> {
             let core_ctx = self.core_ctx.clone();
             let core_state = self.core_state.clone();
 
+            // Wrap core_state in an ST.Ref as required by the CoreM monad stack.
+            // lean_meta_metam_run creates the ST.Ref for Meta.State internally,
+            // but expects Core.State to already be wrapped in an ST.Ref.
+            let world = ffi::lean_box(0);
+            let ref_result = ffi::lean_st_mk_ref(core_state.into_ptr(), world);
+            // ref_result is EStateM.Result.ok: field 0 = ST.Ref, field 1 = world
+            let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
+            let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
+            ffi::lean_inc(core_state_ref);
+            ffi::lean_inc(world2);
+            ffi::lean_dec(ref_result);
+
             let result = ffi::meta::lean_meta_metam_run(
                 computation.into_ptr(),
                 meta_ctx.into_ptr(),
                 meta_state.into_ptr(),
                 core_ctx.into_ptr(),
-                core_state.into_ptr(),
+                core_state_ref,
+                world2,
             );
 
             let value_ptr = handle_eio_result(result)?;
@@ -177,6 +191,101 @@ impl<'l> MetaMContext<'l> {
     /// Get the [`Lean`] runtime token associated with this context.
     pub fn lean(&self) -> Lean<'l> {
         self.lean
+    }
+
+    /// Infer the type of a Lean expression.
+    ///
+    /// Uses Lean's `Meta.inferType` to compute the type of the given expression
+    /// within this MetaM context. The expression must be well-typed in the
+    /// current environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if the expression is ill-typed or
+    /// references unknown constants.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let env = LeanEnvironment::empty(lean, 0)?;
+    ///     let mut ctx = MetaMContext::new(lean, env)?;
+    ///
+    ///     // Sort(0) is Prop, its type should be Sort(1) (Type)
+    ///     let prop = LeanExpr::sort(lean, LeanLevel::zero(lean)?)?;
+    ///     let prop_type = ctx.infer_type(&prop)?;
+    ///     assert!(LeanExpr::is_sort(&prop_type));
+    ///     Ok(())
+    /// })?;
+    /// ```
+    pub fn infer_type(
+        &mut self,
+        expr: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
+        unsafe {
+            // Create a MetaM closure: partially apply lean_infer_type with expr.
+            // lean_infer_type has arity 6 (@[extern 6]): (expr, meta_ctx, meta_state_ref,
+            // core_ctx, core_state_ref, world). We fix 1 arg (expr), leaving 5 for run().
+            ffi::lean_inc(expr.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::lean_infer_type as *mut std::ffi::c_void,
+                6,
+                1,
+            );
+            ffi::inline::lean_closure_set(closure, 0, expr.as_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let result = self.run(computation)?;
+            Ok(result.cast::<LeanExpr>())
+        }
+    }
+
+    /// Type-check a Lean expression.
+    ///
+    /// Uses Lean's `Meta.check` to verify that the given expression is well-typed
+    /// in the current environment. Returns `Ok(())` if the expression is valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if the expression is ill-typed.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let env = LeanEnvironment::empty(lean, 0)?;
+    ///     let mut ctx = MetaMContext::new(lean, env)?;
+    ///
+    ///     let prop = LeanExpr::sort(lean, LeanLevel::zero(lean)?)?;
+    ///     ctx.check(&prop)?; // Should succeed
+    ///     Ok(())
+    /// })?;
+    /// ```
+    pub fn check(&mut self, expr: &LeanBound<'l, LeanExpr>) -> LeanResult<()> {
+        crate::meta::ensure_meta_initialized();
+        unsafe {
+            // Create a MetaM closure: partially apply l_Lean_Meta_check with expr.
+            // check : Expr → MetaM Unit compiles to arity 6:
+            // (expr, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world)
+            ffi::lean_inc(expr.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::l_Lean_Meta_check as *mut std::ffi::c_void,
+                6,
+                1,
+            );
+            ffi::inline::lean_closure_set(closure, 0, expr.as_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let _result = self.run(computation)?;
+            Ok(())
+        }
     }
 }
 

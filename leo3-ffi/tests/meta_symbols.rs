@@ -12,7 +12,7 @@ fn test_meta_symbols_exist() {
     // The MetaM.run' symbol name changed in Lean 4.22 (_rarg → _redArg),
     // so we use the version-agnostic wrapper.
     let _run_ptr = lean_meta_metam_run as *const ();
-    let _infer_type_ptr = l_Lean_Meta_inferType___boxed as *const ();
+    let _infer_type_ptr = lean_infer_type as *const ();
     let _check_ptr = l_Lean_Meta_check as *const ();
 
     // If we got here, all symbols are available
