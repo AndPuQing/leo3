@@ -489,35 +489,67 @@ impl MetaContext {
         }
     }
 
-    /// Create a default Meta.Config
+    /// Create a default Meta.Config with correct reduction settings.
     ///
-    /// Uses the `Inhabited Meta.Config` instance from the Lean runtime, which
-    /// provides a properly constructed default configuration with all boolean
-    /// flags at their documented default values.
+    /// Manually constructs a `Meta.Config` with the documented default values
+    /// from Lean's `Meta.Config` structure definition. The `Inhabited` instance
+    /// (`deriving Inhabited`) uses `Inhabited Bool = false` for all booleans,
+    /// which disables reduction. We need the actual structure defaults instead.
     ///
-    /// Requires: `ensure_meta_initialized()` must have been called.
+    /// Layout (Lean 4.20.0): 0 object fields, 18 scalar bytes.
+    /// ```text
+    /// byte 0:  foApprox (Bool) = false
+    /// byte 1:  ctxApprox (Bool) = false
+    /// byte 2:  quasiPatternApprox (Bool) = false
+    /// byte 3:  constApprox (Bool) = false
+    /// byte 4:  isDefEqStuckEx (Bool) = false
+    /// byte 5:  unificationHints (Bool) = true
+    /// byte 6:  proofIrrelevance (Bool) = true
+    /// byte 7:  assignSyntheticOpaque (Bool) = false
+    /// byte 8:  offsetCnstrs (Bool) = true
+    /// byte 9:  transparency (TransparencyMode) = .default (tag 1)
+    /// byte 10: etaStruct (EtaStructMode) = .all (tag 0)
+    /// byte 11: univApprox (Bool) = true
+    /// byte 12: iota (Bool) = true
+    /// byte 13: beta (Bool) = true
+    /// byte 14: proj (ProjReductionKind) = .yesWithDelta (tag 2)
+    /// byte 15: zeta (Bool) = true
+    /// byte 16: zetaDelta (Bool) = true
+    /// byte 17: zetaUnused (Bool) = true
+    /// ```
     fn mk_default_config<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
         unsafe {
-            let config = ffi::meta::l_Lean_Meta_instInhabitedConfig;
-            if config.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "Meta.Config Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
-            }
-            ffi::lean_inc(config);
+            let config = ffi::lean_alloc_ctor(0, 0, 18);
+            let base = ffi::inline::lean_ctor_scalar_cptr(config);
+            *base.add(0) = 0; // foApprox = false
+            *base.add(1) = 0; // ctxApprox = false
+            *base.add(2) = 0; // quasiPatternApprox = false
+            *base.add(3) = 0; // constApprox = false
+            *base.add(4) = 0; // isDefEqStuckEx = false
+            *base.add(5) = 1; // unificationHints = true
+            *base.add(6) = 1; // proofIrrelevance = true
+            *base.add(7) = 0; // assignSyntheticOpaque = false
+            *base.add(8) = 1; // offsetCnstrs = true
+            *base.add(9) = 1; // transparency = TransparencyMode.default (tag 1)
+            *base.add(10) = 0; // etaStruct = EtaStructMode.all (tag 0)
+            *base.add(11) = 1; // univApprox = true
+            *base.add(12) = 1; // iota = true
+            *base.add(13) = 1; // beta = true
+            *base.add(14) = 2; // proj = ProjReductionKind.yesWithDelta (tag 2)
+            *base.add(15) = 1; // zeta = true
+            *base.add(16) = 1; // zetaDelta = true
+            *base.add(17) = 1; // zetaUnused = true
             Ok(LeanBound::from_owned_ptr(lean, config))
         }
     }
 
-    /// Create an empty FVarIdSet
+    /// Create an empty FVarIdSet (`Std.HashSet FVarId`).
     ///
-    /// FVarIdSet is a hash set of free variable IDs.
-    /// For now, we use lean_box(0) which represents an empty set.
+    /// Uses `l_Std_HashSet_empty___rarg` with default capacity, matching
+    /// the pattern used for other HashSet fields (e.g., `inheritedTraceOptions`).
     fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
-            // Empty FVarIdSet is represented as lean_box(0)
-            let fvar_set = ffi::lean_box(0);
+            let fvar_set = ffi::hashset::l_Std_HashSet_empty___rarg(ffi::lean_box(8));
             Ok(LeanBound::from_owned_ptr(lean, fvar_set))
         }
     }
@@ -578,100 +610,16 @@ impl MetaState {
     /// })
     /// ```
     pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        crate::meta::ensure_meta_initialized();
         unsafe {
-            // Allocate Meta.State constructor (tag 0, 5 fields, 0 scalars)
-            let state = ffi::lean_alloc_ctor(0, 5, 0);
-
-            // Field 0: mctx (MetavarContext) - use empty
-            let empty_mctx = Self::mk_empty_metavar_context(lean)?;
-            ffi::lean_ctor_set(state, 0, empty_mctx.into_ptr());
-
-            // Field 1: cache (Cache) - use empty
-            let empty_cache = Self::mk_empty_cache(lean)?;
-            ffi::lean_ctor_set(state, 1, empty_cache.into_ptr());
-
-            // Field 2: zetaDeltaFVarIds (FVarIdSet) - use empty
-            let empty_fvar_set = Self::mk_empty_fvar_id_set(lean)?;
-            ffi::lean_ctor_set(state, 2, empty_fvar_set.into_ptr());
-
-            // Field 3: postponed (PersistentArray PostponedEntry) - use empty array
-            let empty_array = ffi::array::lean_mk_empty_array();
-            ffi::lean_ctor_set(state, 3, empty_array);
-
-            // Field 4: diag (Diagnostics) - use empty
-            let empty_diag = Self::mk_empty_diagnostics(lean)?;
-            ffi::lean_ctor_set(state, 4, empty_diag.into_ptr());
-
+            let state = ffi::meta::l_Lean_Meta_instInhabitedState;
+            if state.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "Meta.State Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(state);
             Ok(LeanBound::from_owned_ptr(lean, state))
-        }
-    }
-
-    /// Create an empty MetavarContext
-    ///
-    /// Uses the `Inhabited MetavarContext` instance from the Lean runtime.
-    ///
-    /// Requires: `ensure_meta_initialized()` must have been called.
-    fn mk_empty_metavar_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
-        unsafe {
-            let mctx = ffi::meta::l_Lean_instInhabitedMetavarContext;
-            if mctx.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "MetavarContext Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
-            }
-            ffi::lean_inc(mctx);
-            Ok(LeanBound::from_owned_ptr(lean, mctx))
-        }
-    }
-
-    /// Create an empty Cache
-    ///
-    /// Uses the `Inhabited Meta.Cache` instance from the Lean runtime.
-    ///
-    /// Requires: `ensure_meta_initialized()` must have been called.
-    fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
-        unsafe {
-            let cache = ffi::meta::l_Lean_Meta_instInhabitedCache;
-            if cache.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "Meta.Cache Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
-            }
-            ffi::lean_inc(cache);
-            Ok(LeanBound::from_owned_ptr(lean, cache))
-        }
-    }
-
-    /// Create an empty FVarIdSet
-    ///
-    /// FVarIdSet is a hash set of free variable IDs.
-    /// For now, we use lean_box(0) which represents an empty set.
-    fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        unsafe {
-            // Empty FVarIdSet is represented as lean_box(0)
-            let fvar_set = ffi::lean_box(0);
-            Ok(LeanBound::from_owned_ptr(lean, fvar_set))
-        }
-    }
-
-    /// Create an empty Diagnostics
-    ///
-    /// Uses the `Inhabited Meta.Diagnostics` instance from the Lean runtime.
-    ///
-    /// Requires: `ensure_meta_initialized()` must have been called.
-    fn mk_empty_diagnostics<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
-        unsafe {
-            let diag = ffi::meta::l_Lean_Meta_instInhabitedDiagnostics;
-            if diag.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "Meta.Diagnostics Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
-            }
-            ffi::lean_inc(diag);
-            Ok(LeanBound::from_owned_ptr(lean, diag))
         }
     }
 }

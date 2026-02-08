@@ -408,21 +408,16 @@ fn test_meta_context_creation() {
             let config_key_val = leo3_ffi::lean_ctor_get_uint64(ctx.as_ptr(), 0);
             assert_eq!(config_key_val, 0, "configKey should be 0");
 
-            // Field 1 should be trackZetaDelta (Bool, should be false)
-            let track_zeta = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 1);
-            let track_zeta_val = leo3_ffi::lean_unbox(track_zeta);
-            assert_eq!(track_zeta_val, 0, "trackZetaDelta should be false (0)");
+            // Field 1 should be zetaDeltaSet (FVarIdSet = Std.HashSet, not null)
+            let zeta_delta_set = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 1);
+            assert!(!zeta_delta_set.is_null(), "zetaDeltaSet should not be null");
 
-            // Field 2 should be zetaDeltaSet (empty set)
-            let zeta_set = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 2);
-            assert!(!zeta_set.is_null(), "zetaDeltaSet should not be null");
-
-            // Field 3 should be lctx (empty LocalContext)
-            let lctx = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 3);
+            // Field 2 should be lctx (empty LocalContext)
+            let lctx = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 2);
             assert!(!lctx.is_null(), "lctx should not be null");
 
-            // Field 4 should be localInstances (empty array)
-            let local_instances = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 4);
+            // Field 3 should be localInstances (empty array)
+            let local_instances = leo3_ffi::lean_ctor_get(ctx.as_ptr(), 3);
             assert!(
                 !local_instances.is_null(),
                 "localInstances should not be null"

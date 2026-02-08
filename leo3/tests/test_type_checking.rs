@@ -380,7 +380,6 @@ fn test_whnf_already_normal_forall() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when whnf performs actual reduction (FFI refcount bug)"]
 fn test_whnf_let_substitution() {
     // whnf of (let x : Type := Prop in x) should reduce to Prop (Sort 0)
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
@@ -407,7 +406,6 @@ fn test_whnf_let_substitution() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when whnf performs actual reduction (FFI refcount bug)"]
 fn test_whnf_beta_reduction() {
     // whnf of (λ x : Prop, x) Prop  should reduce to Prop
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
@@ -435,7 +433,6 @@ fn test_whnf_beta_reduction() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when whnf performs actual reduction (FFI refcount bug)"]
 fn test_whnf_context_reuse() {
     // Multiple whnf calls on the same context should work
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
@@ -519,7 +516,6 @@ fn test_is_def_eq_alpha_equivalent() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when is_def_eq performs reduction (FFI refcount bug)"]
 fn test_is_def_eq_beta_reduced() {
     // (λ x : Prop, x) Prop  should be def-eq to  Prop
     // Beta-reduced vs unreduced forms
@@ -596,7 +592,6 @@ fn test_is_def_eq_different_lambdas_not_equal() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when is_def_eq performs reduction (FFI refcount bug)"]
 fn test_is_def_eq_let_reduces() {
     // (let x : Type := Prop in x) should be def-eq to Prop
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
@@ -778,7 +773,6 @@ fn test_is_def_eq_forall_alpha_equivalent() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when whnf performs actual reduction (FFI refcount bug)"]
 fn test_whnf_nested_let() {
     // let x : Type := Prop in let y : Type := x in y
     // Should reduce to Prop
@@ -839,7 +833,6 @@ fn test_check_polymorphic_identity() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when is_def_eq performs reduction (FFI refcount bug)"]
 fn test_is_def_eq_eta_expansion() {
     // λ (x : Prop), (λ (y : Prop), y) x  should be def-eq to  λ (x : Prop), x
     // This tests eta/beta equivalence
@@ -875,7 +868,6 @@ fn test_is_def_eq_eta_expansion() {
 }
 
 #[test]
-#[ignore = "SIGSEGV during cleanup when whnf performs actual reduction (FFI refcount bug)"]
 fn test_mixed_operations_on_same_context() {
     // Interleave different operations to test context stability
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
