@@ -14,17 +14,13 @@ use super::*;
 // MetaM Monad Functions
 // ============================================================================
 
+// In Lean < 4.22, the reduced-arity suffix is `_rarg`.
+// In Lean >= 4.22, it was renamed to `_redArg`.
+#[cfg(not(lean_4_22))]
 extern "C" {
-    /// Run a MetaM computation
+    /// Run a MetaM computation (Lean < 4.22)
     ///
     /// Lean.Meta.MetaM.run' : MetaM α → Context → State → CoreM α
-    ///
-    /// # Safety
-    /// - `x` must be a valid MetaM computation (consumed)
-    /// - `ctx` must be a valid Meta.Context object (consumed)
-    /// - `state` must be a valid Meta.State object (consumed)
-    /// - `core_ctx` must be a valid Core.Context object (consumed)
-    /// - `core_state` must be a valid Core.State object (consumed)
     pub fn l_Lean_Meta_MetaM_run_x27___rarg(
         x: lean_obj_arg,
         ctx: lean_obj_arg,
@@ -32,7 +28,49 @@ extern "C" {
         core_ctx: lean_obj_arg,
         core_state: lean_obj_arg,
     ) -> lean_obj_res;
+}
 
+#[cfg(lean_4_22)]
+extern "C" {
+    /// Run a MetaM computation (Lean >= 4.22)
+    ///
+    /// Lean.Meta.MetaM.run' : MetaM α → Context → State → CoreM α
+    pub fn l_Lean_Meta_MetaM_run_x27___redArg(
+        x: lean_obj_arg,
+        ctx: lean_obj_arg,
+        state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+    ) -> lean_obj_res;
+}
+
+/// Run a MetaM computation, dispatching to the correct symbol for the Lean version.
+///
+/// # Safety
+/// - `x` must be a valid MetaM computation (consumed)
+/// - `ctx` must be a valid Meta.Context object (consumed)
+/// - `state` must be a valid Meta.State object (consumed)
+/// - `core_ctx` must be a valid Core.Context object (consumed)
+/// - `core_state` must be a valid Core.State object (consumed)
+#[inline]
+pub unsafe fn lean_meta_metam_run(
+    x: lean_obj_arg,
+    ctx: lean_obj_arg,
+    state: lean_obj_arg,
+    core_ctx: lean_obj_arg,
+    core_state: lean_obj_arg,
+) -> lean_obj_res {
+    #[cfg(not(lean_4_22))]
+    {
+        l_Lean_Meta_MetaM_run_x27___rarg(x, ctx, state, core_ctx, core_state)
+    }
+    #[cfg(lean_4_22)]
+    {
+        l_Lean_Meta_MetaM_run_x27___redArg(x, ctx, state, core_ctx, core_state)
+    }
+}
+
+extern "C" {
     /// Infer the type of an expression
     ///
     /// Lean.Meta.inferType : Expr → MetaM Expr

@@ -109,7 +109,7 @@ impl<'l> MetaMContext<'l> {
             let core_ctx = self.core_ctx.clone();
             let core_state = self.core_state.clone();
 
-            let result = ffi::meta::l_Lean_Meta_MetaM_run_x27___rarg(
+            let result = ffi::meta::lean_meta_metam_run(
                 computation.into_ptr(),
                 meta_ctx.into_ptr(),
                 meta_state.into_ptr(),

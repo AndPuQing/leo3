@@ -42,7 +42,7 @@ impl CoreContext {
     ///
     /// This creates a minimal Core.Context suitable for running MetaM computations.
     /// All fields are set to sensible defaults:
-    /// - fileName: "<rust>"
+    /// - fileName: `"<rust>"`
     /// - maxRecDepth: 1000
     /// - maxHeartbeats: 200000000
     /// - All other fields: empty/zero/false
