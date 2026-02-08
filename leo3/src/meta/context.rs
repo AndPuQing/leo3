@@ -469,3 +469,114 @@ impl MetaContext {
         }
     }
 }
+
+/// Meta.State - state for MetaM monad
+///
+/// This structure has 5 fields (constructor tag 0):
+/// 0. `mctx: MetavarContext` - use empty
+/// 1. `cache: Cache` - use empty
+/// 2. `zetaDeltaFVarIds: FVarIdSet` - use empty
+/// 3. `postponed: PersistentArray PostponedEntry` - use empty
+/// 4. `diag: Diagnostics` - use empty
+#[repr(transparent)]
+pub struct MetaState {
+    _private: (),
+}
+
+impl MetaState {
+    /// Create a Meta.State with empty state
+    ///
+    /// This creates a minimal Meta.State suitable for running MetaM computations.
+    /// All fields are set to empty/default values:
+    /// - mctx: empty MetavarContext
+    /// - cache: empty Cache
+    /// - zetaDeltaFVarIds: empty FVarIdSet
+    /// - postponed: empty PersistentArray
+    /// - diag: empty Diagnostics
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use leo3::prelude::*;
+    ///
+    /// let lean = Lean::new();
+    /// let meta_state = MetaState::mk_meta_state(&lean)?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Allocate Meta.State constructor (tag 0, 5 fields, 0 scalars)
+            let state = ffi::lean_alloc_ctor(0, 5, 0);
+
+            // Field 0: mctx (MetavarContext) - use empty
+            let empty_mctx = Self::mk_empty_metavar_context(lean)?;
+            ffi::lean_ctor_set(state, 0, empty_mctx.into_ptr());
+
+            // Field 1: cache (Cache) - use empty
+            let empty_cache = Self::mk_empty_cache(lean)?;
+            ffi::lean_ctor_set(state, 1, empty_cache.into_ptr());
+
+            // Field 2: zetaDeltaFVarIds (FVarIdSet) - use empty
+            let empty_fvar_set = Self::mk_empty_fvar_id_set(lean)?;
+            ffi::lean_ctor_set(state, 2, empty_fvar_set.into_ptr());
+
+            // Field 3: postponed (PersistentArray PostponedEntry) - use empty array
+            let empty_array = ffi::array::lean_mk_empty_array();
+            ffi::lean_ctor_set(state, 3, empty_array);
+
+            // Field 4: diag (Diagnostics) - use empty
+            let empty_diag = Self::mk_empty_diagnostics(lean)?;
+            ffi::lean_ctor_set(state, 4, empty_diag.into_ptr());
+
+            Ok(LeanBound::from_owned_ptr(lean, state))
+        }
+    }
+
+    /// Create an empty MetavarContext
+    ///
+    /// MetavarContext stores metavariable assignments and declarations.
+    /// For now, we use lean_box(0) which represents an empty context.
+    fn mk_empty_metavar_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty MetavarContext is represented as lean_box(0)
+            let mctx = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, mctx))
+        }
+    }
+
+    /// Create an empty Cache
+    ///
+    /// Cache stores type inference and other computation results.
+    /// For now, we use lean_box(0) which represents an empty cache.
+    fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty Cache is represented as lean_box(0)
+            let cache = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, cache))
+        }
+    }
+
+    /// Create an empty FVarIdSet
+    ///
+    /// FVarIdSet is a hash set of free variable IDs.
+    /// For now, we use lean_box(0) which represents an empty set.
+    fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty FVarIdSet is represented as lean_box(0)
+            let fvar_set = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, fvar_set))
+        }
+    }
+
+    /// Create an empty Diagnostics
+    ///
+    /// Diagnostics stores diagnostic information during type checking.
+    /// For now, we use lean_box(0) which represents empty diagnostics.
+    fn mk_empty_diagnostics<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        unsafe {
+            // Empty Diagnostics is represented as lean_box(0)
+            let diag = ffi::lean_box(0);
+            Ok(LeanBound::from_owned_ptr(lean, diag))
+        }
+    }
+}

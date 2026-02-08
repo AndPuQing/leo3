@@ -440,3 +440,49 @@ fn test_meta_context_creation() {
         result.err()
     );
 }
+
+#[test]
+fn test_meta_state_creation() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Create a Meta.State with empty state
+        let state = MetaState::mk_meta_state(lean)?;
+
+        // Should succeed and not be null
+        assert!(!state.as_ptr().is_null());
+
+        // Verify it's a constructor with tag 0 (Meta.State)
+        unsafe {
+            let tag = leo3_ffi::lean_obj_tag(state.as_ptr());
+            assert_eq!(tag, 0, "Meta.State should have constructor tag 0");
+
+            // Verify it has 5 object fields
+            // Field 0 should be mctx (MetavarContext, not null)
+            let mctx = leo3_ffi::lean_ctor_get(state.as_ptr(), 0);
+            assert!(!mctx.is_null(), "mctx field should not be null");
+
+            // Field 1 should be cache (Cache, not null)
+            let cache = leo3_ffi::lean_ctor_get(state.as_ptr(), 1);
+            assert!(!cache.is_null(), "cache field should not be null");
+
+            // Field 2 should be zetaDeltaFVarIds (FVarIdSet, not null)
+            let zeta_fvars = leo3_ffi::lean_ctor_get(state.as_ptr(), 2);
+            assert!(!zeta_fvars.is_null(), "zetaDeltaFVarIds should not be null");
+
+            // Field 3 should be postponed (PersistentArray, not null)
+            let postponed = leo3_ffi::lean_ctor_get(state.as_ptr(), 3);
+            assert!(!postponed.is_null(), "postponed should not be null");
+
+            // Field 4 should be diag (Diagnostics, not null)
+            let diag = leo3_ffi::lean_ctor_get(state.as_ptr(), 4);
+            assert!(!diag.is_null(), "diag should not be null");
+        }
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "Meta.State creation failed: {:?}",
+        result.err()
+    );
+}
