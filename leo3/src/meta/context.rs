@@ -496,14 +496,16 @@ impl MetaState {
     ///
     /// # Example
     ///
-    /// ```no_run
+    /// ```ignore
     /// use leo3::prelude::*;
+    /// use leo3::meta::*;
     ///
-    /// let lean = Lean::new();
-    /// let meta_state = MetaState::mk_meta_state(&lean)?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// leo3::with_lean(|lean| {
+    ///     let meta_state = MetaState::mk_meta_state(lean)?;
+    ///     Ok(())
+    /// })
     /// ```
-    pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+    pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             // Allocate Meta.State constructor (tag 0, 5 fields, 0 scalars)
             let state = ffi::lean_alloc_ctor(0, 5, 0);

@@ -486,3 +486,26 @@ fn test_meta_state_creation() {
         result.err()
     );
 }
+
+#[test]
+#[ignore = "Environment requires full IO initialization"]
+fn test_metam_context_creation() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        // Create an empty environment
+        let env = LeanEnvironment::empty(lean, 0)?;
+
+        // Create a MetaMContext
+        let ctx = MetaMContext::new(lean, env)?;
+
+        // Verify the environment is accessible
+        assert!(!ctx.env().as_ptr().is_null());
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "MetaMContext creation failed: {:?}",
+        result.err()
+    );
+}
