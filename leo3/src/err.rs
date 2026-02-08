@@ -14,6 +14,13 @@ pub enum LeanError {
     Runtime(String),
     /// Error during FFI call
     Ffi(String),
+    /// Error from a Lean Exception (MetaM/CoreM failure)
+    Exception {
+        /// Whether this is an internal exception
+        is_internal: bool,
+        /// The error message extracted from MessageData (best-effort)
+        message: String,
+    },
     /// Other errors
     Other(String),
 }
@@ -38,6 +45,14 @@ impl LeanError {
     pub fn other(msg: &str) -> Self {
         LeanError::Other(msg.to_string())
     }
+
+    /// Create an exception error from a Lean Exception.
+    pub fn exception(is_internal: bool, message: &str) -> Self {
+        LeanError::Exception {
+            is_internal,
+            message: message.to_string(),
+        }
+    }
 }
 
 impl fmt::Display for LeanError {
@@ -46,6 +61,16 @@ impl fmt::Display for LeanError {
             LeanError::Conversion(msg) => write!(f, "Conversion error: {}", msg),
             LeanError::Runtime(msg) => write!(f, "Lean runtime error: {}", msg),
             LeanError::Ffi(msg) => write!(f, "FFI error: {}", msg),
+            LeanError::Exception {
+                is_internal,
+                message,
+            } => {
+                if *is_internal {
+                    write!(f, "Lean internal exception: {}", message)
+                } else {
+                    write!(f, "Lean exception: {}", message)
+                }
+            }
             LeanError::Other(msg) => write!(f, "Error: {}", msg),
         }
     }

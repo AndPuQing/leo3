@@ -13,6 +13,7 @@ use crate::marker::Lean;
 use crate::meta::context::{CoreContext, CoreState, MetaContext, MetaState};
 use crate::meta::LeanEnvironment;
 use leo3_ffi as ffi;
+use std::ffi::CStr;
 
 /// Context for running MetaM computations.
 ///
@@ -117,21 +118,7 @@ impl<'l> MetaMContext<'l> {
                 core_state.into_ptr(),
             );
 
-            // Handle EIO result: tag 0 = ok, tag 1 = error
-            let tag = ffi::lean_obj_tag(result);
-            if tag == 1 {
-                let err_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
-                ffi::lean_inc(err_ptr);
-                ffi::lean_dec(result);
-                ffi::lean_dec(err_ptr);
-                return Err(LeanError::runtime("MetaM computation failed"));
-            }
-
-            // Extract value from Except.ok (field 0)
-            let value_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
-            ffi::lean_inc(value_ptr);
-            ffi::lean_dec(result);
-
+            let value_ptr = handle_eio_result(result)?;
             Ok(LeanBound::from_owned_ptr(self.lean, value_ptr))
         }
     }
@@ -144,5 +131,304 @@ impl<'l> MetaMContext<'l> {
     /// Get the Lean runtime token.
     pub fn lean(&self) -> Lean<'l> {
         self.lean
+    }
+}
+
+/// Handle an EIO result from a MetaM computation.
+///
+/// The EIO result is `Except Exception T`:
+/// - Tag 0 = `Except.ok` → field 0 is the success value
+/// - Tag 1 = `Except.error` → field 0 is the `Exception` object
+///
+/// On success, returns the owned value pointer. On error, extracts the
+/// `Exception` and returns a `LeanError::Exception`.
+///
+/// # Safety
+///
+/// - `result` must be a valid Lean `Except Exception T` object (consumed)
+unsafe fn handle_eio_result(result: *mut ffi::lean_object) -> LeanResult<*mut ffi::lean_object> {
+    let tag = ffi::lean_obj_tag(result);
+    if tag == 0 {
+        // Except.ok - extract value
+        let value_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
+        ffi::lean_inc(value_ptr);
+        ffi::lean_dec(result);
+        return Ok(value_ptr);
+    }
+
+    // Except.error - extract Exception
+    let exception_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
+    ffi::lean_inc(exception_ptr);
+    ffi::lean_dec(result);
+
+    let exc_tag = ffi::lean_obj_tag(exception_ptr);
+    let is_internal = exc_tag == 1;
+
+    // Field 1 of both Exception constructors is MessageData
+    let msg_data = ffi::lean_ctor_get(exception_ptr, 1) as *mut ffi::lean_object;
+    let message = extract_message_data(msg_data);
+
+    ffi::lean_dec(exception_ptr);
+
+    Err(LeanError::exception(is_internal, &message))
+}
+
+/// Best-effort extraction of a human-readable string from Lean's `MessageData`.
+///
+/// `MessageData` is a complex inductive type. This function handles the most
+/// common cases:
+/// - `ofFormat` (tag 0): checks for `Format.text` (tag 0) containing a string
+/// - `compose` (tag 10): recursively extracts from both children and concatenates
+///
+/// For other constructors, returns a descriptive fallback like `"<MessageData:expr>"`.
+///
+/// # Safety
+///
+/// - `msg_data` must be a valid Lean `MessageData` object (borrowed, not consumed)
+unsafe fn extract_message_data(msg_data: *mut ffi::lean_object) -> String {
+    if ffi::inline::lean_is_scalar(msg_data) {
+        return "<MessageData:scalar>".to_string();
+    }
+
+    let tag = ffi::lean_obj_tag(msg_data);
+    match tag {
+        // MessageData.ofFormat (tag 0): field 0 is a Format
+        0 => {
+            let format = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
+            extract_format(format)
+        }
+        // MessageData.compose (tag 10): field 0 and field 1 are MessageData
+        10 => {
+            let left = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
+            let right = ffi::lean_ctor_get(msg_data, 1) as *mut ffi::lean_object;
+            let left_str = extract_message_data(left);
+            let right_str = extract_message_data(right);
+            format!("{}{}", left_str, right_str)
+        }
+        1 => "<MessageData:level>".to_string(),
+        2 => "<MessageData:name>".to_string(),
+        3 => "<MessageData:syntax>".to_string(),
+        4 => "<MessageData:expr>".to_string(),
+        5 => "<MessageData:goal>".to_string(),
+        6 => "<MessageData:withContext>".to_string(),
+        7 => "<MessageData:withNamingContext>".to_string(),
+        8 => "<MessageData:tagged>".to_string(),
+        9 => "<MessageData:nest>".to_string(),
+        11 => "<MessageData:group>".to_string(),
+        12 => "<MessageData:node>".to_string(),
+        13 => "<MessageData:trace>".to_string(),
+        14 => "<MessageData:lazy>".to_string(),
+        _ => format!("<MessageData:unknown(tag={})>", tag),
+    }
+}
+
+/// Best-effort extraction of a string from Lean's `Format` type.
+///
+/// ```lean
+/// inductive Format where
+///   | text : String → Format       -- tag 0
+///   | append : Format → Format → Format  -- tag 1
+///   | ...
+/// ```
+///
+/// # Safety
+///
+/// - `format` must be a valid Lean `Format` object (borrowed, not consumed)
+unsafe fn extract_format(format: *mut ffi::lean_object) -> String {
+    if ffi::inline::lean_is_scalar(format) {
+        return "<Format:scalar>".to_string();
+    }
+
+    let tag = ffi::lean_obj_tag(format);
+    match tag {
+        // Format.text (tag 0): field 0 is a String
+        0 => {
+            let str_obj = ffi::lean_ctor_get(format, 0) as *mut ffi::lean_object;
+            if str_obj.is_null() || ffi::inline::lean_is_scalar(str_obj) {
+                return "<Format:invalid-string>".to_string();
+            }
+            let c_str = ffi::inline::lean_string_cstr(str_obj);
+            match CStr::from_ptr(c_str).to_str() {
+                Ok(s) => s.to_string(),
+                Err(_) => "<Format:non-utf8>".to_string(),
+            }
+        }
+        // Format.append (tag 1): field 0 and field 1 are Format
+        1 => {
+            let left = ffi::lean_ctor_get(format, 0) as *mut ffi::lean_object;
+            let right = ffi::lean_ctor_get(format, 1) as *mut ffi::lean_object;
+            let left_str = extract_format(left);
+            let right_str = extract_format(right);
+            format!("{}{}", left_str, right_str)
+        }
+        _ => format!("<Format:tag={}>", tag),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Build a synthetic `Except.ok value` object (tag 0, 1 field).
+    unsafe fn mk_except_ok(value: *mut ffi::lean_object) -> *mut ffi::lean_object {
+        let obj = ffi::lean_alloc_ctor(0, 1, 0);
+        ffi::lean_ctor_set(obj, 0, value);
+        obj
+    }
+
+    /// Build a synthetic `Except.error exception` object (tag 1, 1 field).
+    unsafe fn mk_except_error(exception: *mut ffi::lean_object) -> *mut ffi::lean_object {
+        let obj = ffi::lean_alloc_ctor(1, 1, 0);
+        ffi::lean_ctor_set(obj, 0, exception);
+        obj
+    }
+
+    /// Build a synthetic `Exception.error ref msg_data` (tag 0, 2 fields).
+    unsafe fn mk_exception_error(
+        ref_obj: *mut ffi::lean_object,
+        msg_data: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object {
+        let obj = ffi::lean_alloc_ctor(0, 2, 0);
+        ffi::lean_ctor_set(obj, 0, ref_obj);
+        ffi::lean_ctor_set(obj, 1, msg_data);
+        obj
+    }
+
+    /// Build a synthetic `Exception.internal id msg_data` (tag 1, 2 fields).
+    unsafe fn mk_exception_internal(
+        id: *mut ffi::lean_object,
+        msg_data: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object {
+        let obj = ffi::lean_alloc_ctor(1, 2, 0);
+        ffi::lean_ctor_set(obj, 0, id);
+        ffi::lean_ctor_set(obj, 1, msg_data);
+        obj
+    }
+
+    /// Build `MessageData.ofFormat fmt` (tag 0, 1 field).
+    unsafe fn mk_msg_data_of_format(fmt: *mut ffi::lean_object) -> *mut ffi::lean_object {
+        let obj = ffi::lean_alloc_ctor(0, 1, 0);
+        ffi::lean_ctor_set(obj, 0, fmt);
+        obj
+    }
+
+    /// Build `Format.text str` (tag 0, 1 field).
+    unsafe fn mk_format_text(s: &str) -> *mut ffi::lean_object {
+        let lean_str = ffi::string::lean_mk_string_from_bytes(s.as_ptr() as *const _, s.len());
+        let obj = ffi::lean_alloc_ctor(0, 1, 0);
+        ffi::lean_ctor_set(obj, 0, lean_str);
+        obj
+    }
+
+    #[test]
+    fn test_handle_eio_result_ok() {
+        let result: LeanResult<()> = crate::test_with_lean(|_lean| {
+            unsafe {
+                // Create a dummy value (boxed 42)
+                let value = ffi::lean_box(42);
+                let except_ok = mk_except_ok(value);
+
+                let result = handle_eio_result(except_ok);
+                assert!(result.is_ok());
+
+                let ptr = result.unwrap();
+                // The value should be the boxed 42
+                let unboxed = ffi::lean_unbox(ptr);
+                assert_eq!(unboxed, 42);
+                // ptr is a scalar (boxed), no need to dec
+            }
+            Ok(())
+        });
+        assert!(result.is_ok(), "test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_handle_eio_result_error_with_text_message() {
+        let result: LeanResult<()> = crate::test_with_lean(|_lean| {
+            unsafe {
+                // Build: Except.error (Exception.error ref (MessageData.ofFormat (Format.text "test error")))
+                let format_text = mk_format_text("test error");
+                let msg_data = mk_msg_data_of_format(format_text);
+                let ref_obj = ffi::lean_box(0); // dummy Ref (scalar)
+                let exception = mk_exception_error(ref_obj, msg_data);
+                let except_err = mk_except_error(exception);
+
+                let result = handle_eio_result(except_err);
+                assert!(result.is_err());
+
+                let err = result.unwrap_err();
+                match &err {
+                    LeanError::Exception {
+                        is_internal,
+                        message,
+                    } => {
+                        assert!(!is_internal);
+                        assert_eq!(message, "test error");
+                    }
+                    other => panic!("Expected Exception, got: {:?}", other),
+                }
+            }
+            Ok(())
+        });
+        assert!(result.is_ok(), "test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_handle_eio_result_internal_exception() {
+        let result: LeanResult<()> = crate::test_with_lean(|_lean| {
+            unsafe {
+                // Build: Except.error (Exception.internal id (MessageData.ofFormat (Format.text "internal fail")))
+                let format_text = mk_format_text("internal fail");
+                let msg_data = mk_msg_data_of_format(format_text);
+                let id_obj = ffi::lean_box(0); // dummy InternalExceptionId (scalar)
+                let exception = mk_exception_internal(id_obj, msg_data);
+                let except_err = mk_except_error(exception);
+
+                let result = handle_eio_result(except_err);
+                assert!(result.is_err());
+
+                let err = result.unwrap_err();
+                match &err {
+                    LeanError::Exception {
+                        is_internal,
+                        message,
+                    } => {
+                        assert!(is_internal);
+                        assert_eq!(message, "internal fail");
+                    }
+                    other => panic!("Expected Exception, got: {:?}", other),
+                }
+            }
+            Ok(())
+        });
+        assert!(result.is_ok(), "test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_extract_message_data_scalar() {
+        let result: LeanResult<()> = crate::test_with_lean(|_lean| {
+            unsafe {
+                // A scalar (tagged pointer) should return the fallback
+                let scalar = ffi::lean_box(0);
+                let msg = extract_message_data(scalar);
+                assert_eq!(msg, "<MessageData:scalar>");
+            }
+            Ok(())
+        });
+        assert!(result.is_ok(), "test failed: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_extract_format_text() {
+        let result: LeanResult<()> = crate::test_with_lean(|_lean| {
+            unsafe {
+                let format_text = mk_format_text("hello world");
+                let msg = extract_format(format_text);
+                assert_eq!(msg, "hello world");
+                ffi::lean_dec(format_text);
+            }
+            Ok(())
+        });
+        assert!(result.is_ok(), "test failed: {:?}", result.err());
     }
 }
