@@ -244,6 +244,70 @@ impl<'l> MetaMContext<'l> {
         }
     }
 
+    /// Reduce a Lean expression to weak head normal form.
+    ///
+    /// Uses Lean's `whnf` to reduce the given expression. This is useful for
+    /// normalizing expressions before comparison or pattern matching.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if the reduction fails.
+    pub fn whnf(&mut self, expr: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
+        unsafe {
+            // lean_whnf has arity 6 (same as lean_infer_type):
+            // (expr, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world)
+            ffi::lean_inc(expr.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::lean_whnf as *mut std::ffi::c_void,
+                6,
+                1,
+            );
+            ffi::inline::lean_closure_set(closure, 0, expr.as_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let result = self.run(computation)?;
+            Ok(result.cast::<LeanExpr>())
+        }
+    }
+
+    /// Check if two expressions are definitionally equal.
+    ///
+    /// Uses Lean's `isDefEq` to determine whether two expressions are equal
+    /// up to computation rules (beta, delta, eta, iota reduction).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if the comparison fails.
+    pub fn is_def_eq(
+        &mut self,
+        a: &LeanBound<'l, LeanExpr>,
+        b: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<bool> {
+        crate::meta::ensure_meta_initialized();
+        unsafe {
+            // lean_is_expr_def_eq has arity 7 (@[extern 7]):
+            // (expr_a, expr_b, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world)
+            // We fix 2 args (both exprs), leaving 5 for run().
+            ffi::lean_inc(a.as_ptr());
+            ffi::lean_inc(b.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::lean_is_expr_def_eq as *mut std::ffi::c_void,
+                7,
+                2,
+            );
+            ffi::inline::lean_closure_set(closure, 0, a.as_ptr());
+            ffi::inline::lean_closure_set(closure, 1, b.as_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let result = self.run(computation)?;
+
+            // Result is a Lean Bool: lean_box(0) = false, lean_box(1) = true
+            let bool_val = ffi::lean_unbox(result.as_ptr());
+            Ok(bool_val != 0)
+        }
+    }
+
     /// Type-check a Lean expression.
     ///
     /// Uses Lean's `Meta.check` to verify that the given expression is well-typed
@@ -286,6 +350,31 @@ impl<'l> MetaMContext<'l> {
             let _result = self.run(computation)?;
             Ok(())
         }
+    }
+
+    /// Check if an expression is type-correct.
+    ///
+    /// This is a convenience wrapper around [`check()`](Self::check) that returns
+    /// a boolean instead of propagating the error. Returns `true` if the expression
+    /// is well-typed, `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let env = LeanEnvironment::empty(lean, 0)?;
+    ///     let mut ctx = MetaMContext::new(lean, env)?;
+    ///
+    ///     let prop = LeanExpr::sort(lean, LeanLevel::zero(lean)?)?;
+    ///     assert!(ctx.is_type_correct(&prop));
+    ///     Ok(())
+    /// })?;
+    /// ```
+    pub fn is_type_correct(&mut self, expr: &LeanBound<'l, LeanExpr>) -> bool {
+        self.check(expr).is_ok()
     }
 }
 
@@ -333,9 +422,14 @@ unsafe fn handle_eio_result(result: *mut ffi::lean_object) -> LeanResult<*mut ff
 /// `MessageData` is a complex inductive type. This function handles the most
 /// common cases:
 /// - `ofFormat` (tag 0): checks for `Format.text` (tag 0) containing a string
+/// - `ofExpr` (tag 4): uses `lean_expr_dbg_to_string` for a debug representation
+/// - `withContext` (tag 6): recurses into the inner MessageData
+/// - `tagged` (tag 8): recurses into the inner MessageData
+/// - `nest` (tag 9): recurses into the inner MessageData
 /// - `compose` (tag 10): recursively extracts from both children and concatenates
+/// - `group` (tag 11): recurses into the inner MessageData
 ///
-/// For other constructors, returns a descriptive fallback like `"<MessageData:expr>"`.
+/// For other constructors, returns a descriptive fallback like `"<level>"`.
 ///
 /// # Safety
 ///
@@ -352,6 +446,37 @@ unsafe fn extract_message_data(msg_data: *mut ffi::lean_object) -> String {
             let format = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
             extract_format(format)
         }
+        // MessageData.ofExpr (tag 4): field 0 is an Expr
+        4 => {
+            let expr = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
+            if expr.is_null() || ffi::inline::lean_is_scalar(expr) {
+                return "<expr>".to_string();
+            }
+            ffi::lean_inc(expr);
+            let dbg_str = ffi::expr::lean_expr_dbg_to_string(expr);
+            let c_str = ffi::inline::lean_string_cstr(dbg_str);
+            let result = match CStr::from_ptr(c_str).to_str() {
+                Ok(s) => s.to_string(),
+                Err(_) => "<expr:non-utf8>".to_string(),
+            };
+            ffi::lean_dec(dbg_str);
+            result
+        }
+        // MessageData.withContext (tag 6): field 0 is context, field 1 is MessageData
+        6 => {
+            let inner = ffi::lean_ctor_get(msg_data, 1) as *mut ffi::lean_object;
+            extract_message_data(inner)
+        }
+        // MessageData.tagged (tag 8): field 0 is Name, field 1 is MessageData
+        8 => {
+            let inner = ffi::lean_ctor_get(msg_data, 1) as *mut ffi::lean_object;
+            extract_message_data(inner)
+        }
+        // MessageData.nest (tag 9): field 0 is Nat (indent), field 1 is MessageData
+        9 => {
+            let inner = ffi::lean_ctor_get(msg_data, 1) as *mut ffi::lean_object;
+            extract_message_data(inner)
+        }
         // MessageData.compose (tag 10): field 0 and field 1 are MessageData
         10 => {
             let left = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
@@ -360,16 +485,16 @@ unsafe fn extract_message_data(msg_data: *mut ffi::lean_object) -> String {
             let right_str = extract_message_data(right);
             format!("{}{}", left_str, right_str)
         }
-        1 => "<MessageData:level>".to_string(),
-        2 => "<MessageData:name>".to_string(),
-        3 => "<MessageData:syntax>".to_string(),
-        4 => "<MessageData:expr>".to_string(),
-        5 => "<MessageData:goal>".to_string(),
-        6 => "<MessageData:withContext>".to_string(),
+        // MessageData.group (tag 11): field 0 is MessageData
+        11 => {
+            let inner = ffi::lean_ctor_get(msg_data, 0) as *mut ffi::lean_object;
+            extract_message_data(inner)
+        }
+        1 => "<level>".to_string(),
+        2 => "<name>".to_string(),
+        3 => "<syntax>".to_string(),
+        5 => "<goal>".to_string(),
         7 => "<MessageData:withNamingContext>".to_string(),
-        8 => "<MessageData:tagged>".to_string(),
-        9 => "<MessageData:nest>".to_string(),
-        11 => "<MessageData:group>".to_string(),
         12 => "<MessageData:node>".to_string(),
         13 => "<MessageData:trace>".to_string(),
         14 => "<MessageData:lazy>".to_string(),

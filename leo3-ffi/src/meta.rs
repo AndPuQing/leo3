@@ -118,6 +118,42 @@ extern "C" {
         core_state: lean_obj_arg,
         world: lean_obj_arg,
     ) -> lean_obj_res;
+
+    /// Reduce an expression to weak head normal form
+    ///
+    /// `@[export lean_whnf] partial def whnfImp (e : Expr) : MetaM Expr`
+    ///
+    /// Takes 6 arguments: expr, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world
+    ///
+    /// # Safety
+    /// - All arguments must be valid Lean objects (consumed)
+    pub fn lean_whnf(
+        expr: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Check if two expressions are definitionally equal
+    ///
+    /// `@[extern 7 "lean_is_expr_def_eq"] opaque isExprDefEqAux : Expr → Expr → MetaM Bool`
+    ///
+    /// Takes 7 arguments: expr_a, expr_b, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world
+    /// Returns MetaM Bool — the Bool is a Lean Bool (lean_box(0) = false, lean_box(1) = true)
+    ///
+    /// # Safety
+    /// - All arguments must be valid Lean objects (consumed)
+    pub fn lean_is_expr_def_eq(
+        a: lean_obj_arg,
+        b: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
 }
 
 // ============================================================================

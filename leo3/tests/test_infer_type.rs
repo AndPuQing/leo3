@@ -227,3 +227,142 @@ fn test_check_invalid_free_variable() {
         result.err()
     );
 }
+
+// ============================================================================
+// whnf tests
+// ============================================================================
+
+#[test]
+fn test_whnf_sort() {
+    // whnf of Sort(0) should be Sort(0) — already in normal form
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut ctx = MetaMContext::new(lean, env)?;
+
+        let level_zero = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, level_zero)?;
+
+        let whnf_result = ctx.whnf(&prop)?;
+
+        assert!(
+            LeanExpr::is_sort(&whnf_result),
+            "Expected Sort, got {:?}",
+            LeanExpr::kind(&whnf_result)
+        );
+
+        Ok(())
+    });
+
+    assert!(result.is_ok(), "whnf(Sort 0) failed: {:?}", result.err());
+}
+
+#[test]
+fn test_whnf_lambda() {
+    // whnf of a lambda should remain a lambda (lambdas are already whnf)
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut ctx = MetaMContext::new(lean, env)?;
+
+        let x_name = LeanName::from_str(lean, "x")?;
+        let level_zero = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, level_zero)?;
+        let body = LeanExpr::bvar(lean, 0)?;
+
+        let lambda = LeanExpr::lambda(x_name, prop, body, BinderInfo::Default)?;
+
+        let whnf_result = ctx.whnf(&lambda)?;
+
+        assert!(
+            LeanExpr::is_lambda(&whnf_result),
+            "Expected Lambda, got {:?}",
+            LeanExpr::kind(&whnf_result)
+        );
+
+        Ok(())
+    });
+
+    assert!(result.is_ok(), "whnf(lambda) failed: {:?}", result.err());
+}
+
+#[test]
+fn test_whnf_preserves_context() {
+    // MetaMContext should be reusable after whnf calls
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut ctx = MetaMContext::new(lean, env)?;
+
+        let level_zero = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, level_zero)?;
+
+        // First whnf call
+        let r1 = ctx.whnf(&prop)?;
+        assert!(LeanExpr::is_sort(&r1));
+
+        // Second whnf call on same context
+        let level_one = LeanLevel::one(lean)?;
+        let type0 = LeanExpr::sort(lean, level_one)?;
+        let r2 = ctx.whnf(&type0)?;
+        assert!(LeanExpr::is_sort(&r2));
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "whnf context reuse failed: {:?}",
+        result.err()
+    );
+}
+
+// ============================================================================
+// is_type_correct tests
+// ============================================================================
+
+#[test]
+fn test_is_type_correct_valid_sort() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut ctx = MetaMContext::new(lean, env)?;
+
+        let level_zero = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, level_zero)?;
+
+        assert!(ctx.is_type_correct(&prop), "Sort(0) should be type-correct");
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "is_type_correct test failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_is_type_correct_valid_lambda() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut ctx = MetaMContext::new(lean, env)?;
+
+        let x_name = LeanName::from_str(lean, "x")?;
+        let level_zero = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, level_zero)?;
+        let body = LeanExpr::bvar(lean, 0)?;
+
+        let lambda = LeanExpr::lambda(x_name, prop, body, BinderInfo::Default)?;
+
+        assert!(
+            ctx.is_type_correct(&lambda),
+            "λ x : Prop, x should be type-correct"
+        );
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "is_type_correct lambda test failed: {:?}",
+        result.err()
+    );
+}

@@ -3,7 +3,7 @@
 //! Declarations represent axioms, definitions, theorems, and other constants
 //! that can be added to an environment.
 
-use crate::instance::LeanBound;
+use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::types::{LeanList, LeanString};
 use crate::LeanResult;
@@ -11,6 +11,27 @@ use leo3_ffi as ffi;
 
 // TODO: Implement proper LeanName type wrapper
 type LeanName = LeanString;
+
+/// Safety level for definitions
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefinitionSafety {
+    /// Fully type-checked, safe definition
+    Safe,
+    /// May not terminate (partial definition)
+    Partial,
+    /// Unsafe definition (axiom-like)
+    Unsafe,
+}
+
+impl DefinitionSafety {
+    fn to_u8(self) -> u8 {
+        match self {
+            Self::Safe => ffi::environment::LEAN_DEF_SAFETY_SAFE,
+            Self::Partial => ffi::environment::LEAN_DEF_SAFETY_PARTIAL,
+            Self::Unsafe => ffi::environment::LEAN_DEF_SAFETY_UNSAFE,
+        }
+    }
+}
 
 /// Lean declaration (axiom, definition, theorem, etc.)
 ///
@@ -59,6 +80,68 @@ impl LeanDeclaration {
         }
     }
 
-    // TODO: Add definition, theorem, and other declaration builders
-    // These will be implemented as needed
+    /// Create a theorem declaration
+    ///
+    /// Theorems are propositions with proofs. Unlike definitions, theorem values
+    /// are never unfolded during type checking.
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `name` - Name of the theorem
+    /// * `level_params` - List of universe level parameters
+    /// * `type_` - Type expression (the proposition)
+    /// * `value` - Value expression (the proof)
+    pub fn theorem<'l>(
+        lean: Lean<'l>,
+        name: LeanBound<'l, LeanName>,
+        level_params: LeanBound<'l, LeanList>,
+        type_: LeanBound<'l, super::expr::LeanExpr>,
+        value: LeanBound<'l, super::expr::LeanExpr>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let ptr = ffi::environment::lean_mk_theorem(
+                name.into_ptr(),
+                level_params.into_ptr(),
+                type_.into_ptr(),
+                value.into_ptr(),
+            );
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    /// Create a definition declaration
+    ///
+    /// Definitions are constants with computational content that can be unfolded.
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `name` - Name of the definition
+    /// * `level_params` - List of universe level parameters
+    /// * `type_` - Type expression
+    /// * `value` - Value expression
+    /// * `hints` - Reducibility hints (controls unfolding behavior)
+    /// * `safety` - Safety level (safe, partial, or unsafe)
+    pub fn definition<'l>(
+        lean: Lean<'l>,
+        name: LeanBound<'l, LeanName>,
+        level_params: LeanBound<'l, LeanList>,
+        type_: LeanBound<'l, super::expr::LeanExpr>,
+        value: LeanBound<'l, super::expr::LeanExpr>,
+        hints: LeanBound<'l, LeanAny>,
+        safety: DefinitionSafety,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        unsafe {
+            let ptr = ffi::environment::lean_mk_definition(
+                name.into_ptr(),
+                level_params.into_ptr(),
+                type_.into_ptr(),
+                value.into_ptr(),
+                hints.into_ptr(),
+                safety.to_u8(),
+            );
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
 }

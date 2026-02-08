@@ -137,7 +137,7 @@ pub mod name;
 
 // Re-export main types
 pub use context::{CoreContext, CoreState, MetaContext, MetaState};
-pub use declaration::LeanDeclaration;
+pub use declaration::{DefinitionSafety, LeanDeclaration};
 pub use environment::{ConstantKind, LeanConstantInfo, LeanEnvironment};
 pub use expr::{BinderInfo, ExprKind, LeanExpr};
 pub use level::LeanLevel;
