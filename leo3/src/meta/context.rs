@@ -1,11 +1,27 @@
-//! Core.Context construction for MetaM integration
+//! Context and state types for Lean's CoreM / MetaM monad stack.
 //!
-//! This module provides helper functions to construct Lean's Core.Context
-//! with default values, which is required for running MetaM computations.
+//! Lean's metaprogramming monads are layered as `MetaM = ReaderT Meta.Context
+//! (StateRefT Meta.State CoreM)`, where `CoreM = ReaderT Core.Context
+//! (StateRefT Core.State ...)`. Running a MetaM computation therefore requires
+//! four objects:
+//!
+//! | Type | Kind | Purpose |
+//! |------|------|---------|
+//! | [`CoreContext`] | Read-only | Core settings: file name, recursion depth, heartbeats, namespace |
+//! | [`CoreState`] | Mutable | Core state: environment, name generator, messages, trace |
+//! | [`MetaContext`] | Read-only | Meta settings: local context, config, local instances |
+//! | [`MetaState`] | Mutable | Meta state: metavariable context, caches, diagnostics |
+//!
+//! Each type provides an `mk_default` / `mk_*` constructor that fills in
+//! sensible defaults so callers can get started without manually constructing
+//! every field. These are used internally by [`MetaMContext::new()`].
 //!
 //! Based on:
 //! - `/lean4/src/Lean/CoreM.lean`
+//! - `/lean4/src/Lean/Meta/Basic.lean`
 //! - Issue #26 - MetaM Integration Phase 1.2
+//!
+//! [`MetaMContext::new()`]: super::metam::MetaMContext::new
 
 use crate::err::LeanResult;
 use crate::instance::LeanBound;

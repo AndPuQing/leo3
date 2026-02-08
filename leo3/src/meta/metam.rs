@@ -1,11 +1,44 @@
-//! MetaMContext - high-level wrapper for running MetaM computations
+//! High-level wrapper for running Lean's MetaM monad computations from Rust.
 //!
-//! This module provides `MetaMContext`, which bundles all the context and state
-//! objects needed to run Lean's MetaM monad computations from Rust.
+//! Lean's `MetaM` monad is the primary interface for type-checking, unification,
+//! and metavariable management in Lean 4. It sits atop the `CoreM` monad and
+//! adds a local context, metavariable context, and type-inference caches.
 //!
-//! Based on:
-//! - `/lean4/src/Lean/Meta/Basic.lean`
-//! - Issue #30 - MetaM Integration Phase 1.6
+//! This module provides [`MetaMContext`], which bundles all four context/state
+//! objects required by the MetaM monad stack:
+//!
+//! | Lean type | Rust wrapper | Role |
+//! |-----------|-------------|------|
+//! | `Core.Context` | [`CoreContext`] | Read-only core settings (recursion depth, heartbeats, etc.) |
+//! | `Core.State` | [`CoreState`] | Mutable core state (environment, name generator, messages) |
+//! | `Meta.Context` | [`MetaContext`] | Read-only meta settings (local context, config) |
+//! | `Meta.State` | [`MetaState`] | Mutable meta state (metavariable context, caches) |
+//!
+//! # Usage
+//!
+//! ```ignore
+//! use leo3::prelude::*;
+//! use leo3::meta::*;
+//!
+//! leo3::with_lean(|lean| {
+//!     let env = LeanEnvironment::empty(lean, 0)?;
+//!     let mut ctx = MetaMContext::new(lean, env)?;
+//!
+//!     // Once Phase 2 FFI bindings are available:
+//!     // let result = ctx.run(some_metam_computation)?;
+//!     Ok(())
+//! })?;
+//! ```
+//!
+//! # Architecture
+//!
+//! `MetaMContext::run()` calls the Lean FFI function `lean_meta_metam_run`,
+//! which executes a `MetaM α` computation and returns `EIO Exception α`
+//! (i.e., `Except Exception α` in the IO monad). The result is decoded
+//! internally, extracting the success value or converting the `Exception`
+//! into a [`LeanError::Exception`].
+//!
+//! Based on `/lean4/src/Lean/Meta/Basic.lean` (Issue #30).
 
 use crate::err::{LeanError, LeanResult};
 use crate::instance::{LeanAny, LeanBound};
@@ -18,8 +51,10 @@ use std::ffi::CStr;
 /// Context for running MetaM computations.
 ///
 /// `MetaMContext` bundles together all the context and state objects required
-/// by Lean's MetaM monad: `Core.Context`, `Core.State`, `Meta.Context`, and
-/// `Meta.State`. It provides a `run()` method to execute MetaM computations.
+/// by Lean's MetaM monad: [`CoreContext`], [`CoreState`], [`MetaContext`], and
+/// [`MetaState`]. It provides a [`run()`](Self::run) method to execute MetaM
+/// computations and can be reused across multiple calls (context/state objects
+/// are cloned before each FFI invocation).
 ///
 /// # Example
 ///
@@ -30,7 +65,12 @@ use std::ffi::CStr;
 /// leo3::with_lean(|lean| {
 ///     let env = LeanEnvironment::empty(lean, 0)?;
 ///     let mut ctx = MetaMContext::new(lean, env)?;
-///     // ctx.run(some_metam_computation)?;
+///
+///     // Access the environment
+///     assert!(!ctx.env().as_ptr().is_null());
+///
+///     // The Lean runtime token is also available
+///     let _lean = ctx.lean();
 ///     Ok(())
 /// })?;
 /// ```
@@ -44,24 +84,31 @@ pub struct MetaMContext<'l> {
 }
 
 impl<'l> MetaMContext<'l> {
-    /// Create a new MetaMContext from an environment.
+    /// Create a new `MetaMContext` from an environment.
     ///
-    /// This constructs all required context and state objects with default values:
-    /// - `Core.Context`: default settings (maxRecDepth=1000, maxHeartbeats=200M)
+    /// Constructs all required context and state objects with default values:
+    /// - `Core.Context`: default settings (`maxRecDepth=1000`, `maxHeartbeats=200_000_000`)
     /// - `Core.State`: initialized with the given environment
-    /// - `Meta.Context`: default Meta configuration
+    /// - `Meta.Context`: default Meta configuration (empty local context)
     /// - `Meta.State`: empty metavariable context and caches
     ///
-    /// # Arguments
+    /// # Errors
     ///
-    /// * `lean` - Lean runtime token
-    /// * `env` - Environment to use for computations
+    /// Returns [`LeanError`] if any of the underlying context/state constructors
+    /// fail (e.g., due to allocation failure).
     ///
     /// # Example
     ///
     /// ```ignore
-    /// let env = LeanEnvironment::empty(lean, 0)?;
-    /// let ctx = MetaMContext::new(lean, env)?;
+    /// use leo3::prelude::*;
+    /// use leo3::meta::*;
+    ///
+    /// leo3::with_lean(|lean| {
+    ///     let env = LeanEnvironment::empty(lean, 0)?;
+    ///     let ctx = MetaMContext::new(lean, env)?;
+    ///     assert!(!ctx.env().as_ptr().is_null());
+    ///     Ok(())
+    /// })?;
     /// ```
     pub fn new(lean: Lean<'l>, env: LeanBound<'l, LeanEnvironment>) -> LeanResult<Self> {
         let core_ctx = CoreContext::mk_default(lean)?;
@@ -86,19 +133,18 @@ impl<'l> MetaMContext<'l> {
     /// cloned before being passed to the FFI, so the `MetaMContext` can be
     /// reused for multiple `run()` calls.
     ///
-    /// # Arguments
+    /// # Errors
     ///
-    /// * `computation` - A MetaM computation object (consumed)
-    ///
-    /// # Returns
-    ///
-    /// The result of the computation, or an error if the computation failed.
+    /// Returns [`LeanError::Exception`] if the MetaM computation raises a
+    /// Lean exception. The error includes:
+    /// - `is_internal`: whether the exception is an internal error
+    /// - `message`: best-effort extraction of the human-readable message
     ///
     /// # EIO Result Handling
     ///
     /// `MetaM.run'` returns `EIO Exception T`:
-    /// - Tag 0 (`Except.ok`) → field 0 contains the result value
-    /// - Tag 1 (`Except.error`) → field 0 contains the error
+    /// - Tag 0 (`Except.ok`) -- field 0 contains the result value
+    /// - Tag 1 (`Except.error`) -- field 0 contains the `Exception`
     pub fn run(
         &mut self,
         computation: LeanBound<'l, LeanAny>,
@@ -123,12 +169,12 @@ impl<'l> MetaMContext<'l> {
         }
     }
 
-    /// Get a reference to the environment.
+    /// Get a reference to the [`LeanEnvironment`] used by this context.
     pub fn env(&self) -> &LeanBound<'l, LeanEnvironment> {
         &self.env
     }
 
-    /// Get the Lean runtime token.
+    /// Get the [`Lean`] runtime token associated with this context.
     pub fn lean(&self) -> Lean<'l> {
         self.lean
     }
