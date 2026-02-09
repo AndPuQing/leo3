@@ -160,14 +160,30 @@ impl<'l> MetaMContext<'l> {
             // Wrap core_state in an ST.Ref as required by the CoreM monad stack.
             // lean_meta_metam_run creates the ST.Ref for Meta.State internally,
             // but expects Core.State to already be wrapped in an ST.Ref.
-            let world = ffi::lean_box(0);
-            let ref_result = ffi::lean_st_mk_ref(core_state.into_ptr(), world);
-            // ref_result is EStateM.Result.ok: field 0 = ST.Ref, field 1 = world
-            let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
-            let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
-            ffi::lean_inc(core_state_ref);
-            ffi::lean_inc(world2);
-            ffi::lean_dec(ref_result);
+
+            // In Lean < 4.26, lean_st_mk_ref(value, world) returns
+            // EStateM.Result.ok: field 0 = ST.Ref, field 1 = world.
+            // In Lean >= 4.26, lean_st_mk_ref(value) returns the ST.Ref directly.
+            #[cfg(not(lean_4_26))]
+            let (core_state_ref, world2) = {
+                let world = ffi::lean_box(0);
+                let ref_result = ffi::lean_st_mk_ref(core_state.into_ptr(), world);
+                let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
+                let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
+                ffi::lean_inc(core_state_ref);
+                ffi::lean_inc(world2);
+                ffi::lean_dec(ref_result);
+                (core_state_ref, world2)
+            };
+
+            #[cfg(lean_4_26)]
+            let (core_state_ref, world2) = {
+                let core_state_ref = ffi::lean_st_mk_ref(core_state.into_ptr(), ffi::lean_box(0));
+                // In Lean 4.26+, lean_st_mk_ref returns the ST.Ref directly.
+                // The second arg is ignored by the runtime but we pass it for ABI compat.
+                let world2 = ffi::lean_box(0);
+                (core_state_ref, world2)
+            };
 
             let result = ffi::meta::lean_meta_metam_run(
                 computation.into_ptr(),

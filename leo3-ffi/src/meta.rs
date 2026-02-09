@@ -39,9 +39,9 @@ extern "C" {
     ) -> lean_obj_res;
 }
 
-#[cfg(lean_4_22)]
+#[cfg(all(lean_4_22, not(lean_4_26)))]
 extern "C" {
-    /// Run a MetaM computation (Lean >= 4.22)
+    /// Run a MetaM computation (Lean 4.22..4.25)
     ///
     /// Same as `l_Lean_Meta_MetaM_run_x27___rarg` but for Lean >= 4.22.
     pub fn l_Lean_Meta_MetaM_run_x27___redArg(
@@ -54,7 +54,30 @@ extern "C" {
     ) -> lean_obj_res;
 }
 
+#[cfg(lean_4_26)]
+#[cfg_attr(
+    target_os = "windows",
+    link(name = "libleanshared", kind = "raw-dylib")
+)]
+extern "C" {
+    /// Run a MetaM computation (Lean >= 4.26)
+    ///
+    /// In Lean 4.26+, the IO world token was removed from the calling convention.
+    /// The function internally creates the Meta.State ST.Ref and uses `lean_box(0)`
+    /// as the world token.
+    pub fn l_Lean_Meta_MetaM_run_x27___redArg(
+        x: lean_obj_arg,
+        ctx: lean_obj_arg,
+        state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state_ref: lean_obj_arg,
+    ) -> lean_obj_res;
+}
+
 /// Run a MetaM computation, dispatching to the correct symbol for the Lean version.
+///
+/// In Lean < 4.26, the caller must provide an IO world token and an ST.Ref for Core.State.
+/// In Lean >= 4.26, the world token was removed from the calling convention.
 ///
 /// # Safety
 /// - `x` must be a valid MetaM computation (consumed)
@@ -62,7 +85,7 @@ extern "C" {
 /// - `state` must be a valid Meta.State object (raw, consumed)
 /// - `core_ctx` must be a valid Core.Context object (consumed)
 /// - `core_state_ref` must be an ST.Ref wrapping Core.State (created via `lean_st_mk_ref`)
-/// - `world` must be an IO world token (typically `lean_box(0)`)
+/// - `world` must be an IO world token (typically `lean_box(0)`) — ignored in Lean >= 4.26
 #[inline]
 pub unsafe fn lean_meta_metam_run(
     x: lean_obj_arg,
@@ -76,9 +99,16 @@ pub unsafe fn lean_meta_metam_run(
     {
         l_Lean_Meta_MetaM_run_x27___rarg(x, ctx, state, core_ctx, core_state_ref, world)
     }
-    #[cfg(lean_4_22)]
+    #[cfg(all(lean_4_22, not(lean_4_26)))]
     {
         l_Lean_Meta_MetaM_run_x27___redArg(x, ctx, state, core_ctx, core_state_ref, world)
+    }
+    #[cfg(lean_4_26)]
+    {
+        // In Lean 4.26+, the world token is no longer passed as an argument.
+        // The function handles it internally.
+        let _ = world;
+        l_Lean_Meta_MetaM_run_x27___redArg(x, ctx, state, core_ctx, core_state_ref)
     }
 }
 
@@ -164,7 +194,10 @@ extern "C" {
 // properly constructed default values for various Meta types. Reading them
 // avoids the need to manually construct complex structures from Rust.
 
-#[cfg_attr(target_os = "windows", link(name = "leanshared", kind = "raw-dylib"))]
+#[cfg_attr(
+    target_os = "windows",
+    link(name = "libleanshared", kind = "raw-dylib")
+)]
 extern "C" {
     /// Default `Meta.Config` (all boolean flags at their default values)
     pub static l_Lean_Meta_instInhabitedConfig: *mut lean_object;
