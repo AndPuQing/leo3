@@ -169,7 +169,7 @@ impl CoreContext {
     fn mk_empty_options<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let options = ffi::meta::l_Lean_instInhabitedOptions;
+            let options = ffi::meta::lean_inhabited_options();
             if options.is_null() {
                 return Err(crate::LeanError::runtime(
                     "Options Inhabited instance is null - Lean.Meta may not be initialized",
@@ -202,12 +202,11 @@ impl CoreContext {
 
     /// Create an empty `Std.HashSet Name` for `inheritedTraceOptions`.
     ///
-    /// Calls `l_Std_HashSet_empty___rarg` with the default capacity (8),
-    /// which is the reduced-arity specialization with BEq/Hashable instances
-    /// already resolved by the Lean compiler.
+    /// Calls `lean_hashset_empty` with the default capacity (8),
+    /// which dispatches to the correct symbol for the Lean version.
     fn mk_empty_hashset<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
-            let hashset = ffi::hashset::l_Std_HashSet_empty___rarg(ffi::lean_box(8));
+            let hashset = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
             Ok(LeanBound::from_owned_ptr(lean, hashset))
         }
     }
@@ -545,11 +544,11 @@ impl MetaContext {
 
     /// Create an empty FVarIdSet (`Std.HashSet FVarId`).
     ///
-    /// Uses `l_Std_HashSet_empty___rarg` with default capacity, matching
+    /// Uses `lean_hashset_empty` with default capacity, matching
     /// the pattern used for other HashSet fields (e.g., `inheritedTraceOptions`).
     fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
-            let fvar_set = ffi::hashset::l_Std_HashSet_empty___rarg(ffi::lean_box(8));
+            let fvar_set = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
             Ok(LeanBound::from_owned_ptr(lean, fvar_set))
         }
     }

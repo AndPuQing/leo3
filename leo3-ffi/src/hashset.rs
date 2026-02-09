@@ -5,21 +5,52 @@
 
 use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 
+// In Lean < 4.22, the reduced-arity suffix is `_rarg`.
+// In Lean >= 4.22, it was renamed to `_redArg`.
+// In Lean >= 4.26, `HashSet.empty` was removed; use `emptyWithCapacity` instead.
+#[cfg(not(lean_4_22))]
+extern "C" {
+    /// Create an empty HashSet (reduced-arity, Lean < 4.22)
+    ///
+    /// Takes only the capacity argument (type-class instances erased).
+    /// Use `lean_box(8)` for the default capacity.
+    pub fn l_Std_HashSet_empty___rarg(capacity: lean_obj_arg) -> lean_obj_res;
+}
+
+#[cfg(lean_4_22)]
+extern "C" {
+    /// Create an empty HashSet with specified capacity (reduced-arity, Lean >= 4.22)
+    ///
+    /// Takes only the capacity argument (type-class instances erased).
+    /// Use `lean_box(8)` for the default capacity.
+    pub fn l_Std_HashSet_emptyWithCapacity___redArg(capacity: lean_obj_arg) -> lean_obj_res;
+}
+
+/// Create an empty HashSet, dispatching to the correct symbol for the Lean version.
+///
+/// # Safety
+/// - `capacity` must be a valid boxed Lean Nat (e.g., `lean_box(8)`)
+#[inline]
+pub unsafe fn lean_hashset_empty(capacity: lean_obj_arg) -> lean_obj_res {
+    #[cfg(not(lean_4_22))]
+    {
+        l_Std_HashSet_empty___rarg(capacity)
+    }
+    #[cfg(lean_4_22)]
+    {
+        l_Std_HashSet_emptyWithCapacity___redArg(capacity)
+    }
+}
+
 extern "C" {
     // ========================================================================
-    // HashSet Creation
+    // HashSet Creation (full-arity)
     // ========================================================================
 
     /// Create an empty HashSet with default capacity
     /// Signature: HashSet.empty [BEq α] [Hashable α] : HashSet α
+    #[cfg(not(lean_4_26))]
     pub fn l_Std_HashSet_empty(beq: lean_obj_arg, hashable: lean_obj_arg) -> lean_obj_res;
-
-    /// Create an empty HashSet (reduced-arity version with type-class instances erased)
-    ///
-    /// This is the compiler-generated specialization where BEq and Hashable
-    /// instances are already resolved. Takes only the capacity argument.
-    /// Use `lean_box(8)` for the default capacity.
-    pub fn l_Std_HashSet_empty___rarg(capacity: lean_obj_arg) -> lean_obj_res;
 
     /// Create an empty HashSet with specified capacity
     /// Signature: HashSet.emptyWithCapacity [BEq α] [Hashable α] (capacity := 8) : HashSet α

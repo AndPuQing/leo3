@@ -192,8 +192,13 @@ extern "C" {
     /// Default `Elab.InfoState` (empty)
     pub static l_Lean_Elab_instInhabitedInfoState: *mut lean_object;
 
-    /// Default `Options` / `KVMap` (empty)
+    /// Default `Options` / `KVMap` (empty, Lean < 4.28)
+    #[cfg(not(lean_4_28))]
     pub static l_Lean_instInhabitedOptions: *mut lean_object;
+
+    /// Default `Options` / `KVMap` (empty, Lean >= 4.28 — renamed)
+    #[cfg(lean_4_28)]
+    pub static l_Lean_Options_instInhabited: *mut lean_object;
 
     /// Default `MessageLog` (empty)
     pub static l_Lean_instInhabitedMessageLog: *mut lean_object;
@@ -206,4 +211,21 @@ extern "C" {
 
     /// Default `FileMap` (empty source, empty positions)
     pub static l_Lean_instInhabitedFileMap: *mut lean_object;
+}
+
+/// Get the default `Options` / `KVMap` (empty), dispatching to the correct
+/// symbol for the Lean version.
+///
+/// In Lean < 4.28 the symbol is `l_Lean_instInhabitedOptions`.
+/// In Lean >= 4.28 it was renamed to `l_Lean_Options_instInhabited`.
+#[inline]
+pub unsafe fn lean_inhabited_options() -> *mut lean_object {
+    #[cfg(not(lean_4_28))]
+    {
+        l_Lean_instInhabitedOptions
+    }
+    #[cfg(lean_4_28)]
+    {
+        l_Lean_Options_instInhabited
+    }
 }
