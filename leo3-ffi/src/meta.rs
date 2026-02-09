@@ -164,9 +164,18 @@ extern "C" {
 // properly constructed default values for various Meta types. Reading them
 // avoids the need to manually construct complex structures from Rust.
 
+#[cfg_attr(target_os = "windows", link(name = "leanshared", kind = "raw-dylib"))]
 extern "C" {
     /// Default `Meta.Config` (all boolean flags at their default values)
     pub static l_Lean_Meta_instInhabitedConfig: *mut lean_object;
+
+    /// Default `Meta.Context` (Lean >= 4.25)
+    ///
+    /// This symbol was introduced when `Meta.Context` was restructured to use
+    /// `ConfigWithKey` as a wrapper field. Using this runtime instance avoids
+    /// hardcoding the struct layout.
+    #[cfg(lean_4_25)]
+    pub static l_Lean_Meta_instInhabitedContext: *mut lean_object;
 
     /// Default `Meta.State` (empty metavar context, empty caches)
     pub static l_Lean_Meta_instInhabitedState: *mut lean_object;
@@ -205,6 +214,12 @@ extern "C" {
 
     /// Default `NameGenerator` (`_uniq`, idx=1)
     pub static l_Lean_instInhabitedNameGenerator: *mut lean_object;
+
+    /// Default `DeclNameGenerator` (Lean >= 4.25)
+    ///
+    /// This symbol was introduced when Core.State added the `auxDeclNGen` field.
+    #[cfg(lean_4_25)]
+    pub static l_Lean_instInhabitedDeclNameGenerator: *mut lean_object;
 
     /// Default `Syntax` (`Syntax.missing`)
     pub static l_Lean_instInhabitedSyntax: *mut lean_object;

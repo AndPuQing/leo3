@@ -32,7 +32,8 @@ use leo3_ffi as ffi;
 
 /// Core.Context - context for CoreM monad
 ///
-/// Lean structure with 13 object fields + 2 scalar bytes (constructor tag 0).
+/// Lean < 4.25: 13 object fields + 2 scalar bytes (constructor tag 0)
+/// Lean >= 4.25: 14 object fields + 2 scalar bytes (added `quotContext: Name` at field 10)
 ///
 /// Object fields (Bool fields are stored as scalars, not objects):
 /// 0. `fileName: String`
@@ -45,9 +46,10 @@ use leo3_ffi as ffi;
 /// 7. `openDecls: List OpenDecl`
 /// 8. `initHeartbeats: Nat`
 /// 9. `maxHeartbeats: Nat`
-/// 10. `currMacroScope: MacroScope`
-/// 11. `cancelTk?: Option IO.CancelToken`
-/// 12. `inheritedTraceOptions: Std.HashSet Name`
+/// 10. `quotContext: Name` (Lean >= 4.25 only)
+/// 11. `currMacroScope: MacroScope` (field 10 in Lean < 4.25)
+/// 12. `cancelTk?: Option IO.CancelToken` (field 11 in Lean < 4.25)
+/// 13. `inheritedTraceOptions: Std.HashSet Name` (field 12 in Lean < 4.25)
 ///
 /// Scalar fields:
 /// offset 0: `diag: Bool` (1 byte)
@@ -80,9 +82,14 @@ impl CoreContext {
     /// ```
     pub fn mk_default<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Core.Context: 13 object fields + 2 scalar bytes (constructor tag 0)
+            // Core.Context: 13 object fields in Lean < 4.25, 14 in Lean >= 4.25
             // Bool fields (diag, suppressElabErrors) are stored as scalars.
-            let ctx = ffi::lean_alloc_ctor(0, 13, 2);
+            #[cfg(lean_4_25)]
+            let num_obj_fields = 14;
+            #[cfg(not(lean_4_25))]
+            let num_obj_fields = 13;
+
+            let ctx = ffi::lean_alloc_ctor(0, num_obj_fields, 2);
 
             // Object field 0: fileName (String) - use "<rust>"
             let filename = LeanString::mk(lean, "<rust>")?;
@@ -120,16 +127,29 @@ impl CoreContext {
             // Object field 9: maxHeartbeats (Nat) - use 200000000
             ffi::lean_ctor_set(ctx, 9, ffi::lean_box(200000000));
 
-            // Object field 10: currMacroScope (MacroScope = Nat) - use 0
-            ffi::lean_ctor_set(ctx, 10, ffi::lean_box(0));
+            // Object field 10: quotContext (Name) - use anonymous (Lean >= 4.25 only)
+            #[cfg(lean_4_25)]
+            {
+                let quot_ctx = LeanName::anonymous(lean)?;
+                ffi::lean_ctor_set(ctx, 10, quot_ctx.into_ptr());
+            }
 
-            // Object field 11: cancelTk? (Option IO.CancelToken) - use none
+            // Remaining fields shift by 1 in Lean >= 4.25
+            #[cfg(lean_4_25)]
+            let field_offset = 11;
+            #[cfg(not(lean_4_25))]
+            let field_offset = 10;
+
+            // currMacroScope (MacroScope = Nat) - use 0
+            ffi::lean_ctor_set(ctx, field_offset, ffi::lean_box(0));
+
+            // cancelTk? (Option IO.CancelToken) - use none
             let cancel_token = LeanOption::none(lean)?;
-            ffi::lean_ctor_set(ctx, 11, cancel_token.into_ptr());
+            ffi::lean_ctor_set(ctx, field_offset + 1, cancel_token.into_ptr());
 
-            // Object field 12: inheritedTraceOptions (Std.HashSet Name) - use empty
+            // inheritedTraceOptions (Std.HashSet Name) - use empty
             let empty_hashset = Self::mk_empty_hashset(lean)?;
-            ffi::lean_ctor_set(ctx, 12, empty_hashset.into_ptr());
+            ffi::lean_ctor_set(ctx, field_offset + 2, empty_hashset.into_ptr());
 
             // Scalar offset 0: diag (Bool) - use false (0)
             ffi::inline::lean_ctor_set_uint8(ctx, 0, 0);
@@ -214,15 +234,19 @@ impl CoreContext {
 
 /// Core.State - state for CoreM monad
 ///
-/// This structure has 8 fields (constructor tag 0):
+/// Lean < 4.25: 8 fields (constructor tag 0)
+/// Lean >= 4.25: 9 fields (added `auxDeclNGen: DeclNameGenerator` at field 3)
+///
+/// Fields:
 /// 0. `env: Environment` - from parameter
 /// 1. `nextMacroScope: MacroScope` - use default (firstFrontendMacroScope + 1)
 /// 2. `ngen: NameGenerator` - create new
-/// 3. `traceState: TraceState` - use empty
-/// 4. `cache: Cache` - use empty
-/// 5. `messages: MessageLog` - use empty
-/// 6. `infoState: Elab.InfoState` - use empty
-/// 7. `snapshotTasks: Array SnapshotTask` - use empty array
+/// 3. `auxDeclNGen: DeclNameGenerator` - create new (Lean >= 4.25 only)
+/// 4. `traceState: TraceState` - use empty (field 3 in Lean < 4.25)
+/// 5. `cache: Cache` - use empty (field 4 in Lean < 4.25)
+/// 6. `messages: MessageLog` - use empty (field 5 in Lean < 4.25)
+/// 7. `infoState: Elab.InfoState` - use empty (field 6 in Lean < 4.25)
+/// 8. `snapshotTasks: Array SnapshotTask` - use empty array (field 7 in Lean < 4.25)
 #[repr(transparent)]
 pub struct CoreState {
     _private: (),
@@ -255,8 +279,13 @@ impl CoreState {
         env: &LeanBound<'l, LeanEnvironment>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Core.State has 8 fields (constructor tag 0)
-            let state = ffi::lean_alloc_ctor(0, 8, 0);
+            // Core.State: 8 fields in Lean < 4.25, 9 fields in Lean >= 4.25
+            #[cfg(lean_4_25)]
+            let num_fields = 9;
+            #[cfg(not(lean_4_25))]
+            let num_fields = 8;
+
+            let state = ffi::lean_alloc_ctor(0, num_fields, 0);
 
             // Field 0: env (Environment) - from parameter
             let env_ptr = env.as_ptr();
@@ -272,25 +301,38 @@ impl CoreState {
             let ngen = Self::mk_name_generator(lean)?;
             ffi::lean_ctor_set(state, 2, ngen.into_ptr());
 
-            // Field 3: traceState (TraceState) - use empty
+            // Field 3: auxDeclNGen (DeclNameGenerator) - create new (Lean >= 4.25 only)
+            #[cfg(lean_4_25)]
+            {
+                let aux_decl_ngen = Self::mk_decl_name_generator(lean)?;
+                ffi::lean_ctor_set(state, 3, aux_decl_ngen.into_ptr());
+            }
+
+            // Remaining fields shift by 1 in Lean >= 4.25
+            #[cfg(lean_4_25)]
+            let field_offset = 4;
+            #[cfg(not(lean_4_25))]
+            let field_offset = 3;
+
+            // traceState (TraceState) - use empty
             let trace_state = Self::mk_empty_trace_state(lean)?;
-            ffi::lean_ctor_set(state, 3, trace_state.into_ptr());
+            ffi::lean_ctor_set(state, field_offset, trace_state.into_ptr());
 
-            // Field 4: cache (Cache) - use empty
+            // cache (Cache) - use empty
             let cache = Self::mk_empty_cache(lean)?;
-            ffi::lean_ctor_set(state, 4, cache.into_ptr());
+            ffi::lean_ctor_set(state, field_offset + 1, cache.into_ptr());
 
-            // Field 5: messages (MessageLog) - use empty
+            // messages (MessageLog) - use empty
             let messages = Self::mk_empty_message_log(lean)?;
-            ffi::lean_ctor_set(state, 5, messages.into_ptr());
+            ffi::lean_ctor_set(state, field_offset + 2, messages.into_ptr());
 
-            // Field 6: infoState (Elab.InfoState) - use empty
+            // infoState (Elab.InfoState) - use empty
             let info_state = Self::mk_empty_info_state(lean)?;
-            ffi::lean_ctor_set(state, 6, info_state.into_ptr());
+            ffi::lean_ctor_set(state, field_offset + 3, info_state.into_ptr());
 
-            // Field 7: snapshotTasks (Array SnapshotTask) - use empty array
+            // snapshotTasks (Array SnapshotTask) - use empty array
             let empty_array = ffi::array::lean_mk_empty_array();
-            ffi::lean_ctor_set(state, 7, empty_array);
+            ffi::lean_ctor_set(state, field_offset + 4, empty_array);
 
             Ok(LeanBound::from_owned_ptr(lean, state))
         }
@@ -313,6 +355,26 @@ impl CoreState {
             }
             ffi::lean_inc(ngen);
             Ok(LeanBound::from_owned_ptr(lean, ngen))
+        }
+    }
+
+    /// Create a new DeclNameGenerator (Lean >= 4.25)
+    ///
+    /// Uses the `Inhabited DeclNameGenerator` instance from the Lean runtime.
+    ///
+    /// Requires: `ensure_meta_initialized()` must have been called.
+    #[cfg(lean_4_25)]
+    fn mk_decl_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::meta::ensure_meta_initialized();
+        unsafe {
+            let decl_ngen = ffi::meta::l_Lean_instInhabitedDeclNameGenerator;
+            if decl_ngen.is_null() {
+                return Err(crate::LeanError::runtime(
+                    "DeclNameGenerator Inhabited instance is null - Lean.Meta may not be initialized",
+                ));
+            }
+            ffi::lean_inc(decl_ngen);
+            Ok(LeanBound::from_owned_ptr(lean, decl_ngen))
         }
     }
 
@@ -440,6 +502,35 @@ impl MetaContext {
     /// })
     /// ```
     pub fn mk_default<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
+        // In Lean >= 4.25, Meta.Context was restructured (ConfigWithKey wrapper).
+        // Use the runtime's Inhabited instance to avoid hardcoding the layout.
+        #[cfg(lean_4_25)]
+        {
+            crate::meta::ensure_meta_initialized();
+            unsafe {
+                let ctx = ffi::meta::l_Lean_Meta_instInhabitedContext;
+                if ctx.is_null() {
+                    return Err(crate::LeanError::runtime(
+                        "Meta.Context Inhabited instance is null - Lean.Meta may not be initialized",
+                    ));
+                }
+                ffi::lean_inc(ctx);
+                Ok(LeanBound::from_owned_ptr(lean, ctx))
+            }
+        }
+
+        // In Lean < 4.25, manually construct the struct (layout is stable).
+        #[cfg(not(lean_4_25))]
+        {
+            Self::mk_default_manual(lean)
+        }
+    }
+
+    /// Manually construct a Meta.Context (for Lean < 4.25 where the layout is known).
+    ///
+    /// Meta.Context: 7 object fields + 11 scalar bytes (constructor tag 0).
+    #[cfg(not(lean_4_25))]
+    fn mk_default_manual<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             // Meta.Context: 7 object fields + 11 scalar bytes (constructor tag 0)
             // Bool fields (trackZetaDelta, univApprox, inTypeClassResolution) are scalars.
@@ -516,6 +607,7 @@ impl MetaContext {
     /// byte 16: zetaDelta (Bool) = true
     /// byte 17: zetaUnused (Bool) = true
     /// ```
+    #[cfg(not(lean_4_25))]
     fn mk_default_config<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
             let config = ffi::lean_alloc_ctor(0, 0, 18);
@@ -546,6 +638,7 @@ impl MetaContext {
     ///
     /// Uses `lean_hashset_empty` with default capacity, matching
     /// the pattern used for other HashSet fields (e.g., `inheritedTraceOptions`).
+    #[cfg(not(lean_4_25))]
     fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
             let fvar_set = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
@@ -558,6 +651,7 @@ impl MetaContext {
     /// Uses the `Inhabited LocalContext` instance from the Lean runtime.
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
+    #[cfg(not(lean_4_25))]
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
