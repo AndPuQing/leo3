@@ -219,6 +219,10 @@ extern "C" {
     pub static l_Lean_instInhabitedDeclNameGenerator: *mut lean_object;
     pub static l_Lean_instInhabitedSyntax: *mut lean_object;
     pub static l_Lean_instInhabitedFileMap: *mut lean_object;
+    // Building-block symbols for manual construction fallbacks
+    pub static l_Lean_PersistentHashMap_empty: *mut lean_object;
+    pub static l_Lean_PersistentArray_empty: *mut lean_object;
+    pub static l_Lean_KVMap_empty: *mut lean_object;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +257,10 @@ mod win_bss {
         inst_inhabited_decl_name_generator: *mut lean_object,
         inst_inhabited_syntax: *mut lean_object,
         inst_inhabited_file_map: *mut lean_object,
+        // Building-block symbols (exported on Windows)
+        persistent_hashmap_empty: *mut lean_object,
+        persistent_array_empty: *mut lean_object,
+        kvmap_empty: *mut lean_object,
     }
 
     // SAFETY: The pointers are to Lean globals that are initialized once during
@@ -266,16 +274,18 @@ mod win_bss {
     ///
     /// Returns the *value* stored at the global (i.e. dereferences the symbol
     /// pointer once), which is the `*mut lean_object` that callers expect.
+    ///
+    /// Returns `null` if the symbol is not exported from the DLL (common on
+    /// Windows where most BSS globals are not exported).
     unsafe fn load_ptr(lib: &libloading::Library, name: &[u8]) -> *mut lean_object {
-        let sym: libloading::Symbol<*mut *mut lean_object> = lib.get(name).unwrap_or_else(|e| {
-            panic!(
-                "failed to load BSS symbol {}: {e}",
-                String::from_utf8_lossy(name)
-            )
-        });
-        // Dereference: the symbol is a `*mut lean_object` in the DLL's BSS;
-        // `lib.get` gives us a pointer *to* that global, so we read through it.
-        **sym
+        match lib.get::<*mut *mut lean_object>(name) {
+            Ok(sym) => {
+                // Dereference: the symbol is a `*mut lean_object` in the DLL's BSS;
+                // `lib.get` gives us a pointer *to* that global, so we read through it.
+                **sym
+            }
+            Err(_) => std::ptr::null_mut(),
+        }
     }
 
     fn load_symbols() -> BssSymbols {
@@ -324,6 +334,9 @@ mod win_bss {
                 ),
                 inst_inhabited_syntax: load_ptr(&lib, b"l_Lean_instInhabitedSyntax\0"),
                 inst_inhabited_file_map: load_ptr(&lib, b"l_Lean_instInhabitedFileMap\0"),
+                persistent_hashmap_empty: load_ptr(&lib, b"l_Lean_PersistentHashMap_empty\0"),
+                persistent_array_empty: load_ptr(&lib, b"l_Lean_PersistentArray_empty\0"),
+                kvmap_empty: load_ptr(&lib, b"l_Lean_KVMap_empty\0"),
             }
         }
     }
@@ -390,6 +403,15 @@ mod win_bss {
     }
     pub unsafe fn get_instInhabitedFileMap() -> *mut lean_object {
         symbols().inst_inhabited_file_map
+    }
+    pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
+        symbols().persistent_hashmap_empty
+    }
+    pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
+        symbols().persistent_array_empty
+    }
+    pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
+        symbols().kvmap_empty
     }
 }
 
@@ -618,5 +640,53 @@ pub unsafe fn get_instInhabitedFileMap() -> *mut lean_object {
     #[cfg(target_os = "windows")]
     {
         win_bss::get_instInhabitedFileMap()
+    }
+}
+
+/// Get the empty `PersistentHashMap` singleton.
+///
+/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
+/// and can be used as a building block for manual construction of complex types.
+#[inline]
+pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_PersistentHashMap_empty
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_PersistentHashMapEmpty()
+    }
+}
+
+/// Get the empty `PersistentArray` singleton.
+///
+/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
+/// and can be used as a building block for manual construction of complex types.
+#[inline]
+pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_PersistentArray_empty
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_PersistentArrayEmpty()
+    }
+}
+
+/// Get the empty `KVMap` (Options) singleton.
+///
+/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
+/// and can be used as a building block for manual construction of complex types.
+#[inline]
+pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_KVMap_empty
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_KVMapEmpty()
     }
 }
