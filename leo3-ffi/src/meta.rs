@@ -645,9 +645,13 @@ pub unsafe fn get_instInhabitedFileMap() -> *mut lean_object {
 
 /// Get the empty `PersistentHashMap` singleton.
 ///
-/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
-/// and can be used as a building block for manual construction of complex types.
-#[inline]
+/// On non-Windows, reads the BSS global directly. On Windows, tries the BSS
+/// global first, then falls back to manual construction (cached via `OnceLock`).
+///
+/// Layout: `PersistentHashMap.mk (Node.entries (mkArray 32 Entry.null)) 0`
+/// - ctor tag 0, 2 obj fields, 0 scalar bytes
+/// - field 0: `Node.entries` (ctor 0, 1 obj field = Array of 32 `Entry.null`)
+/// - field 1: size = 0
 pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
     {
@@ -655,15 +659,36 @@ pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
     }
     #[cfg(target_os = "windows")]
     {
-        win_bss::get_PersistentHashMapEmpty()
+        use std::sync::OnceLock;
+        static CACHED: OnceLock<usize> = OnceLock::new();
+        let ptr = *CACHED.get_or_init(|| {
+            let bss = win_bss::get_PersistentHashMapEmpty();
+            if !bss.is_null() {
+                return bss as usize;
+            }
+            // Manual construction: PersistentHashMap.empty
+            // Entry.null = lean_box(2) (tag 2, 0 fields → scalar)
+            let entries = crate::array::lean_mk_array(lean_box(32), lean_box(2));
+            // Node.entries: ctor tag 0, 1 obj field
+            let node = crate::lean_alloc_ctor(0, 1, 0);
+            lean_ctor_set(node, 0, entries);
+            // PersistentHashMap.mk: ctor tag 0, 2 obj fields
+            let phm = crate::lean_alloc_ctor(0, 2, 0);
+            lean_ctor_set(phm, 0, node);
+            lean_ctor_set(phm, 1, lean_box(0)); // size = 0
+            phm as usize
+        });
+        ptr as *mut lean_object
     }
 }
 
 /// Get the empty `PersistentArray` singleton.
 ///
-/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
-/// and can be used as a building block for manual construction of complex types.
-#[inline]
+/// On non-Windows, reads the BSS global directly. On Windows, tries the BSS
+/// global first, then falls back to manual construction (cached via `OnceLock`).
+///
+/// Layout: `PersistentArray.mk (Node.node #[]) #[] 0 initShift 0`
+/// - ctor tag 0, 4 obj fields (root, tail, size, tailOff), 4 scalar bytes (shift: UInt32)
 pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
     {
@@ -671,15 +696,35 @@ pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
     }
     #[cfg(target_os = "windows")]
     {
-        win_bss::get_PersistentArrayEmpty()
+        use std::sync::OnceLock;
+        static CACHED: OnceLock<usize> = OnceLock::new();
+        let ptr = *CACHED.get_or_init(|| {
+            let bss = win_bss::get_PersistentArrayEmpty();
+            if !bss.is_null() {
+                return bss as usize;
+            }
+            // Manual construction: PersistentArray.empty
+            // PersistentArrayNode.node: ctor tag 0, 1 obj field (children: Array)
+            let root_node = crate::lean_alloc_ctor(0, 1, 0);
+            lean_ctor_set(root_node, 0, crate::array::lean_mk_empty_array());
+            // PersistentArray: ctor tag 0, 4 obj fields, 4 scalar bytes (shift: UInt32)
+            let pa = crate::lean_alloc_ctor(0, 4, 4);
+            lean_ctor_set(pa, 0, root_node); // root
+            lean_ctor_set(pa, 1, crate::array::lean_mk_empty_array()); // tail
+            lean_ctor_set(pa, 2, lean_box(0)); // size = 0
+            lean_ctor_set(pa, 3, lean_box(0)); // tailOff = 0
+            lean_ctor_set_uint32(pa, 0, 5); // shift = initShift = 5
+            pa as usize
+        });
+        ptr as *mut lean_object
     }
 }
 
 /// Get the empty `KVMap` (Options) singleton.
 ///
-/// This is always exported on Windows (unlike most `instInhabited*` BSS globals)
-/// and can be used as a building block for manual construction of complex types.
-#[inline]
+/// On non-Windows, reads the BSS global directly. On Windows, tries the BSS
+/// global first, then falls back to `lean_box(0)` (KVMap is an inductive where
+/// the empty constructor has tag 0 and 0 fields, so it's a scalar).
 pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
     {
@@ -687,6 +732,11 @@ pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
     }
     #[cfg(target_os = "windows")]
     {
-        win_bss::get_KVMapEmpty()
+        let bss = win_bss::get_KVMapEmpty();
+        if !bss.is_null() {
+            return bss;
+        }
+        // KVMap.empty = lean_box(0) — zero-field enum constructor (tag 0)
+        lean_box(0)
     }
 }
