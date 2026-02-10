@@ -221,20 +221,21 @@ impl CoreContext {
     /// Get `Syntax.missing` from the Lean runtime's `Inhabited Syntax` instance.
     ///
     /// Uses the `l_Lean_instInhabitedSyntax` BSS global which is initialized
-    /// during `initialize_Lean_Meta`.
+    /// during `initialize_Lean_Meta`. Falls back to `lean_box(0)` if the symbol
+    /// is not available (Windows), since `Syntax.missing` is constructor tag 0
+    /// with 0 fields (a scalar enum value).
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_syntax_missing<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
             let syntax = ffi::meta::get_instInhabitedSyntax();
-            if syntax.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "Syntax Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
+            if !syntax.is_null() {
+                ffi::lean_inc(syntax);
+                return Ok(LeanBound::from_owned_ptr(lean, syntax));
             }
-            ffi::lean_inc(syntax);
-            Ok(LeanBound::from_owned_ptr(lean, syntax))
+            // Syntax.missing is constructor tag 0 with 0 fields → lean_box(0)
+            Ok(LeanBound::from_owned_ptr(lean, ffi::lean_box(0)))
         }
     }
 
@@ -657,15 +658,22 @@ impl MetaContext {
             let fvar_set = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
             ffi::lean_ctor_set(ctx, 1, fvar_set);
 
-            // field 2: lctx (LocalContext) — use Inhabited instance (exported on Windows)
+            // field 2: lctx (LocalContext) — use Inhabited instance, fallback to manual
             let lctx = ffi::meta::get_instInhabitedLocalContext();
-            if lctx.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "LocalContext Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
+            if !lctx.is_null() {
+                ffi::lean_inc(lctx);
+                ffi::lean_ctor_set(ctx, 2, lctx);
+            } else {
+                // LocalContext: ctor 0, 2 obj fields {PersistentHashMap.empty, PersistentArray.empty}
+                let lctx_manual = ffi::lean_alloc_ctor(0, 2, 0);
+                let phm = ffi::meta::get_PersistentHashMapEmpty();
+                ffi::lean_inc(phm);
+                ffi::lean_ctor_set(lctx_manual, 0, phm);
+                let pa = ffi::meta::get_PersistentArrayEmpty();
+                ffi::lean_inc(pa);
+                ffi::lean_ctor_set(lctx_manual, 1, pa);
+                ffi::lean_ctor_set(ctx, 2, lctx_manual);
             }
-            ffi::lean_inc(lctx);
-            ffi::lean_ctor_set(ctx, 2, lctx);
 
             // field 3: localInstances (LocalInstances) — empty array
             let empty_array = ffi::array::lean_mk_empty_array();
@@ -816,6 +824,11 @@ impl MetaContext {
     /// Create an empty LocalContext
     ///
     /// Uses the `Inhabited LocalContext` instance from the Lean runtime.
+    /// Falls back to manual construction if the symbol is not available (Windows).
+    ///
+    /// LocalContext: ctor tag 0, 2 object fields, 0 scalar bytes
+    /// - field 0: fvarIdToDecl (PersistentHashMap) = PersistentHashMap.empty
+    /// - field 1: decls (PersistentArray) = PersistentArray.empty
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     #[cfg(not(lean_4_25))]
@@ -823,14 +836,26 @@ impl MetaContext {
         crate::meta::ensure_meta_initialized();
         unsafe {
             let lctx = ffi::meta::get_instInhabitedLocalContext();
-            if lctx.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "LocalContext Inhabited instance is null - Lean.Meta may not be initialized",
-                ));
+            if !lctx.is_null() {
+                ffi::lean_inc(lctx);
+                return Ok(LeanBound::from_owned_ptr(lean, lctx));
             }
-            ffi::lean_inc(lctx);
-            Ok(LeanBound::from_owned_ptr(lean, lctx))
+            let obj = Self::mk_empty_local_context_manual();
+            Ok(LeanBound::from_owned_ptr(lean, obj))
         }
+    }
+
+    /// Manually construct an empty LocalContext.
+    #[cfg(not(lean_4_25))]
+    unsafe fn mk_empty_local_context_manual() -> *mut ffi::lean_object {
+        let lctx = ffi::lean_alloc_ctor(0, 2, 0);
+        let phm = ffi::meta::get_PersistentHashMapEmpty();
+        ffi::lean_inc(phm);
+        ffi::lean_ctor_set(lctx, 0, phm);
+        let pa = ffi::meta::get_PersistentArrayEmpty();
+        ffi::lean_inc(pa);
+        ffi::lean_ctor_set(lctx, 1, pa);
+        lctx
     }
 }
 
