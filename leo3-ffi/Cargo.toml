@@ -13,5 +13,8 @@ categories = ["api-bindings", "external-ffi-bindings"]
 [dependencies]
 libc.workspace = true
 
+[target.'cfg(target_os = "windows")'.dependencies]
+libloading.workspace = true
+
 [build-dependencies]
 leo3-build-config = { workspace = true }

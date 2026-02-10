@@ -55,10 +55,6 @@ extern "C" {
 }
 
 #[cfg(lean_4_26)]
-#[cfg_attr(
-    target_os = "windows",
-    link(name = "libleanshared", kind = "raw-dylib")
-)]
 extern "C" {
     /// Run a MetaM computation (Lean >= 4.26)
     ///
@@ -193,72 +189,346 @@ extern "C" {
 // These are global variables set during `initialize_Lean_Meta`. They hold
 // properly constructed default values for various Meta types. Reading them
 // avoids the need to manually construct complex structures from Rust.
+//
+// On Linux/macOS, shared libraries export all symbols by default, so we use
+// `extern static` declarations (zero overhead).
+//
+// On Windows, BSS globals are NOT exported from DLLs by default. We load
+// them at runtime via `libloading::Library::get()` (GetProcAddress).
 
-#[cfg_attr(
-    target_os = "windows",
-    link(name = "libleanshared", kind = "raw-dylib")
-)]
+#[cfg(not(target_os = "windows"))]
 extern "C" {
-    /// Default `Meta.Config` (all boolean flags at their default values)
     pub static l_Lean_Meta_instInhabitedConfig: *mut lean_object;
-
-    /// Default `Meta.Context` (Lean >= 4.25)
-    ///
-    /// This symbol was introduced when `Meta.Context` was restructured to use
-    /// `ConfigWithKey` as a wrapper field. Using this runtime instance avoids
-    /// hardcoding the struct layout.
     #[cfg(lean_4_25)]
     pub static l_Lean_Meta_instInhabitedContext: *mut lean_object;
-
-    /// Default `Meta.State` (empty metavar context, empty caches)
     pub static l_Lean_Meta_instInhabitedState: *mut lean_object;
-
-    /// Default `Meta.Cache` (empty inference/whnf/synth caches)
     pub static l_Lean_Meta_instInhabitedCache: *mut lean_object;
-
-    /// Default `Meta.Diagnostics` (empty counters)
     pub static l_Lean_Meta_instInhabitedDiagnostics: *mut lean_object;
-
-    /// Default `MetavarContext` (empty)
     pub static l_Lean_instInhabitedMetavarContext: *mut lean_object;
-
-    /// Default `LocalContext` (empty)
     pub static l_Lean_instInhabitedLocalContext: *mut lean_object;
-
-    /// Default `TraceState` (empty)
     pub static l_Lean_instInhabitedTraceState: *mut lean_object;
-
-    /// Default `Core.Cache` (empty)
     pub static l_Lean_Core_instInhabitedCache: *mut lean_object;
-
-    /// Default `Elab.InfoState` (empty)
     pub static l_Lean_Elab_instInhabitedInfoState: *mut lean_object;
-
-    /// Default `Options` / `KVMap` (empty, Lean < 4.28)
     #[cfg(not(lean_4_28))]
     pub static l_Lean_instInhabitedOptions: *mut lean_object;
-
-    /// Default `Options` / `KVMap` (empty, Lean >= 4.28 — renamed)
     #[cfg(lean_4_28)]
     pub static l_Lean_Options_instInhabited: *mut lean_object;
-
-    /// Default `MessageLog` (empty)
     pub static l_Lean_instInhabitedMessageLog: *mut lean_object;
-
-    /// Default `NameGenerator` (`_uniq`, idx=1)
     pub static l_Lean_instInhabitedNameGenerator: *mut lean_object;
-
-    /// Default `DeclNameGenerator` (Lean >= 4.25)
-    ///
-    /// This symbol was introduced when Core.State added the `auxDeclNGen` field.
     #[cfg(lean_4_25)]
     pub static l_Lean_instInhabitedDeclNameGenerator: *mut lean_object;
-
-    /// Default `Syntax` (`Syntax.missing`)
     pub static l_Lean_instInhabitedSyntax: *mut lean_object;
-
-    /// Default `FileMap` (empty source, empty positions)
     pub static l_Lean_instInhabitedFileMap: *mut lean_object;
+}
+
+// ---------------------------------------------------------------------------
+// Windows: runtime symbol loading via libloading
+// ---------------------------------------------------------------------------
+
+#[cfg(target_os = "windows")]
+mod win_bss {
+    use super::lean_object;
+    use std::sync::OnceLock;
+
+    /// Pointers to BSS globals loaded from libleanshared.dll at runtime.
+    struct BssSymbols {
+        inst_inhabited_config: *mut lean_object,
+        #[cfg(lean_4_25)]
+        inst_inhabited_context: *mut lean_object,
+        inst_inhabited_state: *mut lean_object,
+        inst_inhabited_cache: *mut lean_object,
+        inst_inhabited_diagnostics: *mut lean_object,
+        inst_inhabited_metavar_context: *mut lean_object,
+        inst_inhabited_local_context: *mut lean_object,
+        inst_inhabited_trace_state: *mut lean_object,
+        core_inst_inhabited_cache: *mut lean_object,
+        elab_inst_inhabited_info_state: *mut lean_object,
+        #[cfg(not(lean_4_28))]
+        inst_inhabited_options: *mut lean_object,
+        #[cfg(lean_4_28)]
+        options_inst_inhabited: *mut lean_object,
+        inst_inhabited_message_log: *mut lean_object,
+        inst_inhabited_name_generator: *mut lean_object,
+        #[cfg(lean_4_25)]
+        inst_inhabited_decl_name_generator: *mut lean_object,
+        inst_inhabited_syntax: *mut lean_object,
+        inst_inhabited_file_map: *mut lean_object,
+    }
+
+    // SAFETY: The pointers are to Lean globals that are initialized once during
+    // `initialize_Lean_Meta` and never moved. Access is read-only after init.
+    unsafe impl Send for BssSymbols {}
+    unsafe impl Sync for BssSymbols {}
+
+    static SYMBOLS: OnceLock<BssSymbols> = OnceLock::new();
+
+    /// Load a single BSS global pointer from the library.
+    ///
+    /// Returns the *value* stored at the global (i.e. dereferences the symbol
+    /// pointer once), which is the `*mut lean_object` that callers expect.
+    unsafe fn load_ptr(lib: &libloading::Library, name: &[u8]) -> *mut lean_object {
+        let sym: libloading::Symbol<*mut *mut lean_object> = lib.get(name).unwrap_or_else(|e| {
+            panic!(
+                "failed to load BSS symbol {}: {e}",
+                String::from_utf8_lossy(name)
+            )
+        });
+        // Dereference: the symbol is a `*mut lean_object` in the DLL's BSS;
+        // `lib.get` gives us a pointer *to* that global, so we read through it.
+        **sym
+    }
+
+    fn load_symbols() -> BssSymbols {
+        // SAFETY: libleanshared.dll is already loaded by the linker (it is a
+        // link-time dependency). We just need a handle to look up symbols.
+        let lib = unsafe {
+            libloading::Library::new("libleanshared.dll")
+                .expect("failed to open libleanshared.dll for BSS symbol loading")
+        };
+
+        unsafe {
+            BssSymbols {
+                inst_inhabited_config: load_ptr(&lib, b"l_Lean_Meta_instInhabitedConfig\0"),
+                #[cfg(lean_4_25)]
+                inst_inhabited_context: load_ptr(&lib, b"l_Lean_Meta_instInhabitedContext\0"),
+                inst_inhabited_state: load_ptr(&lib, b"l_Lean_Meta_instInhabitedState\0"),
+                inst_inhabited_cache: load_ptr(&lib, b"l_Lean_Meta_instInhabitedCache\0"),
+                inst_inhabited_diagnostics: load_ptr(
+                    &lib,
+                    b"l_Lean_Meta_instInhabitedDiagnostics\0",
+                ),
+                inst_inhabited_metavar_context: load_ptr(
+                    &lib,
+                    b"l_Lean_instInhabitedMetavarContext\0",
+                ),
+                inst_inhabited_local_context: load_ptr(&lib, b"l_Lean_instInhabitedLocalContext\0"),
+                inst_inhabited_trace_state: load_ptr(&lib, b"l_Lean_instInhabitedTraceState\0"),
+                core_inst_inhabited_cache: load_ptr(&lib, b"l_Lean_Core_instInhabitedCache\0"),
+                elab_inst_inhabited_info_state: load_ptr(
+                    &lib,
+                    b"l_Lean_Elab_instInhabitedInfoState\0",
+                ),
+                #[cfg(not(lean_4_28))]
+                inst_inhabited_options: load_ptr(&lib, b"l_Lean_instInhabitedOptions\0"),
+                #[cfg(lean_4_28)]
+                options_inst_inhabited: load_ptr(&lib, b"l_Lean_Options_instInhabited\0"),
+                inst_inhabited_message_log: load_ptr(&lib, b"l_Lean_instInhabitedMessageLog\0"),
+                inst_inhabited_name_generator: load_ptr(
+                    &lib,
+                    b"l_Lean_instInhabitedNameGenerator\0",
+                ),
+                #[cfg(lean_4_25)]
+                inst_inhabited_decl_name_generator: load_ptr(
+                    &lib,
+                    b"l_Lean_instInhabitedDeclNameGenerator\0",
+                ),
+                inst_inhabited_syntax: load_ptr(&lib, b"l_Lean_instInhabitedSyntax\0"),
+                inst_inhabited_file_map: load_ptr(&lib, b"l_Lean_instInhabitedFileMap\0"),
+            }
+        }
+    }
+
+    fn symbols() -> &'static BssSymbols {
+        SYMBOLS.get_or_init(load_symbols)
+    }
+
+    // --- public accessors (one per symbol) ---
+
+    pub unsafe fn get_instInhabitedConfig() -> *mut lean_object {
+        symbols().inst_inhabited_config
+    }
+    #[cfg(lean_4_25)]
+    pub unsafe fn get_instInhabitedContext() -> *mut lean_object {
+        symbols().inst_inhabited_context
+    }
+    pub unsafe fn get_instInhabitedState() -> *mut lean_object {
+        symbols().inst_inhabited_state
+    }
+    pub unsafe fn get_instInhabitedCache() -> *mut lean_object {
+        symbols().inst_inhabited_cache
+    }
+    pub unsafe fn get_instInhabitedDiagnostics() -> *mut lean_object {
+        symbols().inst_inhabited_diagnostics
+    }
+    pub unsafe fn get_instInhabitedMetavarContext() -> *mut lean_object {
+        symbols().inst_inhabited_metavar_context
+    }
+    pub unsafe fn get_instInhabitedLocalContext() -> *mut lean_object {
+        symbols().inst_inhabited_local_context
+    }
+    pub unsafe fn get_instInhabitedTraceState() -> *mut lean_object {
+        symbols().inst_inhabited_trace_state
+    }
+    pub unsafe fn get_CoreInstInhabitedCache() -> *mut lean_object {
+        symbols().core_inst_inhabited_cache
+    }
+    pub unsafe fn get_ElabInstInhabitedInfoState() -> *mut lean_object {
+        symbols().elab_inst_inhabited_info_state
+    }
+    pub unsafe fn get_instInhabitedOptions() -> *mut lean_object {
+        #[cfg(not(lean_4_28))]
+        {
+            symbols().inst_inhabited_options
+        }
+        #[cfg(lean_4_28)]
+        {
+            symbols().options_inst_inhabited
+        }
+    }
+    pub unsafe fn get_instInhabitedMessageLog() -> *mut lean_object {
+        symbols().inst_inhabited_message_log
+    }
+    pub unsafe fn get_instInhabitedNameGenerator() -> *mut lean_object {
+        symbols().inst_inhabited_name_generator
+    }
+    #[cfg(lean_4_25)]
+    pub unsafe fn get_instInhabitedDeclNameGenerator() -> *mut lean_object {
+        symbols().inst_inhabited_decl_name_generator
+    }
+    pub unsafe fn get_instInhabitedSyntax() -> *mut lean_object {
+        symbols().inst_inhabited_syntax
+    }
+    pub unsafe fn get_instInhabitedFileMap() -> *mut lean_object {
+        symbols().inst_inhabited_file_map
+    }
+}
+
+// ============================================================================
+// Cross-platform accessor functions
+// ============================================================================
+//
+// On non-Windows these read the extern statics directly (zero cost).
+// On Windows they delegate to the runtime-loaded pointers above.
+
+/// Get the default `Meta.Config`.
+#[inline]
+pub unsafe fn get_instInhabitedConfig() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Meta_instInhabitedConfig
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedConfig()
+    }
+}
+
+/// Get the default `Meta.Context` (Lean >= 4.25).
+#[cfg(lean_4_25)]
+#[inline]
+pub unsafe fn get_instInhabitedContext() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Meta_instInhabitedContext
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedContext()
+    }
+}
+
+/// Get the default `Meta.State`.
+#[inline]
+pub unsafe fn get_instInhabitedState() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Meta_instInhabitedState
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedState()
+    }
+}
+
+/// Get the default `Meta.Cache`.
+#[inline]
+pub unsafe fn get_instInhabitedCache() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Meta_instInhabitedCache
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedCache()
+    }
+}
+
+/// Get the default `Meta.Diagnostics`.
+#[inline]
+pub unsafe fn get_instInhabitedDiagnostics() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Meta_instInhabitedDiagnostics
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedDiagnostics()
+    }
+}
+
+/// Get the default `MetavarContext`.
+#[inline]
+pub unsafe fn get_instInhabitedMetavarContext() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedMetavarContext
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedMetavarContext()
+    }
+}
+
+/// Get the default `LocalContext`.
+#[inline]
+pub unsafe fn get_instInhabitedLocalContext() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedLocalContext
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedLocalContext()
+    }
+}
+
+/// Get the default `TraceState`.
+#[inline]
+pub unsafe fn get_instInhabitedTraceState() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedTraceState
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedTraceState()
+    }
+}
+
+/// Get the default `Core.Cache`.
+#[inline]
+pub unsafe fn get_CoreInstInhabitedCache() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Core_instInhabitedCache
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_CoreInstInhabitedCache()
+    }
+}
+
+/// Get the default `Elab.InfoState`.
+#[inline]
+pub unsafe fn get_ElabInstInhabitedInfoState() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_Elab_instInhabitedInfoState
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_ElabInstInhabitedInfoState()
+    }
 }
 
 /// Get the default `Options` / `KVMap` (empty), dispatching to the correct
@@ -268,12 +538,85 @@ extern "C" {
 /// In Lean >= 4.28 it was renamed to `l_Lean_Options_instInhabited`.
 #[inline]
 pub unsafe fn lean_inhabited_options() -> *mut lean_object {
-    #[cfg(not(lean_4_28))]
+    #[cfg(not(target_os = "windows"))]
     {
-        l_Lean_instInhabitedOptions
+        #[cfg(not(lean_4_28))]
+        {
+            l_Lean_instInhabitedOptions
+        }
+        #[cfg(lean_4_28)]
+        {
+            l_Lean_Options_instInhabited
+        }
     }
-    #[cfg(lean_4_28)]
+    #[cfg(target_os = "windows")]
     {
-        l_Lean_Options_instInhabited
+        win_bss::get_instInhabitedOptions()
+    }
+}
+
+/// Get the default `MessageLog`.
+#[inline]
+pub unsafe fn get_instInhabitedMessageLog() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedMessageLog
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedMessageLog()
+    }
+}
+
+/// Get the default `NameGenerator`.
+#[inline]
+pub unsafe fn get_instInhabitedNameGenerator() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedNameGenerator
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedNameGenerator()
+    }
+}
+
+/// Get the default `DeclNameGenerator` (Lean >= 4.25).
+#[cfg(lean_4_25)]
+#[inline]
+pub unsafe fn get_instInhabitedDeclNameGenerator() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedDeclNameGenerator
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedDeclNameGenerator()
+    }
+}
+
+/// Get the default `Syntax` (`Syntax.missing`).
+#[inline]
+pub unsafe fn get_instInhabitedSyntax() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedSyntax
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedSyntax()
+    }
+}
+
+/// Get the default `FileMap`.
+#[inline]
+pub unsafe fn get_instInhabitedFileMap() -> *mut lean_object {
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_Lean_instInhabitedFileMap
+    }
+    #[cfg(target_os = "windows")]
+    {
+        win_bss::get_instInhabitedFileMap()
     }
 }

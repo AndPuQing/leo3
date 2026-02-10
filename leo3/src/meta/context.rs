@@ -170,7 +170,7 @@ impl CoreContext {
     fn mk_empty_filemap<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let filemap = ffi::meta::l_Lean_instInhabitedFileMap;
+            let filemap = ffi::meta::get_instInhabitedFileMap();
             if filemap.is_null() {
                 return Err(crate::LeanError::runtime(
                     "FileMap Inhabited instance is null - Lean.Meta may not be initialized",
@@ -209,7 +209,7 @@ impl CoreContext {
     fn mk_syntax_missing<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let syntax = ffi::meta::l_Lean_instInhabitedSyntax;
+            let syntax = ffi::meta::get_instInhabitedSyntax();
             if syntax.is_null() {
                 return Err(crate::LeanError::runtime(
                     "Syntax Inhabited instance is null - Lean.Meta may not be initialized",
@@ -347,7 +347,7 @@ impl CoreState {
     fn mk_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let ngen = ffi::meta::l_Lean_instInhabitedNameGenerator;
+            let ngen = ffi::meta::get_instInhabitedNameGenerator();
             if ngen.is_null() {
                 return Err(crate::LeanError::runtime(
                     "NameGenerator Inhabited instance is null - Lean.Meta may not be initialized",
@@ -367,7 +367,7 @@ impl CoreState {
     fn mk_decl_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let decl_ngen = ffi::meta::l_Lean_instInhabitedDeclNameGenerator;
+            let decl_ngen = ffi::meta::get_instInhabitedDeclNameGenerator();
             if decl_ngen.is_null() {
                 return Err(crate::LeanError::runtime(
                     "DeclNameGenerator Inhabited instance is null - Lean.Meta may not be initialized",
@@ -386,7 +386,7 @@ impl CoreState {
     fn mk_empty_trace_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let trace_state = ffi::meta::l_Lean_instInhabitedTraceState;
+            let trace_state = ffi::meta::get_instInhabitedTraceState();
             if trace_state.is_null() {
                 return Err(crate::LeanError::runtime(
                     "TraceState Inhabited instance is null - Lean.Meta may not be initialized",
@@ -405,7 +405,7 @@ impl CoreState {
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let cache = ffi::meta::l_Lean_Core_instInhabitedCache;
+            let cache = ffi::meta::get_CoreInstInhabitedCache();
             if cache.is_null() {
                 return Err(crate::LeanError::runtime(
                     "Core.Cache Inhabited instance is null - Lean.Meta may not be initialized",
@@ -424,7 +424,7 @@ impl CoreState {
     fn mk_empty_message_log<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let msg_log = ffi::meta::l_Lean_instInhabitedMessageLog;
+            let msg_log = ffi::meta::get_instInhabitedMessageLog();
             if msg_log.is_null() {
                 return Err(crate::LeanError::runtime(
                     "MessageLog Inhabited instance is null - Lean.Meta may not be initialized",
@@ -443,7 +443,7 @@ impl CoreState {
     fn mk_empty_info_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let info_state = ffi::meta::l_Lean_Elab_instInhabitedInfoState;
+            let info_state = ffi::meta::get_ElabInstInhabitedInfoState();
             if info_state.is_null() {
                 return Err(crate::LeanError::runtime(
                     "Elab.InfoState Inhabited instance is null - Lean.Meta may not be initialized",
@@ -508,7 +508,7 @@ impl MetaContext {
         {
             crate::meta::ensure_meta_initialized();
             unsafe {
-                let ctx = ffi::meta::l_Lean_Meta_instInhabitedContext;
+                let ctx = ffi::meta::get_instInhabitedContext();
                 if ctx.is_null() {
                     return Err(crate::LeanError::runtime(
                         "Meta.Context Inhabited instance is null - Lean.Meta may not be initialized",
@@ -655,7 +655,7 @@ impl MetaContext {
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let lctx = ffi::meta::l_Lean_instInhabitedLocalContext;
+            let lctx = ffi::meta::get_instInhabitedLocalContext();
             if lctx.is_null() {
                 return Err(crate::LeanError::runtime(
                     "LocalContext Inhabited instance is null - Lean.Meta may not be initialized",
@@ -705,7 +705,7 @@ impl MetaState {
     pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         crate::meta::ensure_meta_initialized();
         unsafe {
-            let state = ffi::meta::l_Lean_Meta_instInhabitedState;
+            let state = ffi::meta::get_instInhabitedState();
             if state.is_null() {
                 return Err(crate::LeanError::runtime(
                     "Meta.State Inhabited instance is null - Lean.Meta may not be initialized",

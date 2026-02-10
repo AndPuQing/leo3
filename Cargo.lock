@@ -287,6 +287,7 @@ version = "0.1.6"
 dependencies = [
  "leo3-build-config",
  "libc",
+ "libloading",
 ]
 
 [[package]]
