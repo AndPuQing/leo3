@@ -1078,6 +1078,138 @@ impl LeanExpr {
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
+
+    // ============ Equality Proof Constructors ============
+
+    /// Construct the proposition `@Eq α lhs rhs` (i.e., `lhs = rhs` at type `α`)
+    ///
+    /// Builds the expression `@Eq α lhs rhs` which represents the proposition
+    /// that `lhs` and `rhs` are equal at type `α`.
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `levels` - Universe level list for `Eq` (typically `[u]` for `Eq.{u}`)
+    /// * `type_` - The type `α` of the values being compared
+    /// * `lhs` - Left-hand side of the equality
+    /// * `rhs` - Right-hand side of the equality
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Construct `@Eq Nat a b`
+    /// let u = LeanLevel::one(lean)?;
+    /// let levels = LeanList::cons(u.into_any(), LeanList::nil(lean)?)?;
+    /// let eq_prop = LeanExpr::mk_eq(lean, levels, nat_type, a, b)?;
+    /// ```
+    pub fn mk_eq<'l>(
+        lean: Lean<'l>,
+        levels: LeanBound<'l, LeanList>,
+        type_: &LeanBound<'l, Self>,
+        lhs: &LeanBound<'l, Self>,
+        rhs: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let eq_name = LeanName::from_components(lean, "Eq")?;
+        let eq_const = Self::const_(lean, eq_name, levels)?;
+        Self::mk_app(&eq_const, &[type_, lhs, rhs])
+    }
+
+    /// Construct a reflexivity proof `@Eq.refl α a : a = a`
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `levels` - Universe level list for `Eq.refl` (typically `[u]` for `Eq.refl.{u}`)
+    /// * `type_` - The type `α`
+    /// * `value` - The value `a` for which `a = a` is proved
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Construct `@Eq.refl Nat n`  (proves `n = n`)
+    /// let u = LeanLevel::one(lean)?;
+    /// let levels = LeanList::cons(u.into_any(), LeanList::nil(lean)?)?;
+    /// let refl_proof = LeanExpr::mk_eq_refl(lean, levels, nat_type, n)?;
+    /// ```
+    pub fn mk_eq_refl<'l>(
+        lean: Lean<'l>,
+        levels: LeanBound<'l, LeanList>,
+        type_: &LeanBound<'l, Self>,
+        value: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let refl_name = LeanName::from_components(lean, "Eq.refl")?;
+        let refl_const = Self::const_(lean, refl_name, levels)?;
+        Self::mk_app(&refl_const, &[type_, value])
+    }
+
+    /// Construct a symmetry proof `@Eq.symm α a b h : b = a`
+    ///
+    /// Given a proof `h : a = b`, constructs a proof of `b = a`.
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `levels` - Universe level list for `Eq.symm`
+    /// * `type_` - The type `α`
+    /// * `a` - Left-hand side of the original equality
+    /// * `b` - Right-hand side of the original equality
+    /// * `proof` - A proof of `a = b`
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Given h : a = b, construct @Eq.symm α a b h : b = a
+    /// let symm_proof = LeanExpr::mk_eq_symm(lean, levels, type_, a, b, h)?;
+    /// ```
+    pub fn mk_eq_symm<'l>(
+        lean: Lean<'l>,
+        levels: LeanBound<'l, LeanList>,
+        type_: &LeanBound<'l, Self>,
+        a: &LeanBound<'l, Self>,
+        b: &LeanBound<'l, Self>,
+        proof: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let symm_name = LeanName::from_components(lean, "Eq.symm")?;
+        let symm_const = Self::const_(lean, symm_name, levels)?;
+        Self::mk_app(&symm_const, &[type_, a, b, proof])
+    }
+
+    /// Construct a transitivity proof `@Eq.trans α a b c h1 h2 : a = c`
+    ///
+    /// Given proofs `h1 : a = b` and `h2 : b = c`, constructs a proof of `a = c`.
+    ///
+    /// # Arguments
+    ///
+    /// * `lean` - Lean lifetime token
+    /// * `levels` - Universe level list for `Eq.trans`
+    /// * `type_` - The type `α`
+    /// * `a` - Left-hand side of the first equality
+    /// * `b` - Middle value (right of first, left of second)
+    /// * `c` - Right-hand side of the second equality
+    /// * `proof1` - A proof of `a = b`
+    /// * `proof2` - A proof of `b = c`
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Given h1 : a = b and h2 : b = c, construct @Eq.trans α a b c h1 h2 : a = c
+    /// let trans_proof = LeanExpr::mk_eq_trans(lean, levels, type_, a, b, c, h1, h2)?;
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn mk_eq_trans<'l>(
+        lean: Lean<'l>,
+        levels: LeanBound<'l, LeanList>,
+        type_: &LeanBound<'l, Self>,
+        a: &LeanBound<'l, Self>,
+        b: &LeanBound<'l, Self>,
+        c: &LeanBound<'l, Self>,
+        proof1: &LeanBound<'l, Self>,
+        proof2: &LeanBound<'l, Self>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let trans_name = LeanName::from_components(lean, "Eq.trans")?;
+        let trans_const = Self::const_(lean, trans_name, levels)?;
+        Self::mk_app(&trans_const, &[type_, a, b, c, proof1, proof2])
+    }
 }
 
 /// Expression kind (12 variants)
