@@ -280,11 +280,11 @@ fn test_expression_literal() {
 
 #[test]
 fn test_expression_dbg_string() {
-    // TODO: dbg_to_string requires Lean's print system to be initialized
     let result: LeanResult<()> = leo3::test_with_lean(|lean| {
         // Create a bound variable
-        let _bvar = LeanExpr::bvar(lean, 0)?;
-        // Skip dbg_to_string for now as it requires IO initialization
+        let bvar = LeanExpr::bvar(lean, 0)?;
+        let dbg = LeanExpr::dbg_to_string(&bvar)?;
+        assert_eq!(dbg, "#0");
 
         Ok(())
     });

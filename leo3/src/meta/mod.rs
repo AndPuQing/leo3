@@ -180,6 +180,9 @@ pub(crate) fn ensure_environment_initialized() {
         // matching lean_initialize().
         ffi::initialize_util_module();
         ffi::initialize_kernel_module();
+        // Install default debug printer callback used by
+        // lean_expr_dbg_to_string.
+        ffi::init_default_print_fn();
         ffi::initialize_library_core_module();
         ffi::initialize_library_module();
         // Mark initialization as complete so IO operations like

@@ -197,6 +197,12 @@ extern "C" {
     #[link_name = "_ZN4lean24initialize_kernel_moduleEv"]
     pub fn initialize_kernel_module();
 
+    /// Install Lean's default expression print function.
+    ///
+    /// This is required for `lean_expr_dbg_to_string` to work.
+    #[link_name = "_ZN4lean21init_default_print_fnEv"]
+    pub fn init_default_print_fn();
+
     /// Initialize the C++ utility module (name, expr, etc.)
     ///
     /// Must be called before `initialize_kernel_module()`.
