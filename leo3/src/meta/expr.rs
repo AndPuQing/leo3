@@ -276,6 +276,25 @@ impl LeanExpr {
     /// ```ignore
     /// let nat_to_nat = LeanExpr::arrow(nat_type.clone(), nat_type)?;  // Nat → Nat
     /// ```
+    ///
+    /// # Warning: De Bruijn Index Shifting
+    ///
+    /// `arrow(A, B)` creates `∀ (_ : A), B`, which introduces an anonymous binder.
+    /// This shifts all de Bruijn indices in `B` — if `B` contains `bvar(0)`, it will
+    /// refer to the anonymous `_` binder, **not** to any outer binder.
+    ///
+    /// When building types with bound variables, use [`LeanExpr::forall()`] explicitly
+    /// so you can account for the index shift:
+    ///
+    /// ```ignore
+    /// // WRONG: inside a forall over α, trying to build α → α
+    /// // bvar(0) in the body refers to the anonymous _ binder, not α
+    /// let bad = LeanExpr::arrow(bvar(0), bvar(0))?;
+    ///
+    /// // CORRECT: use explicit forall with adjusted indices
+    /// // bvar(0) in domain = α, bvar(1) in body = α (shifted past the new binder)
+    /// let good = LeanExpr::forall(name, bvar(0), bvar(1), BinderInfo::Default)?;
+    /// ```
     pub fn arrow<'l>(
         domain: LeanBound<'l, Self>,
         codomain: LeanBound<'l, Self>,
