@@ -392,6 +392,63 @@ impl<'l> MetaMContext<'l> {
     pub fn is_type_correct(&mut self, expr: &LeanBound<'l, LeanExpr>) -> bool {
         self.check(expr).is_ok()
     }
+
+    /// Get the type of a proof term (i.e., the proposition it proves).
+    ///
+    /// This is semantically equivalent to [`infer_type`](Self::infer_type), but
+    /// named to clarify intent in proof-oriented contexts: the type of a proof
+    /// term is the proposition it proves.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if the expression is ill-typed or
+    /// references unknown constants.
+    pub fn get_proof_type(
+        &mut self,
+        proof: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        self.infer_type(proof)
+    }
+
+    /// Check if a proof term proves a given proposition.
+    ///
+    /// Infers the type of `proof` and checks whether it is definitionally equal
+    /// to `prop`. Returns `true` if the proof proves the proposition.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if type inference or definitional
+    /// equality checking fails.
+    pub fn is_proof_of(
+        &mut self,
+        proof: &LeanBound<'l, LeanExpr>,
+        prop: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<bool> {
+        let inferred = self.infer_type(proof)?;
+        self.is_def_eq(&inferred, prop)
+    }
+
+    /// Check if an expression is a proposition (its type is `Prop`, i.e., `Sort 0`).
+    ///
+    /// Infers the type of `expr`, reduces it to weak head normal form, and checks
+    /// whether the result is `Sort 0`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LeanError::Exception`] if type inference or WHNF reduction fails.
+    pub fn is_prop(&mut self, expr: &LeanBound<'l, LeanExpr>) -> LeanResult<bool> {
+        let ty = self.infer_type(expr)?;
+        let ty_whnf = self.whnf(&ty)?;
+        if !LeanExpr::is_sort(&ty_whnf) {
+            return Ok(false);
+        }
+        let level = LeanExpr::sort_level(&ty_whnf)?;
+        // Sort 0 is Prop. Level.zero is a scalar: lean_box(0) == 0x1
+        unsafe {
+            let ptr = level.as_ptr();
+            Ok(ffi::inline::lean_is_scalar(ptr) && ffi::lean_unbox(ptr) == 0)
+        }
+    }
 }
 
 /// Handle an EIO result from a MetaM computation.
