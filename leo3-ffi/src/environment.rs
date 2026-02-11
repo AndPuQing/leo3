@@ -241,6 +241,7 @@ extern "C" {
         value: lean_obj_arg,
         hints: lean_obj_arg,
         safety: u8,
+        all: lean_obj_arg,
     ) -> lean_obj_res;
 
     fn lean_mk_theorem_val(
@@ -248,6 +249,7 @@ extern "C" {
         level_params: lean_obj_arg,
         type_: lean_obj_arg,
         value: lean_obj_arg,
+        all: lean_obj_arg,
     ) -> lean_obj_res;
 }
 
@@ -269,8 +271,9 @@ pub unsafe fn lean_mk_definition(
     value: lean_obj_arg,
     hints: lean_obj_arg,
     safety: u8,
+    all: lean_obj_arg,
 ) -> lean_obj_res {
-    lean_mk_definition_val(name, level_params, type_, value, hints, safety)
+    lean_mk_definition_val(name, level_params, type_, value, hints, safety, all)
 }
 
 /// Create a theorem declaration.
@@ -279,8 +282,9 @@ pub unsafe fn lean_mk_theorem(
     level_params: lean_obj_arg,
     type_: lean_obj_arg,
     value: lean_obj_arg,
+    all: lean_obj_arg,
 ) -> lean_obj_res {
-    lean_mk_theorem_val(name, level_params, type_, value)
+    lean_mk_theorem_val(name, level_params, type_, value, all)
 }
 
 // ============================================================================
@@ -347,9 +351,9 @@ pub const LEAN_CONSTANT_KIND_RECURSOR: u8 = 7;
 // Safety Levels for Definitions
 // ============================================================================
 
-/// Definition safety: Safe (fully type-checked)
-pub const LEAN_DEF_SAFETY_SAFE: u8 = 0;
-/// Definition safety: Partial (may not terminate)
-pub const LEAN_DEF_SAFETY_PARTIAL: u8 = 1;
 /// Definition safety: Unsafe (axiom-like)
-pub const LEAN_DEF_SAFETY_UNSAFE: u8 = 2;
+pub const LEAN_DEF_SAFETY_UNSAFE: u8 = 0;
+/// Definition safety: Safe (fully type-checked)
+pub const LEAN_DEF_SAFETY_SAFE: u8 = 1;
+/// Definition safety: Partial (may not terminate)
+pub const LEAN_DEF_SAFETY_PARTIAL: u8 = 2;

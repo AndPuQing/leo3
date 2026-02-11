@@ -280,9 +280,7 @@ fn test_definition_lifecycle() {
             DefinitionSafety::Safe,
         )?;
 
-        // Use add_decl_unchecked because kernel type checking for definitions
-        // with ReducibilityHints.opaque can crash in the current worker thread setup.
-        let new_env = LeanEnvironment::add_decl_unchecked(&env, &decl)?;
+        let new_env = LeanEnvironment::add_decl(&env, &decl)?;
         let lookup_name = LeanName::from_str(lean, "myId")?;
         let found = LeanEnvironment::find(&new_env, &lookup_name)?;
         assert!(found.is_some(), "myId should be in the environment");

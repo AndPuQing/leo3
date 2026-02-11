@@ -101,12 +101,14 @@ impl LeanDeclaration {
         type_: LeanBound<'l, super::expr::LeanExpr>,
         value: LeanBound<'l, super::expr::LeanExpr>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        let all = LeanList::cons(name.clone().cast(), LeanList::nil(lean)?)?;
         unsafe {
             let thm_val = ffi::environment::lean_mk_theorem(
                 name.into_ptr(),
                 level_params.into_ptr(),
                 type_.into_ptr(),
                 value.into_ptr(),
+                all.into_ptr(),
             );
             // Wrap TheoremVal in Declaration.thmDecl (tag 2, 1 obj field)
             let decl = ffi::lean_alloc_ctor(2, 1, 0);
@@ -137,6 +139,7 @@ impl LeanDeclaration {
         hints: LeanBound<'l, LeanAny>,
         safety: DefinitionSafety,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        let all = LeanList::cons(name.clone().cast(), LeanList::nil(lean)?)?;
         unsafe {
             let def_val = ffi::environment::lean_mk_definition(
                 name.into_ptr(),
@@ -145,6 +148,7 @@ impl LeanDeclaration {
                 value.into_ptr(),
                 hints.into_ptr(),
                 safety.to_u8(),
+                all.into_ptr(),
             );
             // Wrap DefinitionVal in Declaration.defnDecl (tag 1, 1 obj field)
             let decl = ffi::lean_alloc_ctor(1, 1, 0);
