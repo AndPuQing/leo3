@@ -395,3 +395,325 @@ pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
         lean_box(0)
     }
 }
+
+// ============================================================================
+// MetaM Tactic-Supporting Operations
+// ============================================================================
+
+extern "C" {
+    /// Check if two levels are definitionally equal
+    ///
+    /// `@[extern "lean_is_level_def_eq"] opaque isLevelDefEqAux : Level → Level → MetaM Bool`
+    ///
+    /// Takes 7 arguments: level_a, level_b, meta_ctx, meta_state, core_ctx, core_state, world
+    /// Returns MetaM Bool — the Bool is a Lean Bool (lean_box(0) = false, lean_box(1) = true)
+    ///
+    /// # Safety
+    /// - All arguments must be valid Lean objects (consumed)
+    pub fn lean_is_level_def_eq(
+        a: lean_obj_arg,
+        b: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Synthesize a pending metavariable (e.g., typeclass instance)
+    ///
+    /// `@[extern "lean_synth_pending"] protected opaque synthPending : MVarId → MetaM Bool`
+    ///
+    /// Takes 6 arguments: mvarId, meta_ctx, meta_state, core_ctx, core_state, world
+    ///
+    /// # Safety
+    /// - All arguments must be valid Lean objects (consumed)
+    pub fn lean_synth_pending(
+        mvar_id: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Assign a metavariable with type-checking validation
+    ///
+    /// `@[extern "lean_checked_assign"] opaque Lean.MVarId.checkedAssign (mvarId : MVarId) (val : Expr) : MetaM Bool`
+    ///
+    /// Takes 7 arguments: mvarId, val, meta_ctx, meta_state, core_ctx, core_state, world
+    /// Returns MetaM Bool — true if assignment succeeded
+    ///
+    /// # Safety
+    /// - All arguments must be valid Lean objects (consumed)
+    pub fn lean_checked_assign(
+        mvar_id: lean_obj_arg,
+        val: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+}
+
+// ============================================================================
+// MetavarContext Operations (pure, non-monadic)
+// ============================================================================
+
+extern "C" {
+    /// Create an empty MetavarContext
+    ///
+    /// `@[export lean_mk_metavar_ctx] def mkMetavarContext : Unit → MetavarContext`
+    ///
+    /// # Safety
+    /// - `unit` must be `lean_box(0)`
+    pub fn lean_mk_metavar_ctx(unit: lean_obj_arg) -> lean_obj_res;
+
+    /// Get the assignment for an expression metavariable
+    ///
+    /// `@[export lean_get_mvar_assignment] def MetavarContext.getExprAssignmentExp (m : MetavarContext) (mvarId : MVarId) : Option Expr`
+    ///
+    /// Returns `Option Expr` — `none` (lean_box(0)) or `some expr` (ctor tag 1, field 0 = expr)
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (borrowed)
+    /// - `mvar_id` must be a valid MVarId (borrowed)
+    pub fn lean_get_mvar_assignment(mctx: b_lean_obj_arg, mvar_id: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the assignment for a level metavariable
+    ///
+    /// `@[export lean_get_lmvar_assignment] def getLevelMVarAssignmentExp (m : MetavarContext) (mvarId : LMVarId) : Option Level`
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (borrowed)
+    /// - `mvar_id` must be a valid LMVarId (borrowed)
+    pub fn lean_get_lmvar_assignment(mctx: b_lean_obj_arg, mvar_id: b_lean_obj_arg)
+        -> lean_obj_res;
+
+    /// Get the delayed assignment for a metavariable
+    ///
+    /// `@[export lean_get_delayed_mvar_assignment] def MetavarContext.getDelayedMVarAssignmentExp (mctx : MetavarContext) (mvarId : MVarId) : Option DelayedMetavarAssignment`
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (borrowed)
+    /// - `mvar_id` must be a valid MVarId (borrowed)
+    pub fn lean_get_delayed_mvar_assignment(
+        mctx: b_lean_obj_arg,
+        mvar_id: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Assign an expression metavariable (low-level, no checking)
+    ///
+    /// `@[export lean_assign_mvar] def assignExp (m : MetavarContext) (mvarId : MVarId) (val : Expr) : MetavarContext`
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (consumed)
+    /// - `mvar_id` must be a valid MVarId (consumed)
+    /// - `val` must be a valid Expr (consumed)
+    pub fn lean_assign_mvar(
+        mctx: lean_obj_arg,
+        mvar_id: lean_obj_arg,
+        val: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Assign a level metavariable (low-level, no checking)
+    ///
+    /// `@[export lean_assign_lmvar] def assignLevelMVarExp (m : MetavarContext) (mvarId : LMVarId) (val : Level) : MetavarContext`
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (consumed)
+    /// - `mvar_id` must be a valid LMVarId (consumed)
+    /// - `val` must be a valid Level (consumed)
+    pub fn lean_assign_lmvar(
+        mctx: lean_obj_arg,
+        mvar_id: lean_obj_arg,
+        val: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Instantiate expression metavariables in an expression
+    ///
+    /// `@[extern "lean_instantiate_expr_mvars"] opaque instantiateExprMVarsImp (mctx : MetavarContext) (e : Expr) : MetavarContext × Expr`
+    ///
+    /// Returns a pair (MetavarContext, Expr) — the updated mctx and the instantiated expression.
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (consumed)
+    /// - `expr` must be a valid Expr (consumed)
+    pub fn lean_instantiate_expr_mvars(mctx: lean_obj_arg, expr: lean_obj_arg) -> lean_obj_res;
+
+    /// Instantiate level metavariables in a level
+    ///
+    /// `@[extern "lean_instantiate_level_mvars"] opaque instantiateLevelMVarsImp (mctx : MetavarContext) (l : Level) : MetavarContext × Level`
+    ///
+    /// Returns a pair (MetavarContext, Level) — the updated mctx and the instantiated level.
+    ///
+    /// # Safety
+    /// - `mctx` must be a valid MetavarContext (consumed)
+    /// - `level` must be a valid Level (consumed)
+    pub fn lean_instantiate_level_mvars(mctx: lean_obj_arg, level: lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
+// LocalContext Operations (pure, non-monadic)
+// ============================================================================
+
+extern "C" {
+    /// Create an empty LocalContext
+    ///
+    /// `@[export lean_mk_empty_local_ctx] def mkEmpty : Unit → LocalContext`
+    ///
+    /// # Safety
+    /// - `unit` must be `lean_box(0)`
+    pub fn lean_mk_empty_local_ctx(unit: lean_obj_arg) -> lean_obj_res;
+
+    /// Check if a LocalContext is empty
+    ///
+    /// `@[export lean_local_ctx_is_empty] def isEmpty (lctx : LocalContext) : Bool`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (borrowed)
+    pub fn lean_local_ctx_is_empty(lctx: b_lean_obj_arg) -> u8;
+
+    /// Add a local declaration to a LocalContext
+    ///
+    /// `@[export lean_local_ctx_mk_local_decl] private def mkLocalDeclExported (lctx : LocalContext) (fvarId : FVarId) (userName : Name) (type : Expr) (bi : BinderInfo) : LocalContext`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (consumed)
+    /// - `fvar_id` must be a valid FVarId/Name (consumed)
+    /// - `user_name` must be a valid Name (consumed)
+    /// - `type` must be a valid Expr (consumed)
+    /// - `bi` must be a valid BinderInfo (consumed, scalar)
+    pub fn lean_local_ctx_mk_local_decl(
+        lctx: lean_obj_arg,
+        fvar_id: lean_obj_arg,
+        user_name: lean_obj_arg,
+        r#type: lean_obj_arg,
+        bi: u8,
+    ) -> lean_obj_res;
+
+    /// Add a let declaration to a LocalContext
+    ///
+    /// `@[export lean_local_ctx_mk_let_decl] private def mkLetDeclExported (lctx : LocalContext) (fvarId : FVarId) (userName : Name) (type : Expr) (value : Expr) (nondep : Bool) : LocalContext`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (consumed)
+    /// - `fvar_id` must be a valid FVarId/Name (consumed)
+    /// - `user_name` must be a valid Name (consumed)
+    /// - `type` must be a valid Expr (consumed)
+    /// - `value` must be a valid Expr (consumed)
+    /// - `nondep` must be a Lean Bool (lean_box(0) = false, lean_box(1) = true)
+    pub fn lean_local_ctx_mk_let_decl(
+        lctx: lean_obj_arg,
+        fvar_id: lean_obj_arg,
+        user_name: lean_obj_arg,
+        r#type: lean_obj_arg,
+        value: lean_obj_arg,
+        nondep: u8,
+    ) -> lean_obj_res;
+
+    /// Find a local declaration by FVarId
+    ///
+    /// `@[export lean_local_ctx_find] def find? (lctx : LocalContext) (fvarId : FVarId) : Option LocalDecl`
+    ///
+    /// Returns `Option LocalDecl` — `none` (lean_box(0)) or `some decl`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (borrowed)
+    /// - `fvar_id` must be a valid FVarId/Name (borrowed)
+    pub fn lean_local_ctx_find(lctx: b_lean_obj_arg, fvar_id: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Erase a local declaration from a LocalContext
+    ///
+    /// `@[export lean_local_ctx_erase] def erase (lctx : LocalContext) (fvarId : FVarId) : LocalContext`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (consumed)
+    /// - `fvar_id` must be a valid FVarId/Name (consumed)
+    pub fn lean_local_ctx_erase(lctx: lean_obj_arg, fvar_id: lean_obj_arg) -> lean_obj_res;
+
+    /// Get the number of indices in a LocalContext
+    ///
+    /// `@[export lean_local_ctx_num_indices] def numIndices (lctx : LocalContext) : Nat`
+    ///
+    /// # Safety
+    /// - `lctx` must be a valid LocalContext (borrowed)
+    pub fn lean_local_ctx_num_indices(lctx: b_lean_obj_arg) -> lean_obj_res;
+}
+
+// ============================================================================
+// LocalDecl Operations
+// ============================================================================
+
+extern "C" {
+    /// Create a local (non-let) declaration
+    ///
+    /// `@[export lean_mk_local_decl] def mkLocalDeclEx (index : Nat) (fvarId : FVarId) (userName : Name) (type : Expr) (bi : BinderInfo) : LocalDecl`
+    ///
+    /// # Safety
+    /// - `index` must be a valid Nat (consumed)
+    /// - `fvar_id` must be a valid FVarId/Name (consumed)
+    /// - `user_name` must be a valid Name (consumed)
+    /// - `type` must be a valid Expr (consumed)
+    /// - `bi` must be a valid BinderInfo (scalar)
+    pub fn lean_mk_local_decl(
+        index: lean_obj_arg,
+        fvar_id: lean_obj_arg,
+        user_name: lean_obj_arg,
+        r#type: lean_obj_arg,
+        bi: u8,
+    ) -> lean_obj_res;
+
+    /// Create a let declaration
+    ///
+    /// `@[export lean_mk_let_decl] def mkLetDeclEx (index : Nat) (fvarId : FVarId) (userName : Name) (type : Expr) (val : Expr) : LocalDecl`
+    ///
+    /// # Safety
+    /// - `index` must be a valid Nat (consumed)
+    /// - `fvar_id` must be a valid FVarId/Name (consumed)
+    /// - `user_name` must be a valid Name (consumed)
+    /// - `type` must be a valid Expr (consumed)
+    /// - `val` must be a valid Expr (consumed)
+    pub fn lean_mk_let_decl(
+        index: lean_obj_arg,
+        fvar_id: lean_obj_arg,
+        user_name: lean_obj_arg,
+        r#type: lean_obj_arg,
+        val: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Get the BinderInfo of a LocalDecl
+    ///
+    /// `@[export lean_local_decl_binder_info] def LocalDecl.binderInfoEx : LocalDecl → BinderInfo`
+    ///
+    /// Returns a BinderInfo enum value as a scalar.
+    ///
+    /// # Safety
+    /// - `decl` must be a valid LocalDecl (borrowed)
+    pub fn lean_local_decl_binder_info(decl: b_lean_obj_arg) -> u8;
+}
+
+// ============================================================================
+// Environment Query Helpers (pure, non-monadic)
+// ============================================================================
+
+extern "C" {
+    /// Check if a declaration is a global typeclass instance
+    ///
+    /// `@[export lean_is_instance] def isGlobalInstance (env : Environment) (declName : Name) : Bool`
+    ///
+    /// # Safety
+    /// - `env` must be a valid Environment (borrowed)
+    /// - `decl_name` must be a valid Name (borrowed)
+    pub fn lean_is_instance(env: b_lean_obj_arg, decl_name: b_lean_obj_arg) -> u8;
+
+    /// Check if a declaration is a match expression
+    ///
+    /// `@[export lean_is_matcher] def isMatcherCore (env : Environment) (declName : Name) : Bool`
+    ///
+    /// # Safety
+    /// - `env` must be a valid Environment (borrowed)
+    /// - `decl_name` must be a valid Name (borrowed)
+    pub fn lean_is_matcher(env: b_lean_obj_arg, decl_name: b_lean_obj_arg) -> u8;
+}
