@@ -210,6 +210,7 @@ pub mod level;
 pub mod literal;
 pub mod metam;
 pub mod name;
+pub mod tactic;
 
 // Re-export main types
 pub use context::{CoreContext, CoreState, MetaContext, MetaState};
@@ -220,3 +221,4 @@ pub use level::LeanLevel;
 pub use literal::LeanLiteral;
 pub use metam::MetaMContext;
 pub use name::{LeanName, NameKind};
+pub use tactic::{apply, assumption, exact, goal_type, intro, rfl, TacticResult, TacticState};
