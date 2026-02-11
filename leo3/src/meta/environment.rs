@@ -341,7 +341,10 @@ impl LeanEnvironment {
     ) -> LeanResult<LeanBound<'l, Self>> {
         let lean = env.lean_token();
         let env_ptr = env.clone().into_ptr();
+        // Match add_decl: increment refcount because the C++ error path may
+        // store a reference to the declaration in the KernelException.
         let decl_ptr = decl.as_ptr();
+        unsafe { ffi::lean_inc(decl_ptr) };
 
         let result_ptr = with_env_worker(move || unsafe {
             let result = ffi::environment::lean_elab_add_decl_without_checking(env_ptr, decl_ptr);
