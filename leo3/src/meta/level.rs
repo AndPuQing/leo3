@@ -31,9 +31,7 @@ impl LeanLevel {
         unsafe {
             let ptr = ffi::expr::lean_level_mk_zero();
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_zero returned null - Lean.Expr may not be initialized correctly",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_zero"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -53,15 +51,11 @@ impl LeanLevel {
         unsafe {
             let zero = ffi::expr::lean_level_mk_zero();
             if zero.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_zero returned null - Lean.Expr may not be initialized correctly",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_zero"));
             }
             let ptr = ffi::expr::lean_level_mk_succ(zero);
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_succ returned null - Lean.Expr may not be initialized correctly",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_succ"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -81,9 +75,7 @@ impl LeanLevel {
             let lean = level.lean_token();
             let ptr = ffi::expr::lean_level_mk_succ(level.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_succ returned null",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_succ"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -105,7 +97,7 @@ impl LeanLevel {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_max(a.into_ptr(), b.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime("lean_level_mk_max returned null"));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_max"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -124,9 +116,7 @@ impl LeanLevel {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_imax(a.into_ptr(), b.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_imax returned null",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_imax"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -148,9 +138,7 @@ impl LeanLevel {
         unsafe {
             let ptr = ffi::expr::lean_level_mk_param(name.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_level_mk_param returned null",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_level_mk_param"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }

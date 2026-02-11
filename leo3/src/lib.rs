@@ -89,7 +89,7 @@ pub mod types;
 pub mod unbound;
 
 // Re-export key types
-pub use err::{LeanError, LeanResult};
+pub use err::{KernelExceptionCode, LeanError, LeanResult};
 pub use instance::{LeanBorrowed, LeanBound, LeanRef};
 pub use marker::Lean;
 pub use unbound::LeanUnbound;

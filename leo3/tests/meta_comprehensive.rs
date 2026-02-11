@@ -647,7 +647,7 @@ fn test_name_anonymous() {
         let anon = LeanName::anonymous(lean)?;
 
         // Check the kind
-        let kind = LeanName::kind(&anon);
+        let kind = LeanName::kind(&anon)?;
         assert_eq!(kind, NameKind::Anonymous);
 
         Ok(())
@@ -668,7 +668,7 @@ fn test_name_append_num() {
         let x_1 = LeanName::append_num(x_name, lean, 1)?;
 
         // Check the kind is Num
-        let kind = LeanName::kind(&x_1);
+        let kind = LeanName::kind(&x_1)?;
         assert_eq!(kind, NameKind::Num);
 
         // Create x.123
@@ -733,7 +733,7 @@ fn test_name_hierarchical() {
         let full_name = LeanName::append_str(std_data_list, lean, "head")?;
 
         // Check the kind is Str (last component)
-        let kind = LeanName::kind(&full_name);
+        let kind = LeanName::kind(&full_name)?;
         assert_eq!(kind, NameKind::Str);
 
         // Create using from_components
@@ -761,7 +761,7 @@ fn test_name_mixed_components() {
         let x_1_aux = LeanName::append_str(x_1, lean, "aux")?;
 
         // Final kind should be Str
-        let kind = LeanName::kind(&x_1_aux);
+        let kind = LeanName::kind(&x_1_aux)?;
         assert_eq!(kind, NameKind::Str);
 
         Ok(())

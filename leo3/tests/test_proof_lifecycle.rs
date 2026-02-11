@@ -109,7 +109,7 @@ fn test_proof_type_inference_roundtrip() {
 
         // The inferred type should be a forall (∀ P : Prop, P → P)
         assert_eq!(
-            LeanExpr::kind(&inferred_type),
+            LeanExpr::kind(&inferred_type)?,
             ExprKind::Forall,
             "inferred type should be a forall"
         );
@@ -221,12 +221,12 @@ fn test_theorem_lifecycle() {
         assert!(LeanConstantInfo::has_value(&cinfo));
 
         let found_type = LeanConstantInfo::type_(&cinfo)?;
-        assert_eq!(LeanExpr::kind(&found_type), ExprKind::Forall);
+        assert_eq!(LeanExpr::kind(&found_type)?, ExprKind::Forall);
 
         let found_value = LeanConstantInfo::value(&cinfo)?;
         assert!(found_value.is_some());
         let value = found_value.unwrap();
-        assert_eq!(LeanExpr::kind(&value), ExprKind::Lambda);
+        assert_eq!(LeanExpr::kind(&value)?, ExprKind::Lambda);
 
         Ok(())
     });

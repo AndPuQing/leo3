@@ -175,9 +175,7 @@ impl LeanEnvironment {
 
             if ffi::io::lean_io_result_is_error(io_result) {
                 ffi::lean_dec(io_result);
-                return Err(LeanError::runtime(
-                    "Failed to create empty environment: IO error",
-                ));
+                return Err(LeanError::null_pointer("lean_mk_empty_environment"));
             }
 
             Ok(ffi::io::lean_io_result_take_value(io_result))
@@ -349,7 +347,9 @@ impl LeanEnvironment {
         // Extract the declaration's name and check if it already exists.
         let decl_name = LeanDeclaration::name(decl);
         if Self::find(env, &decl_name)?.is_some() {
-            return Err(LeanError::ffi("kernel type check failed: already declared"));
+            return Err(LeanError::kernel_exception(
+                crate::err::KernelExceptionCode::AlreadyDeclared,
+            ));
         }
 
         let lean = env.lean_token();
@@ -394,31 +394,8 @@ impl LeanEnvironment {
             };
             ffi::lean_dec(result);
 
-            let message = match exc_tag {
-                0 => "unknown constant",
-                1 => "already declared",
-                2 => "declaration type mismatch",
-                3 => "declaration has metavariables",
-                4 => "declaration has free variables",
-                5 => "function expected",
-                6 => "type expected",
-                7 => "let type mismatch",
-                8 => "expression type mismatch",
-                9 => "application type mismatch",
-                10 => "invalid projection",
-                11 => "theorem type is not Prop",
-                12 => "other kernel error",
-                13 => "deterministic timeout",
-                14 => "excessive memory",
-                15 => "deep recursion",
-                16 => "interrupted",
-                _ => "unknown kernel exception",
-            };
-
-            Err(LeanError::ffi(&format!(
-                "kernel type check failed: {}",
-                message
-            )))
+            let code = crate::err::KernelExceptionCode::from_tag(exc_tag);
+            Err(LeanError::kernel_exception(code))
         }
     }
 }

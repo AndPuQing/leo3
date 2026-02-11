@@ -135,7 +135,7 @@ fn test_array_set_out_of_bounds() {
 
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(e.to_string().contains("Index out of bounds"));
+            assert!(e.to_string().contains("out of bounds"));
         }
 
         Ok::<(), LeanError>(())
@@ -185,7 +185,7 @@ fn test_array_pop_empty() {
 
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(e.to_string().contains("Cannot pop from empty array"));
+            assert!(e.to_string().contains("out of bounds"));
         }
 
         Ok::<(), LeanError>(())
@@ -236,7 +236,7 @@ fn test_array_swap_out_of_bounds() {
 
         assert!(result.is_err());
         if let Err(e) = result {
-            assert!(e.to_string().contains("Index out of bounds"));
+            assert!(e.to_string().contains("out of bounds"));
         }
 
         Ok::<(), LeanError>(())

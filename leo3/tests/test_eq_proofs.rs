@@ -15,10 +15,10 @@ fn mk_level_list<'l>(
 /// Helper: get the head constant name of a nested application.
 fn head_const_name<'l>(expr: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'l, LeanName>> {
     let mut cur = expr.clone();
-    while LeanExpr::kind(&cur) == ExprKind::App {
+    while LeanExpr::kind(&cur)? == ExprKind::App {
         cur = LeanExpr::app_fn(&cur)?;
     }
-    assert_eq!(LeanExpr::kind(&cur), ExprKind::Const);
+    assert_eq!(LeanExpr::kind(&cur)?, ExprKind::Const);
     LeanExpr::const_name(&cur)
 }
 
@@ -26,7 +26,7 @@ fn head_const_name<'l>(expr: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'
 fn count_app_args<'l>(expr: &LeanBound<'l, LeanExpr>) -> LeanResult<usize> {
     let mut cur = expr.clone();
     let mut count = 0;
-    while LeanExpr::kind(&cur) == ExprKind::App {
+    while LeanExpr::kind(&cur)? == ExprKind::App {
         cur = LeanExpr::app_fn(&cur)?;
         count += 1;
     }
@@ -48,7 +48,7 @@ fn test_mk_eq_structure() {
 
         let eq_expr = LeanExpr::mk_eq(lean, levels, &prop, &prop, &prop)?;
 
-        assert_eq!(LeanExpr::kind(&eq_expr), ExprKind::App);
+        assert_eq!(LeanExpr::kind(&eq_expr)?, ExprKind::App);
         assert_eq!(count_app_args(&eq_expr)?, 3);
 
         let head = head_const_name(&eq_expr)?;
@@ -72,7 +72,7 @@ fn test_mk_eq_refl_structure() {
 
         let refl = LeanExpr::mk_eq_refl(lean, levels, &prop, &prop)?;
 
-        assert_eq!(LeanExpr::kind(&refl), ExprKind::App);
+        assert_eq!(LeanExpr::kind(&refl)?, ExprKind::App);
         assert_eq!(count_app_args(&refl)?, 2);
 
         let head = head_const_name(&refl)?;
@@ -104,7 +104,7 @@ fn test_mk_eq_symm_structure() {
 
         let symm = LeanExpr::mk_eq_symm(lean, levels, &prop, &a, &b, &h)?;
 
-        assert_eq!(LeanExpr::kind(&symm), ExprKind::App);
+        assert_eq!(LeanExpr::kind(&symm)?, ExprKind::App);
         assert_eq!(count_app_args(&symm)?, 4);
 
         let head = head_const_name(&symm)?;
@@ -138,7 +138,7 @@ fn test_mk_eq_trans_structure() {
 
         let trans = LeanExpr::mk_eq_trans(lean, levels, &prop, &a, &b, &c, &h1, &h2)?;
 
-        assert_eq!(LeanExpr::kind(&trans), ExprKind::App);
+        assert_eq!(LeanExpr::kind(&trans)?, ExprKind::App);
         assert_eq!(count_app_args(&trans)?, 6);
 
         let head = head_const_name(&trans)?;

@@ -209,9 +209,7 @@ impl CoreContext {
             // Fallback: KVMap.empty (always exported on Windows)
             let kvmap = ffi::meta::get_KVMapEmpty();
             if kvmap.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "KVMap.empty is null - Lean runtime may not be initialized",
-                ));
+                return Err(crate::LeanError::null_pointer("KVMap.empty"));
             }
             ffi::lean_inc(kvmap);
             Ok(LeanBound::from_owned_ptr(lean, kvmap))

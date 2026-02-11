@@ -384,7 +384,7 @@ where
         // Direct element access without intermediate allocations
         for i in 0..size {
             let elem = LeanArray::get(obj, i)
-                .ok_or_else(|| crate::err::LeanError::runtime("Index out of bounds"))?;
+                .ok_or_else(|| crate::err::LeanError::out_of_bounds(i, size))?;
             let typed_elem: LeanBound<'l, T::Source> = elem.cast();
             let rust_item = T::from_lean(&typed_elem)?;
             result.push(rust_item);

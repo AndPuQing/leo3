@@ -58,7 +58,7 @@ impl LeanExpr {
             let idx_nat = LeanNat::from_usize(lean, idx)?;
             let ptr = ffi::expr::lean_expr_mk_bvar(idx_nat.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime("lean_expr_mk_bvar returned null"));
+                return Err(crate::LeanError::null_pointer("lean_expr_mk_bvar"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -122,7 +122,7 @@ impl LeanExpr {
         unsafe {
             let ptr = ffi::expr::lean_expr_mk_sort(level.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime("lean_expr_mk_sort returned null"));
+                return Err(crate::LeanError::null_pointer("lean_expr_mk_sort"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -174,7 +174,7 @@ impl LeanExpr {
             ffi::lean_inc(arg_expr.as_ptr());
             let ptr = ffi::expr::lean_expr_mk_app(fn_expr.as_ptr(), arg_expr.as_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime("lean_expr_mk_app returned null"));
+                return Err(crate::LeanError::null_pointer("lean_expr_mk_app"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -259,9 +259,7 @@ impl LeanExpr {
                 binder_info.to_u8(),
             );
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_expr_mk_forall returned null",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_expr_mk_forall"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -411,7 +409,7 @@ impl LeanExpr {
     /// Get expression kind
     ///
     /// Returns the variant tag of this expression.
-    pub fn kind<'l>(expr: &LeanBound<'l, Self>) -> ExprKind {
+    pub fn kind<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<ExprKind> {
         unsafe {
             let tag = ffi::lean_obj_tag(expr.as_ptr());
             ExprKind::from_u8(tag)
@@ -420,42 +418,42 @@ impl LeanExpr {
 
     /// Check if expression is a bound variable
     pub fn is_bvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::BVar
+        Self::kind(expr) == Ok(ExprKind::BVar)
     }
 
     /// Check if expression is a free variable
     pub fn is_fvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::FVar
+        Self::kind(expr) == Ok(ExprKind::FVar)
     }
 
     /// Check if expression is a meta variable
     pub fn is_mvar<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::MVar
+        Self::kind(expr) == Ok(ExprKind::MVar)
     }
 
     /// Check if expression is a sort
     pub fn is_sort<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Sort
+        Self::kind(expr) == Ok(ExprKind::Sort)
     }
 
     /// Check if expression is a constant
     pub fn is_const<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Const
+        Self::kind(expr) == Ok(ExprKind::Const)
     }
 
     /// Check if expression is an application
     pub fn is_app<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::App
+        Self::kind(expr) == Ok(ExprKind::App)
     }
 
     /// Check if expression is a lambda
     pub fn is_lambda<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Lambda
+        Self::kind(expr) == Ok(ExprKind::Lambda)
     }
 
     /// Check if expression is a forall
     pub fn is_forall<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Forall
+        Self::kind(expr) == Ok(ExprKind::Forall)
     }
 
     /// Check if expression is an arrow (non-dependent function type)
@@ -474,30 +472,42 @@ impl LeanExpr {
 
     /// Check if expression is a let
     pub fn is_let<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Let
+        Self::kind(expr) == Ok(ExprKind::Let)
     }
 
     /// Check if expression is a literal
     pub fn is_lit<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Lit
+        Self::kind(expr) == Ok(ExprKind::Lit)
     }
 
     /// Check if expression is a metadata wrapper
     pub fn is_mdata<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::MData
+        Self::kind(expr) == Ok(ExprKind::MData)
     }
 
     /// Check if expression is a projection
     pub fn is_proj<'l>(expr: &LeanBound<'l, Self>) -> bool {
-        Self::kind(expr) == ExprKind::Proj
+        Self::kind(expr) == Ok(ExprKind::Proj)
     }
 
     // ============ Field Accessors ============
 
+    /// Return an error indicating the expression has the wrong kind for the
+    /// requested accessor. Includes the actual kind in the message.
+    fn wrong_kind_error(expr: &LeanBound<'_, Self>, expected: &str) -> LeanError {
+        match Self::kind(expr) {
+            Ok(actual) => LeanError::other(&format!(
+                "expected {} expression, got {:?}",
+                expected, actual
+            )),
+            Err(e) => e,
+        }
+    }
+
     /// Get bound variable index (requires: is_bvar)
     pub fn bvar_idx<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<usize> {
         if !Self::is_bvar(expr) {
-            return Err(LeanError::runtime("Not a bound variable"));
+            return Err(Self::wrong_kind_error(expr, "BVar"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -510,7 +520,7 @@ impl LeanExpr {
     /// Get free variable ID (requires: is_fvar)
     pub fn fvar_id<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_fvar(expr) {
-            return Err(LeanError::runtime("Not a free variable"));
+            return Err(Self::wrong_kind_error(expr, "FVar"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -523,7 +533,7 @@ impl LeanExpr {
     /// Get meta variable ID (requires: is_mvar)
     pub fn mvar_id<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_mvar(expr) {
-            return Err(LeanError::runtime("Not a meta variable"));
+            return Err(Self::wrong_kind_error(expr, "MVar"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -538,7 +548,7 @@ impl LeanExpr {
         expr: &LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, super::level::LeanLevel>> {
         if !Self::is_sort(expr) {
-            return Err(LeanError::runtime("Not a sort"));
+            return Err(Self::wrong_kind_error(expr, "Sort"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -551,7 +561,7 @@ impl LeanExpr {
     /// Get constant name (requires: is_const)
     pub fn const_name<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_const(expr) {
-            return Err(LeanError::runtime("Not a constant"));
+            return Err(Self::wrong_kind_error(expr, "Const"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -564,7 +574,7 @@ impl LeanExpr {
     /// Get constant levels (requires: is_const)
     pub fn const_levels<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanList>> {
         if !Self::is_const(expr) {
-            return Err(LeanError::runtime("Not a constant"));
+            return Err(Self::wrong_kind_error(expr, "Const"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -577,7 +587,7 @@ impl LeanExpr {
     /// Get application function (requires: is_app)
     pub fn app_fn<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_app(expr) {
-            return Err(LeanError::runtime("Not an application"));
+            return Err(Self::wrong_kind_error(expr, "App"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -590,7 +600,7 @@ impl LeanExpr {
     /// Get application argument (requires: is_app)
     pub fn app_arg<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_app(expr) {
-            return Err(LeanError::runtime("Not an application"));
+            return Err(Self::wrong_kind_error(expr, "App"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -603,7 +613,7 @@ impl LeanExpr {
     /// Get lambda binder name (requires: is_lambda)
     pub fn lambda_name<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_lambda(expr) {
-            return Err(LeanError::runtime("Not a lambda"));
+            return Err(Self::wrong_kind_error(expr, "Lambda"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -616,7 +626,7 @@ impl LeanExpr {
     /// Get lambda binder type (requires: is_lambda)
     pub fn lambda_type<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_lambda(expr) {
-            return Err(LeanError::runtime("Not a lambda"));
+            return Err(Self::wrong_kind_error(expr, "Lambda"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -629,7 +639,7 @@ impl LeanExpr {
     /// Get lambda body (requires: is_lambda)
     pub fn lambda_body<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_lambda(expr) {
-            return Err(LeanError::runtime("Not a lambda"));
+            return Err(Self::wrong_kind_error(expr, "Lambda"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -642,7 +652,7 @@ impl LeanExpr {
     /// Get lambda binder info (requires: is_lambda)
     pub fn lambda_info<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<BinderInfo> {
         if !Self::is_lambda(expr) {
-            return Err(LeanError::runtime("Not a lambda"));
+            return Err(Self::wrong_kind_error(expr, "Lambda"));
         }
         unsafe {
             // lean_expr_binder_info consumes the reference
@@ -655,7 +665,7 @@ impl LeanExpr {
     /// Get forall binder name (requires: is_forall)
     pub fn forall_name<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_forall(expr) {
-            return Err(LeanError::runtime("Not a forall"));
+            return Err(Self::wrong_kind_error(expr, "Forall"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -668,7 +678,7 @@ impl LeanExpr {
     /// Get forall domain type (requires: is_forall)
     pub fn forall_domain<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_forall(expr) {
-            return Err(LeanError::runtime("Not a forall"));
+            return Err(Self::wrong_kind_error(expr, "Forall"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -681,7 +691,7 @@ impl LeanExpr {
     /// Get forall body (requires: is_forall)
     pub fn forall_body<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_forall(expr) {
-            return Err(LeanError::runtime("Not a forall"));
+            return Err(Self::wrong_kind_error(expr, "Forall"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -694,7 +704,7 @@ impl LeanExpr {
     /// Get forall binder info (requires: is_forall)
     pub fn forall_info<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<BinderInfo> {
         if !Self::is_forall(expr) {
-            return Err(LeanError::runtime("Not a forall"));
+            return Err(Self::wrong_kind_error(expr, "Forall"));
         }
         unsafe {
             // lean_expr_binder_info consumes the reference
@@ -707,7 +717,7 @@ impl LeanExpr {
     /// Get let declaration name (requires: is_let)
     pub fn let_name<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_let(expr) {
-            return Err(LeanError::runtime("Not a let expression"));
+            return Err(Self::wrong_kind_error(expr, "Let"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -720,7 +730,7 @@ impl LeanExpr {
     /// Get let type (requires: is_let)
     pub fn let_type<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_let(expr) {
-            return Err(LeanError::runtime("Not a let expression"));
+            return Err(Self::wrong_kind_error(expr, "Let"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -733,7 +743,7 @@ impl LeanExpr {
     /// Get let value (requires: is_let)
     pub fn let_value<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_let(expr) {
-            return Err(LeanError::runtime("Not a let expression"));
+            return Err(Self::wrong_kind_error(expr, "Let"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -746,7 +756,7 @@ impl LeanExpr {
     /// Get let body (requires: is_let)
     pub fn let_body<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_let(expr) {
-            return Err(LeanError::runtime("Not a let expression"));
+            return Err(Self::wrong_kind_error(expr, "Let"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -759,7 +769,7 @@ impl LeanExpr {
     /// Get projection struct name (requires: is_proj)
     pub fn proj_struct_name<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, LeanName>> {
         if !Self::is_proj(expr) {
-            return Err(LeanError::runtime("Not a projection"));
+            return Err(Self::wrong_kind_error(expr, "Proj"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -772,7 +782,7 @@ impl LeanExpr {
     /// Get projection field index (requires: is_proj)
     pub fn proj_idx<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<usize> {
         if !Self::is_proj(expr) {
-            return Err(LeanError::runtime("Not a projection"));
+            return Err(Self::wrong_kind_error(expr, "Proj"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -785,7 +795,7 @@ impl LeanExpr {
     /// Get projection struct expression (requires: is_proj)
     pub fn proj_struct<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if !Self::is_proj(expr) {
-            return Err(LeanError::runtime("Not a projection"));
+            return Err(Self::wrong_kind_error(expr, "Proj"));
         }
         unsafe {
             let lean = expr.lean_token();
@@ -1261,21 +1271,21 @@ pub enum ExprKind {
 }
 
 impl ExprKind {
-    pub(crate) fn from_u8(val: u8) -> Self {
+    pub(crate) fn from_u8(val: u8) -> Result<Self, crate::LeanError> {
         match val {
-            ffi::expr::LEAN_EXPR_BVAR => Self::BVar,
-            ffi::expr::LEAN_EXPR_FVAR => Self::FVar,
-            ffi::expr::LEAN_EXPR_MVAR => Self::MVar,
-            ffi::expr::LEAN_EXPR_SORT => Self::Sort,
-            ffi::expr::LEAN_EXPR_CONST => Self::Const,
-            ffi::expr::LEAN_EXPR_APP => Self::App,
-            ffi::expr::LEAN_EXPR_LAMBDA => Self::Lambda,
-            ffi::expr::LEAN_EXPR_FORALL => Self::Forall,
-            ffi::expr::LEAN_EXPR_LET => Self::Let,
-            ffi::expr::LEAN_EXPR_LIT => Self::Lit,
-            ffi::expr::LEAN_EXPR_MDATA => Self::MData,
-            ffi::expr::LEAN_EXPR_PROJ => Self::Proj,
-            _ => panic!("Invalid expression kind: {}", val),
+            ffi::expr::LEAN_EXPR_BVAR => Ok(Self::BVar),
+            ffi::expr::LEAN_EXPR_FVAR => Ok(Self::FVar),
+            ffi::expr::LEAN_EXPR_MVAR => Ok(Self::MVar),
+            ffi::expr::LEAN_EXPR_SORT => Ok(Self::Sort),
+            ffi::expr::LEAN_EXPR_CONST => Ok(Self::Const),
+            ffi::expr::LEAN_EXPR_APP => Ok(Self::App),
+            ffi::expr::LEAN_EXPR_LAMBDA => Ok(Self::Lambda),
+            ffi::expr::LEAN_EXPR_FORALL => Ok(Self::Forall),
+            ffi::expr::LEAN_EXPR_LET => Ok(Self::Let),
+            ffi::expr::LEAN_EXPR_LIT => Ok(Self::Lit),
+            ffi::expr::LEAN_EXPR_MDATA => Ok(Self::MData),
+            ffi::expr::LEAN_EXPR_PROJ => Ok(Self::Proj),
+            _ => Err(crate::LeanError::invalid_kind("expression", val)),
         }
     }
 }

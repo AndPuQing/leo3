@@ -70,9 +70,7 @@ impl LeanLiteral {
             ffi::lean_inc(lit.as_ptr());
             let ptr = ffi::expr::lean_lit_type(lit.as_ptr());
             if ptr.is_null() {
-                return Err(crate::err::LeanError::runtime(
-                    "lean_lit_type returned null pointer",
-                ));
+                return Err(crate::err::LeanError::null_pointer("lean_lit_type"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }

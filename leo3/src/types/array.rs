@@ -175,7 +175,7 @@ impl LeanArray {
         value: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         if index >= Self::size(&arr) {
-            return Err(LeanError::runtime("Index out of bounds"));
+            return Err(LeanError::out_of_bounds(index, Self::size(&arr)));
         }
 
         unsafe {
@@ -200,7 +200,7 @@ impl LeanArray {
     /// ```
     pub fn pop<'l>(arr: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
         if Self::isEmpty(&arr) {
-            return Err(LeanError::runtime("Cannot pop from empty array"));
+            return Err(LeanError::out_of_bounds(0, 0));
         }
 
         unsafe {
@@ -228,7 +228,8 @@ impl LeanArray {
     ) -> LeanResult<LeanBound<'l, Self>> {
         let size = Self::size(&arr);
         if i >= size || j >= size {
-            return Err(LeanError::runtime("Index out of bounds"));
+            let bad_idx = if i >= size { i } else { j };
+            return Err(LeanError::out_of_bounds(bad_idx, size));
         }
 
         unsafe {

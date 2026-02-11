@@ -103,9 +103,7 @@ impl LeanName {
             let str_val = LeanString::mk(lean, s)?;
             let ptr = ffi::name::lean_name_mk_string(pre.into_ptr(), str_val.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_name_mk_string returned null - prelude may not be initialized correctly",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_name_mk_string"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -131,9 +129,7 @@ impl LeanName {
             let num_val = LeanNat::from_usize(lean, n)?;
             let ptr = ffi::name::lean_name_mk_numeral(pre.into_ptr(), num_val.into_ptr());
             if ptr.is_null() {
-                return Err(crate::LeanError::runtime(
-                    "lean_name_mk_numeral returned null - prelude may not be initialized correctly",
-                ));
+                return Err(crate::LeanError::null_pointer("lean_name_mk_numeral"));
             }
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
@@ -153,7 +149,7 @@ impl LeanName {
     }
 
     /// Get the name kind
-    pub fn kind<'l>(name: &LeanBound<'l, Self>) -> NameKind {
+    pub fn kind<'l>(name: &LeanBound<'l, Self>) -> crate::LeanResult<NameKind> {
         unsafe {
             let tag = ffi::lean_obj_tag(name.as_ptr());
             NameKind::from_u8(tag)
@@ -173,12 +169,12 @@ pub enum NameKind {
 }
 
 impl NameKind {
-    pub(crate) fn from_u8(val: u8) -> Self {
+    pub(crate) fn from_u8(val: u8) -> Result<Self, crate::LeanError> {
         match val {
-            ffi::name::LEAN_NAME_ANONYMOUS => Self::Anonymous,
-            ffi::name::LEAN_NAME_STR => Self::Str,
-            ffi::name::LEAN_NAME_NUM => Self::Num,
-            _ => panic!("Invalid name kind: {}", val),
+            ffi::name::LEAN_NAME_ANONYMOUS => Ok(Self::Anonymous),
+            ffi::name::LEAN_NAME_STR => Ok(Self::Str),
+            ffi::name::LEAN_NAME_NUM => Ok(Self::Num),
+            _ => Err(crate::LeanError::invalid_kind("name", val)),
         }
     }
 }

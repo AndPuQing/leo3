@@ -103,7 +103,7 @@ impl std::error::Error for IOError {}
 
 impl From<IOError> for LeanError {
     fn from(err: IOError) -> Self {
-        LeanError::runtime(&err.to_string())
+        LeanError::Other(err.to_string())
     }
 }
 

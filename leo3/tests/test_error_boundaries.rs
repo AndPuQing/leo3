@@ -5,6 +5,7 @@
 
 use leo3::meta::*;
 use leo3::prelude::*;
+use leo3::KernelExceptionCode;
 
 // ============================================================================
 // Kernel exceptions caught in Rust
@@ -108,10 +109,10 @@ fn test_kernel_error_message_contains_reason() {
 
         let msg = format!("{}", err);
         assert!(!msg.is_empty(), "error message should not be empty");
-        // Kernel errors are wrapped as FFI errors with "kernel type check failed: ..."
+        // Kernel errors are wrapped as kernel exceptions
         assert!(
-            msg.contains("kernel type check failed"),
-            "error should mention kernel type check, got: {}",
+            msg.contains("kernel exception"),
+            "error should mention kernel exception, got: {}",
             msg
         );
 
@@ -378,9 +379,9 @@ fn test_type_mismatch_error_from_kernel() {
         };
 
         let msg = format!("{}", err);
-        // Should be a kernel type check failure
+        // Should be a kernel exception
         assert!(
-            msg.contains("kernel type check failed"),
+            msg.contains("kernel exception"),
             "type mismatch should produce kernel error, got: {}",
             msg
         );
@@ -469,13 +470,25 @@ fn test_error_propagation_with_question_mark() {
 #[test]
 fn test_lean_error_display_variants() {
     let conv = LeanError::conversion("bad nat");
-    assert_eq!(format!("{}", conv), "Conversion error: bad nat");
+    assert_eq!(format!("{}", conv), "conversion error: bad nat");
 
-    let rt = LeanError::runtime("init failed");
-    assert_eq!(format!("{}", rt), "Lean runtime error: init failed");
+    let null = LeanError::null_pointer("lean_expr_mk_sort");
+    assert_eq!(
+        format!("{}", null),
+        "null pointer returned from `lean_expr_mk_sort`; Lean module may not be initialized"
+    );
 
-    let ffi = LeanError::ffi("null pointer");
-    assert_eq!(format!("{}", ffi), "FFI error: null pointer");
+    let oob = LeanError::out_of_bounds(5, 3);
+    assert_eq!(format!("{}", oob), "index 5 out of bounds for length 3");
+
+    let inv = LeanError::invalid_kind("expression", 99);
+    assert_eq!(format!("{}", inv), "invalid expression tag: 99");
+
+    let kern = LeanError::kernel_exception(KernelExceptionCode::ExprTypeMismatch);
+    assert_eq!(
+        format!("{}", kern),
+        "kernel exception: expression type mismatch"
+    );
 
     let exc = LeanError::exception(false, "unknown free variable");
     assert_eq!(format!("{}", exc), "Lean exception: unknown free variable");
@@ -487,12 +500,22 @@ fn test_lean_error_display_variants() {
     );
 
     let other = LeanError::other("something else");
-    assert_eq!(format!("{}", other), "Error: something else");
+    assert_eq!(format!("{}", other), "something else");
+}
+
+#[test]
+fn test_lean_error_deprecated_constructors() {
+    // runtime() and ffi() still work but produce Other variants
+    let rt = LeanError::runtime("init failed");
+    assert_eq!(format!("{}", rt), "runtime: init failed");
+
+    let ffi_err = LeanError::ffi("null pointer");
+    assert_eq!(format!("{}", ffi_err), "FFI: null pointer");
 }
 
 #[test]
 fn test_lean_error_is_std_error() {
-    let err = LeanError::ffi("test");
+    let err = LeanError::null_pointer("test_op");
     let _: &dyn std::error::Error = &err;
 }
 
@@ -588,4 +611,242 @@ fn test_fresh_context_after_error() {
         Ok(())
     });
     assert!(result.is_ok(), "test failed: {:?}", result.err());
+}
+
+// ============================================================================
+// KernelExceptionCode mapping tests
+// ============================================================================
+
+#[test]
+fn test_kernel_exception_code_from_tag() {
+    assert_eq!(
+        KernelExceptionCode::from_tag(0),
+        KernelExceptionCode::UnknownConstant
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(1),
+        KernelExceptionCode::AlreadyDeclared
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(2),
+        KernelExceptionCode::DeclTypeMismatch
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(5),
+        KernelExceptionCode::FunExpected
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(8),
+        KernelExceptionCode::ExprTypeMismatch
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(9),
+        KernelExceptionCode::AppTypeMismatch
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(11),
+        KernelExceptionCode::ThmTypeNotProp
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(16),
+        KernelExceptionCode::Interrupted
+    );
+    // Unknown tags map to Other
+    assert_eq!(
+        KernelExceptionCode::from_tag(99),
+        KernelExceptionCode::Other
+    );
+    assert_eq!(
+        KernelExceptionCode::from_tag(usize::MAX),
+        KernelExceptionCode::Other
+    );
+}
+
+#[test]
+fn test_kernel_exception_code_description() {
+    assert_eq!(
+        KernelExceptionCode::AlreadyDeclared.description(),
+        "already declared"
+    );
+    assert_eq!(
+        KernelExceptionCode::ThmTypeNotProp.description(),
+        "theorem type is not Prop"
+    );
+    assert_eq!(
+        KernelExceptionCode::AppTypeMismatch.description(),
+        "application type mismatch"
+    );
+}
+
+#[test]
+fn test_kernel_exception_code_display() {
+    let code = KernelExceptionCode::FunExpected;
+    assert_eq!(format!("{}", code), "function expected");
+}
+
+// ============================================================================
+// New error variant construction and Display
+// ============================================================================
+
+#[test]
+fn test_null_pointer_error() {
+    let err = LeanError::null_pointer("lean_expr_mk_bvar");
+    assert_eq!(
+        format!("{}", err),
+        "null pointer returned from `lean_expr_mk_bvar`; Lean module may not be initialized"
+    );
+    assert_eq!(
+        err,
+        LeanError::NullPointer {
+            operation: "lean_expr_mk_bvar"
+        }
+    );
+}
+
+#[test]
+fn test_out_of_bounds_error() {
+    let err = LeanError::out_of_bounds(10, 5);
+    assert_eq!(format!("{}", err), "index 10 out of bounds for length 5");
+    assert_eq!(err, LeanError::OutOfBounds { index: 10, len: 5 });
+}
+
+#[test]
+fn test_invalid_kind_error() {
+    let err = LeanError::invalid_kind("expression", 42);
+    assert_eq!(format!("{}", err), "invalid expression tag: 42");
+    assert_eq!(
+        err,
+        LeanError::InvalidKind {
+            kind: "expression",
+            tag: 42
+        }
+    );
+
+    let name_err = LeanError::invalid_kind("name", 255);
+    assert_eq!(format!("{}", name_err), "invalid name tag: 255");
+}
+
+#[test]
+fn test_kernel_exception_error() {
+    let err = LeanError::kernel_exception(KernelExceptionCode::ThmTypeNotProp);
+    let display = format!("{}", err);
+    assert!(display.contains("kernel exception: theorem type is not Prop"));
+    assert!(display.contains("hint:"));
+    // Verify the structured code is accessible via pattern matching
+    match &err {
+        LeanError::KernelException { code, message } => {
+            assert_eq!(*code, KernelExceptionCode::ThmTypeNotProp);
+            assert_eq!(message, "theorem type is not Prop");
+        }
+        _ => panic!("expected KernelException variant"),
+    }
+}
+
+#[test]
+fn test_kernel_exception_hints() {
+    // AlreadyDeclared should include a hint
+    let err = LeanError::kernel_exception(KernelExceptionCode::AlreadyDeclared);
+    let display = format!("{}", err);
+    assert!(display.contains("kernel exception: already declared"));
+    assert!(display.contains("hint:"));
+
+    // ExprTypeMismatch should NOT include a hint
+    let err = LeanError::kernel_exception(KernelExceptionCode::ExprTypeMismatch);
+    let display = format!("{}", err);
+    assert_eq!(display, "kernel exception: expression type mismatch");
+    assert!(!display.contains("hint:"));
+}
+
+// ============================================================================
+// Error pattern matching (downcasting by variant)
+// ============================================================================
+
+#[test]
+fn test_error_pattern_matching() {
+    let errors: Vec<LeanError> = vec![
+        LeanError::conversion("bad"),
+        LeanError::null_pointer("test_op"),
+        LeanError::out_of_bounds(0, 0),
+        LeanError::invalid_kind("level", 77),
+        LeanError::kernel_exception(KernelExceptionCode::AlreadyDeclared),
+        LeanError::exception(false, "msg"),
+        LeanError::other("misc"),
+    ];
+
+    let mut matched = Vec::new();
+    for err in &errors {
+        match err {
+            LeanError::Conversion(_) => matched.push("conversion"),
+            LeanError::NullPointer { .. } => matched.push("null_pointer"),
+            LeanError::OutOfBounds { .. } => matched.push("out_of_bounds"),
+            LeanError::InvalidKind { .. } => matched.push("invalid_kind"),
+            LeanError::KernelException { .. } => matched.push("kernel_exception"),
+            LeanError::Exception { .. } => matched.push("exception"),
+            LeanError::Other(_) => matched.push("other"),
+        }
+    }
+
+    assert_eq!(
+        matched,
+        vec![
+            "conversion",
+            "null_pointer",
+            "out_of_bounds",
+            "invalid_kind",
+            "kernel_exception",
+            "exception",
+            "other"
+        ]
+    );
+}
+
+#[test]
+fn test_kernel_exception_pattern_matching_on_code() {
+    let err = LeanError::kernel_exception(KernelExceptionCode::AlreadyDeclared);
+    let is_already_declared = matches!(
+        &err,
+        LeanError::KernelException {
+            code: KernelExceptionCode::AlreadyDeclared,
+            ..
+        }
+    );
+    assert!(is_already_declared);
+
+    let is_type_mismatch = matches!(
+        &err,
+        LeanError::KernelException {
+            code: KernelExceptionCode::ExprTypeMismatch,
+            ..
+        }
+    );
+    assert!(!is_type_mismatch);
+}
+
+// ============================================================================
+// Error Debug formatting
+// ============================================================================
+
+#[test]
+fn test_error_debug_formatting() {
+    let err = LeanError::null_pointer("lean_expr_mk_sort");
+    let debug = format!("{:?}", err);
+    assert!(debug.contains("NullPointer"));
+    assert!(debug.contains("lean_expr_mk_sort"));
+
+    let err = LeanError::out_of_bounds(3, 2);
+    let debug = format!("{:?}", err);
+    assert!(debug.contains("OutOfBounds"));
+    assert!(debug.contains("3"));
+    assert!(debug.contains("2"));
+
+    let err = LeanError::invalid_kind("expression", 99);
+    let debug = format!("{:?}", err);
+    assert!(debug.contains("InvalidKind"));
+    assert!(debug.contains("expression"));
+    assert!(debug.contains("99"));
+
+    let err = LeanError::kernel_exception(KernelExceptionCode::DeepRecursion);
+    let debug = format!("{:?}", err);
+    assert!(debug.contains("KernelException"));
+    assert!(debug.contains("DeepRecursion"));
 }
