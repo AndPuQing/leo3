@@ -41,6 +41,25 @@ pub struct LeanDeclaration {
 }
 
 impl LeanDeclaration {
+    /// Extract the name from a declaration.
+    ///
+    /// All declaration variants (axiomDecl, defnDecl, thmDecl, opaqueDecl, quotDecl)
+    /// store a `*Val` in field 0. Each `*Val` extends `ConstantVal`, so field 0 of
+    /// the `*Val` is the `ConstantVal` ctor, and field 0 of `ConstantVal` is `name`.
+    pub fn name<'l>(decl: &LeanBound<'l, Self>) -> LeanBound<'l, LeanName> {
+        unsafe {
+            let lean = decl.lean_token();
+            // Declaration.axiomDecl/defnDecl/thmDecl: field 0 = *Val
+            let val_ptr = ffi::lean_ctor_get(decl.as_ptr(), 0) as *mut ffi::lean_object;
+            // *Val extends ConstantVal: field 0 = toConstantVal
+            let cval_ptr = ffi::lean_ctor_get(val_ptr, 0) as *mut ffi::lean_object;
+            // ConstantVal: field 0 = name
+            let name_ptr = ffi::lean_ctor_get(cval_ptr, 0) as *mut ffi::lean_object;
+            ffi::lean_inc(name_ptr);
+            LeanBound::from_owned_ptr(lean, name_ptr)
+        }
+    }
+
     /// Create an axiom declaration
     ///
     /// Axioms are constants assumed without proof.

@@ -130,7 +130,8 @@ impl<'l> MetaMContext<'l> {
     /// Run a MetaM computation.
     ///
     /// Executes the given MetaM computation using the stored context and state.
-    /// The computation is consumed by this call. Context and state objects are
+    /// The computation is dispatched to the worker thread to avoid cross-thread
+    /// object access violations with mimalloc. Context and state objects are
     /// cloned before being passed to the FFI, so the `MetaMContext` can be
     /// reused for multiple `run()` calls.
     ///
@@ -150,13 +151,23 @@ impl<'l> MetaMContext<'l> {
         &mut self,
         computation: LeanBound<'l, LeanAny>,
     ) -> LeanResult<LeanBound<'l, LeanAny>> {
-        unsafe {
-            // Clone all context/state objects since FFI consumes them
-            let meta_ctx = self.meta_ctx.clone();
-            let meta_state = self.meta_state.clone();
-            let core_ctx = self.core_ctx.clone();
-            let core_state = self.core_state.clone();
+        // Clone all context/state objects since FFI consumes them
+        let meta_ctx = self.meta_ctx.clone();
+        let meta_state = self.meta_state.clone();
+        let core_ctx = self.core_ctx.clone();
+        let core_state = self.core_state.clone();
 
+        // Extract raw pointers for the worker closure
+        let computation_ptr = computation.into_ptr();
+        let meta_ctx_ptr = meta_ctx.into_ptr();
+        let meta_state_ptr = meta_state.into_ptr();
+        let core_ctx_ptr = core_ctx.into_ptr();
+        let core_state_ptr = core_state.into_ptr();
+
+        // Dispatch to the worker thread. MetaM operations must run on the
+        // same thread where Lean was initialized to avoid cross-thread
+        // object access violations (SIGSEGV from mimalloc thread-local heaps).
+        let result = super::environment::with_env_worker(move || unsafe {
             // Wrap core_state in an ST.Ref as required by the CoreM monad stack.
             // lean_meta_metam_run creates the ST.Ref for Meta.State internally,
             // but expects Core.State to already be wrapped in an ST.Ref.
@@ -167,7 +178,7 @@ impl<'l> MetaMContext<'l> {
             #[cfg(not(lean_4_26))]
             let (core_state_ref, world2) = {
                 let world = ffi::lean_box(0);
-                let ref_result = ffi::lean_st_mk_ref(core_state.into_ptr(), world);
+                let ref_result = ffi::lean_st_mk_ref(core_state_ptr, world);
                 let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
                 let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
                 ffi::lean_inc(core_state_ref);
@@ -178,7 +189,7 @@ impl<'l> MetaMContext<'l> {
 
             #[cfg(lean_4_26)]
             let (core_state_ref, world2) = {
-                let core_state_ref = ffi::lean_st_mk_ref(core_state.into_ptr(), ffi::lean_box(0));
+                let core_state_ref = ffi::lean_st_mk_ref(core_state_ptr, ffi::lean_box(0));
                 // In Lean 4.26+, lean_st_mk_ref returns the ST.Ref directly.
                 // The second arg is ignored by the runtime but we pass it for ABI compat.
                 let world2 = ffi::lean_box(0);
@@ -186,17 +197,18 @@ impl<'l> MetaMContext<'l> {
             };
 
             let result = ffi::meta::lean_meta_metam_run(
-                computation.into_ptr(),
-                meta_ctx.into_ptr(),
-                meta_state.into_ptr(),
-                core_ctx.into_ptr(),
+                computation_ptr,
+                meta_ctx_ptr,
+                meta_state_ptr,
+                core_ctx_ptr,
                 core_state_ref,
                 world2,
             );
 
-            let value_ptr = handle_eio_result(result)?;
-            Ok(LeanBound::from_owned_ptr(self.lean, value_ptr))
-        }
+            handle_eio_result(result)
+        })?;
+
+        unsafe { Ok(LeanBound::from_owned_ptr(self.lean, result)) }
     }
 
     /// Get a reference to the [`LeanEnvironment`] used by this context.

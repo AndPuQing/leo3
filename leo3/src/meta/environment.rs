@@ -85,7 +85,7 @@ pub(crate) fn ensure_worker_initialized() {
 /// The closure `f` and its return value cross a thread boundary via channels.
 /// Callers must ensure that any captured pointers remain valid and that
 /// reference counts are properly managed before and after the call.
-fn with_env_worker<F, R>(f: F) -> R
+pub(super) fn with_env_worker<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
 {
@@ -214,10 +214,14 @@ impl LeanEnvironment {
         let name_ptr = name.as_ptr();
 
         let result_ptr = with_env_worker(move || unsafe {
-            // lean_environment_find operates on Lean.Kernel.Environment,
-            // so convert from Lean.Environment first
+            // lean_elab_environment_to_kernel_env consumes its argument,
+            // so inc the borrowed env_ptr before the call.
+            ffi::lean_inc(env_ptr);
             let kenv = ffi::environment::lean_elab_environment_to_kernel_env(env_ptr);
 
+            // lean_environment_find consumes both kenv and name_ptr,
+            // so inc the borrowed name_ptr. kenv is already owned (from above).
+            ffi::lean_inc(name_ptr);
             ffi::environment::lean_environment_find(kenv, name_ptr)
         });
 
@@ -255,10 +259,12 @@ impl LeanEnvironment {
     pub fn is_quot_init<'l>(env: &LeanBound<'l, Self>) -> bool {
         let env_ptr = env.as_ptr();
         with_env_worker(move || unsafe {
+            // lean_elab_environment_to_kernel_env consumes its argument,
+            // so inc the borrowed env_ptr.
+            ffi::lean_inc(env_ptr);
             let kenv = ffi::environment::lean_elab_environment_to_kernel_env(env_ptr);
-            let result = ffi::environment::lean_environment_quot_init(kenv) != 0;
-            ffi::lean_dec(kenv);
-            result
+            // lean_environment_quot_init consumes kenv (no @& annotation).
+            ffi::environment::lean_environment_quot_init(kenv) != 0
         })
     }
 
@@ -339,6 +345,13 @@ impl LeanEnvironment {
         env: &LeanBound<'l, Self>,
         decl: &LeanBound<'l, LeanDeclaration>,
     ) -> LeanResult<LeanBound<'l, Self>> {
+        // Pre-check: the unchecked FFI path SIGABRTs on duplicate names.
+        // Extract the declaration's name and check if it already exists.
+        let decl_name = LeanDeclaration::name(decl);
+        if Self::find(env, &decl_name)?.is_some() {
+            return Err(LeanError::ffi("kernel type check failed: already declared"));
+        }
+
         let lean = env.lean_token();
         let env_ptr = env.clone().into_ptr();
         // Match add_decl: increment refcount because the C++ error path may
