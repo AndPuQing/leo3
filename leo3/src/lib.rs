@@ -139,32 +139,17 @@ pub mod prelude {
 /// }
 /// ```
 pub fn prepare_freethreaded_lean() {
-    use std::cell::Cell;
-    use std::sync::Once;
-
-    static RUNTIME_INIT: Once = Once::new();
-    thread_local! {
-        static THREAD_INIT: Cell<bool> = const { Cell::new(false) };
-    }
-
-    // Initialize runtime module once globally
-    RUNTIME_INIT.call_once(|| unsafe {
-        ffi::lean_initialize_runtime_module();
-    });
-
-    // Initialize thread only once per thread
-    THREAD_INIT.with(|initialized| {
-        if !initialized.get() {
-            unsafe {
-                ffi::lean_initialize_thread();
-            }
-            initialized.set(true);
-        }
-    });
-
-    // Note: Init.Prelude and Lean.Expr modules are initialized lazily
-    // when first used via meta::ensure_prelude_initialized() and
-    // meta::ensure_expr_initialized()
+    // Spawn the long-lived worker thread and wait for it to complete all
+    // Lean runtime initialization (lean_initialize_runtime_module,
+    // lean_initialize_thread, and all ensure_*_initialized calls).
+    //
+    // This ensures that:
+    // 1. All Lean module initialization happens on the worker thread
+    // 2. The Once guards in ensure_*_initialized are triggered on the
+    //    worker thread before any short-lived thread can trigger them
+    // 3. lean_initialize_thread() is only called on the worker thread,
+    //    which never exits, avoiding mimalloc's _mi_thread_done crash
+    meta::environment::ensure_worker_initialized();
 }
 
 /// Execute a closure with access to the Lean runtime.

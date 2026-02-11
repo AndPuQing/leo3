@@ -43,8 +43,9 @@ impl LeanList {
     /// ```
     pub fn nil<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // List.nil is constructor 0 with no fields
-            let ptr = ffi::lean_alloc_ctor(0, 0, 0);
+            // List.nil is a scalar (lean_box(0)) — NOT a heap-allocated constructor.
+            // The C++ runtime checks `is_scalar(raw())` to detect nil.
+            let ptr = ffi::inline::lean_box(0);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

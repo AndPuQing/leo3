@@ -62,6 +62,54 @@ pub unsafe fn lean_io_result_get_error(r: b_lean_obj_arg) -> b_lean_obj_arg {
     crate::lean_ctor_get(r as lean_obj_arg, 0)
 }
 
+/// Take the value from a successful IO result (consuming).
+///
+/// Extracts field 0 of the `Except.ok` constructor, increments its refcount,
+/// and decrements the refcount of the IO result itself.
+///
+/// # Safety
+/// - `r` must be a valid IO result object with tag 0 (`Except.ok`)
+/// - `r` is consumed (caller must not use it after this call)
+/// - Calling this on an error result is undefined behavior
+#[inline]
+pub unsafe fn lean_io_result_take_value(r: lean_obj_arg) -> lean_obj_res {
+    debug_assert!(lean_io_result_is_ok(r));
+    let v = crate::lean_ctor_get(r, 0);
+    crate::lean_inc(v as lean_obj_arg);
+    crate::lean_dec(r);
+    v as lean_obj_res
+}
+
+/// Construct a successful IO result (`Except.ok a`).
+///
+/// Creates a 2-field constructor with tag 0. Field 0 is the value,
+/// field 1 is the RealWorld token (`lean_box(0)`).
+///
+/// # Safety
+/// - `a` must be a valid Lean object (consumed)
+#[inline]
+pub unsafe fn lean_io_result_mk_ok(a: lean_obj_arg) -> lean_obj_res {
+    let r = crate::lean_alloc_ctor(0, 2, 0);
+    crate::inline::lean_ctor_set(r, 0, a);
+    crate::inline::lean_ctor_set(r, 1, crate::inline::lean_box(0));
+    r
+}
+
+/// Construct a failed IO result (`Except.error e`).
+///
+/// Creates a 2-field constructor with tag 1. Field 0 is the error,
+/// field 1 is the RealWorld token (`lean_box(0)`).
+///
+/// # Safety
+/// - `e` must be a valid Lean object (consumed)
+#[inline]
+pub unsafe fn lean_io_result_mk_error(e: lean_obj_arg) -> lean_obj_res {
+    let r = crate::lean_alloc_ctor(1, 2, 0);
+    crate::inline::lean_ctor_set(r, 0, e);
+    crate::inline::lean_ctor_set(r, 1, crate::inline::lean_box(0));
+    r
+}
+
 // ============================================================================
 // File System Operations
 // ============================================================================

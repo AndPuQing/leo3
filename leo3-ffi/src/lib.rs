@@ -188,6 +188,28 @@ extern "C" {
     /// # Returns
     /// Updated world token (can be ignored for initialization purposes)
     pub fn initialize_Lean_Meta(builtin: u8, w: *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+
+    /// Initialize the kernel C++ module (type checker, declaration, environment globals)
+    ///
+    /// Must be called before using kernel type checking functions like `lean_add_decl`
+    /// or `lean_elab_add_decl`. This is separate from the Lean-compiled module initializers.
+    /// Requires `initialize_util_module()` to be called first.
+    #[link_name = "_ZN4lean24initialize_kernel_moduleEv"]
+    pub fn initialize_kernel_module();
+
+    /// Initialize the C++ utility module (name, expr, etc.)
+    ///
+    /// Must be called before `initialize_kernel_module()`.
+    #[link_name = "_ZN4lean22initialize_util_moduleEv"]
+    pub fn initialize_util_module();
+
+    /// Initialize the library C++ core module
+    #[link_name = "_ZN4lean30initialize_library_core_moduleEv"]
+    pub fn initialize_library_core_module();
+
+    /// Initialize the library C++ module (full)
+    #[link_name = "_ZN4lean25initialize_library_moduleEv"]
+    pub fn initialize_library_module();
 }
 
 // ============================================================================

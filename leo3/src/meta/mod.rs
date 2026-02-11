@@ -109,6 +109,13 @@ pub(crate) fn ensure_environment_initialized() {
         // since Meta functions (inferType, check) need their module
         // globals set up during the initialization phase.
         ffi::initialize_Lean_Meta(1, std::ptr::null_mut());
+        // Initialize the C++ utility module (name, expr infrastructure)
+        // and kernel module (type checker globals). Must be in this order,
+        // matching lean_initialize().
+        ffi::initialize_util_module();
+        ffi::initialize_kernel_module();
+        ffi::initialize_library_core_module();
+        ffi::initialize_library_module();
         // Mark initialization as complete so IO operations like
         // lean_mk_empty_environment can proceed
         ffi::lean_io_mark_end_initialization();

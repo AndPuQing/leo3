@@ -61,24 +61,20 @@ extern "C" {
 // ============================================================================
 
 extern "C" {
-    /// Add a declaration to the environment with type checking
+    /// Add a declaration to the kernel environment with type checking
     ///
-    /// This performs full type checking on the declaration before adding it.
-    /// The environment is immutable, so this returns a new environment.
+    /// **Note**: This operates on `Lean.Kernel.Environment`, not `Lean.Environment`.
+    /// For the elaborator environment (created by `lean_mk_empty_environment`),
+    /// use `lean_elab_add_decl` instead.
     ///
     /// # Parameters
-    /// - `env`: Environment object (consumed)
+    /// - `env`: Kernel.Environment object (consumed)
     /// - `max_heartbeat`: Maximum heartbeats for type checking (0 = unlimited)
-    /// - `decl`: Declaration object (borrowed)
-    /// - `cancel_token`: Optional IO.CancelToken for cancellation (can be null)
+    /// - `decl`: Declaration object (borrowed @&)
+    /// - `cancel_token`: Optional IO.CancelToken for cancellation (borrowed @&)
     ///
     /// # Returns
-    /// `Except Kernel.Exception Environment` - Ok with new environment or Error with exception
-    ///
-    /// # Lean signature
-    /// ```lean
-    /// lean_add_decl : Environment → USize → Declaration → Option CancelToken → Except Exception Environment
-    /// ```
+    /// `Except Kernel.Exception Kernel.Environment`
     pub fn lean_add_decl(
         env: lean_obj_arg,
         max_heartbeat: usize,
@@ -86,23 +82,52 @@ extern "C" {
         cancel_token: lean_obj_arg,
     ) -> lean_obj_res;
 
-    /// Add a declaration to the environment without type checking
+    /// Add a declaration to the kernel environment without type checking
     ///
-    /// **Warning**: This skips type checking entirely. Only use if you're certain
-    /// the declaration is well-typed. Much faster than `lean_add_decl` but unsafe.
+    /// **Note**: This operates on `Lean.Kernel.Environment`, not `Lean.Environment`.
+    /// For the elaborator environment, use `lean_elab_add_decl_without_checking` instead.
+    ///
+    /// # Parameters
+    /// - `env`: Kernel.Environment object (consumed)
+    /// - `decl`: Declaration object (borrowed @&)
+    ///
+    /// # Returns
+    /// `Except Kernel.Exception Kernel.Environment`
+    pub fn lean_add_decl_without_checking(env: lean_obj_arg, decl: lean_obj_arg) -> lean_obj_res;
+
+    /// Add a declaration to the elaborator environment with type checking
+    ///
+    /// This operates on `Lean.Environment` (created by `lean_mk_empty_environment`).
     ///
     /// # Parameters
     /// - `env`: Environment object (consumed)
-    /// - `decl`: Declaration object (borrowed)
+    /// - `max_heartbeat`: Maximum heartbeats for type checking (0 = unlimited)
+    /// - `decl`: Declaration object (borrowed @&)
+    /// - `cancel_token`: Optional IO.CancelToken for cancellation (borrowed @&)
     ///
     /// # Returns
     /// `Except Kernel.Exception Environment`
+    pub fn lean_elab_add_decl(
+        env: lean_obj_arg,
+        max_heartbeat: usize,
+        decl: lean_obj_arg,
+        cancel_token: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Add a declaration to the elaborator environment without type checking
     ///
-    /// # Lean signature
-    /// ```lean
-    /// lean_add_decl_without_checking : Environment → Declaration → Except Exception Environment
-    /// ```
-    pub fn lean_add_decl_without_checking(env: lean_obj_arg, decl: lean_obj_arg) -> lean_obj_res;
+    /// This operates on `Lean.Environment` (created by `lean_mk_empty_environment`).
+    ///
+    /// # Parameters
+    /// - `env`: Environment object (consumed)
+    /// - `decl`: Declaration object (borrowed @&)
+    ///
+    /// # Returns
+    /// `Except Kernel.Exception Environment`
+    pub fn lean_elab_add_decl_without_checking(
+        env: lean_obj_arg,
+        decl: lean_obj_arg,
+    ) -> lean_obj_res;
 
     /// Mark the Quot type as initialized
     ///
@@ -301,12 +326,12 @@ pub unsafe fn lean_constant_info_value(cinfo: lean_obj_arg) -> lean_obj_res {
 // Constants for Constant Kinds
 // ============================================================================
 
+/// Constant kind: Definition (defn)
+pub const LEAN_CONSTANT_KIND_DEFINITION: u8 = 0;
+/// Constant kind: Theorem (thm)
+pub const LEAN_CONSTANT_KIND_THEOREM: u8 = 1;
 /// Constant kind: Axiom
-pub const LEAN_CONSTANT_KIND_AXIOM: u8 = 0;
-/// Constant kind: Definition
-pub const LEAN_CONSTANT_KIND_DEFINITION: u8 = 1;
-/// Constant kind: Theorem
-pub const LEAN_CONSTANT_KIND_THEOREM: u8 = 2;
+pub const LEAN_CONSTANT_KIND_AXIOM: u8 = 2;
 /// Constant kind: Opaque definition
 pub const LEAN_CONSTANT_KIND_OPAQUE: u8 = 3;
 /// Constant kind: Quot type

@@ -500,3 +500,124 @@ fn test_metam_context_creation() {
         result.err()
     );
 }
+
+#[test]
+fn test_add_axiom_to_env() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let name = LeanName::from_str(lean, "myAxiom")?;
+        let level_params = LeanList::nil(lean)?;
+        let prop_level = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, prop_level)?;
+
+        let decl = LeanDeclaration::axiom(lean, name.clone(), level_params, prop, false)?;
+
+        let new_env = LeanEnvironment::add_decl_unchecked(&env, &decl)?;
+
+        let found = LeanEnvironment::find(&new_env, &name)?;
+        assert!(found.is_some(), "Axiom should be found in the environment");
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "add_axiom_to_env failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_add_invalid_decl_fails() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+
+        // theorem bad : Prop := Prop (ill-typed: Prop has type Type, not Prop)
+        let name = LeanName::from_str(lean, "bad")?;
+        let level_params = LeanList::nil(lean)?;
+        let prop_level = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, prop_level.clone())?;
+        let proof = LeanExpr::sort(lean, prop_level)?;
+
+        let decl = LeanDeclaration::theorem(lean, name, level_params, prop, proof)?;
+
+        let result = LeanEnvironment::add_decl(&env, &decl);
+        assert!(result.is_err(), "Adding ill-typed theorem should fail");
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "add_invalid_decl_fails test failed: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_add_theorem_to_env() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+
+        // theorem id_prop : ∀ (P : Prop), P → P := fun P h => h
+        // This is a valid proposition (type lives in Prop).
+        let name = LeanName::from_str(lean, "id_prop")?;
+        let level_params = LeanList::nil(lean)?;
+
+        let prop_level = LeanLevel::zero(lean)?;
+        let prop = LeanExpr::sort(lean, prop_level)?;
+
+        // Type: ∀ (P : Prop), P → P
+        // = forall P : Sort 0, forall _ : #0, #1
+        // In de Bruijn: forall (P : Sort 0), forall (_ : bvar 0), bvar 1
+        let p_name = LeanName::from_str(lean, "P")?;
+        let h_name = LeanName::from_str(lean, "h")?;
+
+        let bvar0 = LeanExpr::bvar(lean, 0)?;
+        let bvar1 = LeanExpr::bvar(lean, 1)?;
+
+        // Inner: ∀ (h : P), P  where P is bvar 0 from outer binder
+        // = forall (h : bvar 0), bvar 1
+        let inner_forall = LeanExpr::forall(
+            h_name.clone(),
+            bvar0.clone(),
+            bvar1.clone(),
+            BinderInfo::Default,
+        )?;
+
+        // Outer: ∀ (P : Prop), (inner)
+        let type_ = LeanExpr::forall(p_name.clone(), prop, inner_forall, BinderInfo::Default)?;
+
+        // Value: fun (P : Prop) (h : P) => h
+        // = lambda P : Sort 0, lambda h : bvar 0, bvar 0
+        let prop_level2 = LeanLevel::zero(lean)?;
+        let prop2 = LeanExpr::sort(lean, prop_level2)?;
+        let bvar0_2 = LeanExpr::bvar(lean, 0)?;
+        let bvar0_3 = LeanExpr::bvar(lean, 0)?;
+
+        let inner_lambda = LeanExpr::lambda(h_name, bvar0_2, bvar0_3, BinderInfo::Default)?;
+        let value = LeanExpr::lambda(p_name, prop2, inner_lambda, BinderInfo::Default)?;
+
+        let decl = LeanDeclaration::theorem(lean, name.clone(), level_params, type_, value)?;
+
+        let new_env = LeanEnvironment::add_decl(&env, &decl)?;
+
+        let found = LeanEnvironment::find(&new_env, &name)?;
+        assert!(
+            found.is_some(),
+            "Theorem should be found in the environment"
+        );
+
+        let cinfo = found.unwrap();
+        assert_eq!(LeanConstantInfo::kind(&cinfo), ConstantKind::Theorem);
+        assert!(LeanConstantInfo::has_value(&cinfo));
+
+        Ok(())
+    });
+
+    assert!(
+        result.is_ok(),
+        "add_theorem_to_env failed: {:?}",
+        result.err()
+    );
+}

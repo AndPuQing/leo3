@@ -53,14 +53,17 @@ impl LeanModule {
                 )
             })?;
 
-            // Call initialize function (builtin=0, world=null)
-            let result = init_fn(0, std::ptr::null_mut());
+            // Call initialize function (builtin=0, world token)
+            let world = ffi::io::lean_io_mk_world();
+            let result = init_fn(0, world as *mut std::ffi::c_void);
 
             // Check if initialization was successful
-            // TODO: Properly check lean_io_result_is_error
-            if result.is_null() {
+            let result_ptr = result as *mut ffi::lean_object;
+            if ffi::io::lean_io_result_is_error(result_ptr) {
+                ffi::lean_dec(result_ptr);
                 return Err(format!("Module {} initialization failed", module_name));
             }
+            ffi::lean_dec(result_ptr);
 
             Ok(Self {
                 library,

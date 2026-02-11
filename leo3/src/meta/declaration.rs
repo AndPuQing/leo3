@@ -5,12 +5,11 @@
 
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
-use crate::types::{LeanList, LeanString};
+use crate::types::LeanList;
 use crate::LeanResult;
 use leo3_ffi as ffi;
 
-// TODO: Implement proper LeanName type wrapper
-type LeanName = LeanString;
+use super::name::LeanName;
 
 /// Safety level for definitions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,13 +69,16 @@ impl LeanDeclaration {
         is_unsafe: bool,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let ptr = ffi::environment::lean_mk_axiom(
+            let axiom_val = ffi::environment::lean_mk_axiom(
                 name.into_ptr(),
                 level_params.into_ptr(),
                 type_.into_ptr(),
                 is_unsafe as u8,
             );
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
+            // Wrap AxiomVal in Declaration.axiomDecl (tag 0, 1 obj field)
+            let decl = ffi::lean_alloc_ctor(0, 1, 0);
+            ffi::lean_ctor_set(decl, 0, axiom_val);
+            Ok(LeanBound::from_owned_ptr(lean, decl))
         }
     }
 
@@ -100,13 +102,16 @@ impl LeanDeclaration {
         value: LeanBound<'l, super::expr::LeanExpr>,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let ptr = ffi::environment::lean_mk_theorem(
+            let thm_val = ffi::environment::lean_mk_theorem(
                 name.into_ptr(),
                 level_params.into_ptr(),
                 type_.into_ptr(),
                 value.into_ptr(),
             );
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
+            // Wrap TheoremVal in Declaration.thmDecl (tag 2, 1 obj field)
+            let decl = ffi::lean_alloc_ctor(2, 1, 0);
+            ffi::lean_ctor_set(decl, 0, thm_val);
+            Ok(LeanBound::from_owned_ptr(lean, decl))
         }
     }
 
@@ -133,7 +138,7 @@ impl LeanDeclaration {
         safety: DefinitionSafety,
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            let ptr = ffi::environment::lean_mk_definition(
+            let def_val = ffi::environment::lean_mk_definition(
                 name.into_ptr(),
                 level_params.into_ptr(),
                 type_.into_ptr(),
@@ -141,7 +146,10 @@ impl LeanDeclaration {
                 hints.into_ptr(),
                 safety.to_u8(),
             );
-            Ok(LeanBound::from_owned_ptr(lean, ptr))
+            // Wrap DefinitionVal in Declaration.defnDecl (tag 1, 1 obj field)
+            let decl = ffi::lean_alloc_ctor(1, 1, 0);
+            ffi::lean_ctor_set(decl, 0, def_val);
+            Ok(LeanBound::from_owned_ptr(lean, decl))
         }
     }
 }

@@ -43,8 +43,9 @@ impl LeanOption {
     /// ```
     pub fn none<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Option.none is constructor 0 with no fields
-            let ptr = ffi::lean_alloc_ctor(0, 0, 0);
+            // Option.none is a scalar (lean_box(0)) — NOT a heap-allocated constructor.
+            // The C++ runtime checks `is_scalar(raw())` to detect none.
+            let ptr = ffi::inline::lean_box(0);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

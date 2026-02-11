@@ -48,3 +48,5 @@ build/
 
 # Examples build output
 examples/*/target/
+
+CLAUDE.md

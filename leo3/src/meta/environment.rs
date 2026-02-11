@@ -4,16 +4,116 @@
 //! constants, inductive types, and type class instances. Environments are immutable -
 //! all modifications return a new environment.
 
+use std::sync::Mutex;
+
 use crate::err::LeanError;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::{LeanList, LeanOption, LeanString};
+use crate::types::LeanList;
 use crate::LeanResult;
 use leo3_ffi as ffi;
 
-// TODO: Implement proper LeanName type wrapper
-// For now, using LeanString as a placeholder
-type LeanName = LeanString;
+/// Wrapper to force `Send` on types that cross the worker-thread channel.
+///
+/// SAFETY: The calling thread blocks until the worker finishes, so the
+/// wrapped value's captures are guaranteed to outlive the worker's use of them.
+struct SendBox<T>(T);
+unsafe impl<T> Send for SendBox<T> {}
+
+use std::sync::mpsc;
+
+/// Global worker thread state.
+#[allow(clippy::type_complexity)]
+static WORKER: Mutex<Option<mpsc::SyncSender<Box<dyn FnOnce() + Send>>>> = Mutex::new(None);
+
+/// Ensure the worker thread is spawned and fully initialized.
+///
+/// This is called from `prepare_freethreaded_lean()` to eagerly spawn the
+/// worker thread. All Lean module initialization (`ensure_*_initialized`)
+/// happens on the worker thread, ensuring the `Once` guards are triggered
+/// there before any short-lived thread can trigger them.
+///
+/// The worker thread never exits, so its mimalloc heap is never reclaimed,
+/// avoiding the SIGSEGV in `_mi_thread_done` that occurs when Lean's event
+/// loop references objects on a dead thread's heap.
+pub(crate) fn ensure_worker_initialized() {
+    use std::sync::Once;
+    static WORKER_INIT: Once = Once::new();
+
+    WORKER_INIT.call_once(|| {
+        let (tx, rx) = mpsc::sync_channel::<Box<dyn FnOnce() + Send>>(0);
+        let (init_tx, init_rx) = mpsc::sync_channel::<()>(0);
+
+        std::thread::Builder::new()
+            .name("leo3-env-worker".into())
+            .spawn(move || {
+                // All Lean runtime and module initialization happens here
+                // on the worker thread, which never exits.
+                unsafe {
+                    ffi::lean_initialize_runtime_module();
+                    ffi::lean_initialize_thread();
+                }
+                crate::meta::ensure_environment_initialized();
+
+                // Signal that initialization is complete
+                let _ = init_tx.send(());
+
+                for task in rx {
+                    task();
+                }
+                // The channel is closed (process is exiting). Park this
+                // thread forever so its mimalloc heap is never reclaimed.
+                loop {
+                    std::thread::park();
+                }
+            })
+            .expect("failed to spawn leo3-env-worker thread");
+
+        // Wait for the worker thread to finish initialization
+        init_rx.recv().expect("worker thread initialization failed");
+
+        // Store the sender for task dispatch
+        let mut guard = WORKER.lock().unwrap();
+        *guard = Some(tx);
+    });
+}
+
+/// Dispatch a closure to the worker thread and block until it completes.
+///
+/// # Safety
+///
+/// The closure `f` and its return value cross a thread boundary via channels.
+/// Callers must ensure that any captured pointers remain valid and that
+/// reference counts are properly managed before and after the call.
+fn with_env_worker<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    ensure_worker_initialized();
+
+    let sender = {
+        let guard = WORKER.lock().unwrap();
+        guard.as_ref().unwrap().clone()
+    };
+
+    let (done_tx, done_rx) = mpsc::sync_channel::<SendBox<R>>(0);
+    let task = move || {
+        let result = f();
+        let _ = done_tx.send(SendBox(result));
+    };
+    // SAFETY: The calling thread blocks on done_rx.recv() below, so all
+    // captures (including raw pointers) remain valid for the closure's
+    // entire execution on the worker thread. This justifies both the
+    // Send marker and the 'static lifetime erasure.
+    let task: Box<dyn FnOnce() + Send> = unsafe {
+        std::mem::transmute::<Box<dyn FnOnce() + '_>, Box<dyn FnOnce() + Send>>(Box::new(task))
+    };
+    sender.send(task).expect("env worker thread died");
+    done_rx.recv().expect("env worker thread died").0
+}
+
+use super::declaration::LeanDeclaration;
+use super::name::LeanName;
 
 /// Lean environment - immutable collection of declarations
 ///
@@ -69,32 +169,21 @@ impl LeanEnvironment {
     /// let env = LeanEnvironment::empty(lean, 0)?;
     /// ```
     pub fn empty<'l>(lean: Lean<'l>, trust_level: u32) -> LeanResult<LeanBound<'l, Self>> {
-        // Ensure Lean.Environment module is initialized
-        crate::meta::ensure_environment_initialized();
-
-        unsafe {
-            // Create a RealWorld token for the IO action
+        let env_ptr = with_env_worker(move || unsafe {
             let world = ffi::io::lean_io_mk_world();
-
-            // Call FFI to create environment (returns IO Environment)
             let io_result = ffi::environment::lean_mk_empty_environment(trust_level, world);
 
-            // IO results are EStateM.Result: tag 0 = ok, tag 1 = error
-            let tag = ffi::lean_obj_tag(io_result);
-            if tag != 0 {
+            if ffi::io::lean_io_result_is_error(io_result) {
                 ffi::lean_dec(io_result);
                 return Err(LeanError::runtime(
                     "Failed to create empty environment: IO error",
                 ));
             }
 
-            // Extract the environment from IO result (field 0 of EStateM.Result.ok)
-            let env_ptr = ffi::lean_ctor_get(io_result, 0) as *mut ffi::lean_object;
-            ffi::lean_inc(env_ptr);
-            ffi::lean_dec(io_result);
+            Ok(ffi::io::lean_io_result_take_value(io_result))
+        })?;
 
-            Ok(LeanBound::from_owned_ptr(lean, env_ptr))
-        }
+        unsafe { Ok(LeanBound::from_owned_ptr(lean, env_ptr)) }
     }
 
     /// Find a constant by name in the environment
@@ -120,23 +209,36 @@ impl LeanEnvironment {
         env: &LeanBound<'l, Self>,
         name: &LeanBound<'l, LeanName>,
     ) -> LeanResult<Option<LeanBound<'l, LeanConstantInfo>>> {
+        let lean = env.lean_token();
+        let env_ptr = env.as_ptr();
+        let name_ptr = name.as_ptr();
+
+        let result_ptr = with_env_worker(move || unsafe {
+            // lean_environment_find operates on Lean.Kernel.Environment,
+            // so convert from Lean.Environment first
+            let kenv = ffi::environment::lean_elab_environment_to_kernel_env(env_ptr);
+
+            ffi::environment::lean_environment_find(kenv, name_ptr)
+        });
+
         unsafe {
-            let lean = env.lean_token();
-            let result = ffi::environment::lean_environment_find(env.as_ptr(), name.as_ptr());
-
             // Result is Option ConstantInfo
-            let option = LeanBound::<LeanOption>::from_owned_ptr(lean, result);
-
-            // Check if option is None by checking constructor tag
-            // Option.none is tag 0, Option.some is tag 1
-            let tag = ffi::lean_obj_tag(option.as_ptr());
-            if tag == 0 {
+            // Option.none is scalar (lean_box(0)), Option.some is tag 1
+            if ffi::inline::lean_is_scalar(result_ptr) {
                 Ok(None)
             } else {
-                // Extract the Some value (field 0)
-                let cinfo_ptr = ffi::lean_ctor_get(option.as_ptr(), 0) as *mut ffi::lean_object;
-                ffi::lean_inc(cinfo_ptr); // Increment refcount since we're returning it
-                Ok(Some(LeanBound::from_owned_ptr(lean, cinfo_ptr)))
+                let tag = ffi::lean_obj_tag(result_ptr);
+                if tag == 0 {
+                    // Option.none as ctor (shouldn't happen, but handle it)
+                    ffi::lean_dec(result_ptr);
+                    Ok(None)
+                } else {
+                    // Option.some — extract the value (field 0)
+                    let cinfo_ptr = ffi::lean_ctor_get(result_ptr, 0) as *mut ffi::lean_object;
+                    ffi::lean_inc(cinfo_ptr);
+                    ffi::lean_dec(result_ptr);
+                    Ok(Some(LeanBound::from_owned_ptr(lean, cinfo_ptr)))
+                }
             }
         }
     }
@@ -151,7 +253,13 @@ impl LeanEnvironment {
     ///
     /// `true` if Quot is initialized, `false` otherwise
     pub fn is_quot_init<'l>(env: &LeanBound<'l, Self>) -> bool {
-        unsafe { ffi::environment::lean_environment_quot_init(env.as_ptr()) != 0 }
+        let env_ptr = env.as_ptr();
+        with_env_worker(move || unsafe {
+            let kenv = ffi::environment::lean_elab_environment_to_kernel_env(env_ptr);
+            let result = ffi::environment::lean_environment_quot_init(kenv) != 0;
+            ffi::lean_dec(kenv);
+            result
+        })
     }
 
     /// Mark the Quot type as initialized
@@ -164,10 +272,137 @@ impl LeanEnvironment {
     ///
     /// New environment with Quot marked as initialized
     pub fn mark_quot_init<'l>(env: LeanBound<'l, Self>) -> LeanBound<'l, Self> {
-        unsafe {
-            let lean = env.lean_token();
-            let ptr = ffi::environment::lean_environment_mark_quot_init(env.into_ptr());
-            LeanBound::from_owned_ptr(lean, ptr)
+        let lean = env.lean_token();
+        let env_ptr = env.into_ptr();
+        let result_ptr = with_env_worker(move || unsafe {
+            ffi::environment::lean_environment_mark_quot_init(env_ptr)
+        });
+        unsafe { LeanBound::from_owned_ptr(lean, result_ptr) }
+    }
+
+    /// Add a declaration to the environment with kernel type checking.
+    ///
+    /// This performs full type checking on the declaration before adding it.
+    /// Returns a new environment containing the declaration, or an error
+    /// if the declaration is ill-typed.
+    ///
+    /// # Arguments
+    ///
+    /// * `env` - Environment to add the declaration to (borrowed)
+    /// * `decl` - Declaration to add
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let decl = LeanDeclaration::axiom(lean, name, levels, type_, false)?;
+    /// let new_env = LeanEnvironment::add_decl(&env, &decl)?;
+    /// ```
+    pub fn add_decl<'l>(
+        env: &LeanBound<'l, Self>,
+        decl: &LeanBound<'l, LeanDeclaration>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = env.lean_token();
+        let env_ptr = env.clone().into_ptr();
+        // Although decl is @& (borrowed), the C++ error path may store
+        // a reference to it in the KernelException. We increment the
+        // refcount to ensure the declaration outlives the error result.
+        let decl_ptr = decl.as_ptr();
+        unsafe { ffi::lean_inc(decl_ptr) };
+
+        let result_ptr = with_env_worker(move || unsafe {
+            let cancel_token = ffi::inline::lean_box(0);
+            let result = ffi::environment::lean_elab_add_decl(env_ptr, 0, decl_ptr, cancel_token);
+            Self::handle_except_result_raw(result)
+        })?;
+
+        unsafe { Ok(LeanBound::from_owned_ptr(lean, result_ptr)) }
+    }
+
+    /// Add a declaration to the environment without type checking.
+    ///
+    /// **Warning**: This skips type checking entirely. Only use if you are certain
+    /// the declaration is well-typed. Much faster than `add_decl` but unsafe
+    /// in the Lean sense.
+    ///
+    /// # Arguments
+    ///
+    /// * `env` - Environment to add the declaration to (borrowed)
+    /// * `decl` - Declaration to add
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let decl = LeanDeclaration::axiom(lean, name, levels, type_, false)?;
+    /// let new_env = LeanEnvironment::add_decl_unchecked(&env, &decl)?;
+    /// ```
+    pub fn add_decl_unchecked<'l>(
+        env: &LeanBound<'l, Self>,
+        decl: &LeanBound<'l, LeanDeclaration>,
+    ) -> LeanResult<LeanBound<'l, Self>> {
+        let lean = env.lean_token();
+        let env_ptr = env.clone().into_ptr();
+        let decl_ptr = decl.as_ptr();
+
+        let result_ptr = with_env_worker(move || unsafe {
+            let result = ffi::environment::lean_elab_add_decl_without_checking(env_ptr, decl_ptr);
+            Self::handle_except_result_raw(result)
+        })?;
+
+        unsafe { Ok(LeanBound::from_owned_ptr(lean, result_ptr)) }
+    }
+
+    /// Handle an `Except KernelException Environment` result from FFI.
+    ///
+    /// Tag 0 = `Except.error`, field 0 is the `KernelException`.
+    /// Tag 1 = `Except.ok`, field 0 is the new environment.
+    ///
+    /// Returns a raw pointer on success (caller must wrap in `LeanBound`).
+    /// This variant is `Send`-safe and used by the worker thread.
+    unsafe fn handle_except_result_raw(
+        result: *mut ffi::lean_object,
+    ) -> LeanResult<*mut ffi::lean_object> {
+        let tag = ffi::lean_obj_tag(result);
+        if tag == 1 {
+            // Except.ok — extract the new environment
+            let new_env_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
+            ffi::lean_inc(new_env_ptr);
+            ffi::lean_dec(result);
+            Ok(new_env_ptr)
+        } else {
+            // Except.error — extract KernelException tag for a descriptive message
+            let exception_ptr = ffi::lean_ctor_get(result, 0) as *mut ffi::lean_object;
+            let exc_tag = if ffi::inline::lean_is_scalar(exception_ptr) {
+                (exception_ptr as usize) >> 1
+            } else {
+                ffi::lean_obj_tag(exception_ptr) as usize
+            };
+            ffi::lean_dec(result);
+
+            let message = match exc_tag {
+                0 => "unknown constant",
+                1 => "already declared",
+                2 => "declaration type mismatch",
+                3 => "declaration has metavariables",
+                4 => "declaration has free variables",
+                5 => "function expected",
+                6 => "type expected",
+                7 => "let type mismatch",
+                8 => "expression type mismatch",
+                9 => "application type mismatch",
+                10 => "invalid projection",
+                11 => "theorem type is not Prop",
+                12 => "other kernel error",
+                13 => "deterministic timeout",
+                14 => "excessive memory",
+                15 => "deep recursion",
+                16 => "interrupted",
+                _ => "unknown kernel exception",
+            };
+
+            Err(LeanError::ffi(&format!(
+                "kernel type check failed: {}",
+                message
+            )))
         }
     }
 }
