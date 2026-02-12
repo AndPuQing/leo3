@@ -232,7 +232,7 @@ extern "C" {
 // On non-Windows these read the extern statics directly (zero cost).
 // On Windows they return null — callers must handle this with manual fallbacks.
 
-// Helper macro: on non-Windows read the extern static, on Windows return null.
+// Helper macro: on non-Windows read the extern static, on Windows look up via GetProcAddress.
 macro_rules! bss_accessor {
     ($(#[$meta:meta])* $vis:vis fn $name:ident() -> $sym:ident) => {
         $(#[$meta])*
@@ -241,9 +241,93 @@ macro_rules! bss_accessor {
             #[cfg(not(target_os = "windows"))]
             { $sym }
             #[cfg(target_os = "windows")]
-            { std::ptr::null_mut() }
+            { win_bss::lookup_bss_global(stringify!($sym)) }
         }
     };
+}
+
+/// Windows-specific BSS global lookup via `GetProcAddress`.
+///
+/// Lean's compiler emits BSS globals with `LEAN_EXPORT` (`__declspec(dllexport)` on Windows),
+/// so they ARE in the DLL export tables. We look them up at runtime since Rust's `extern static`
+/// declarations don't work reliably with Windows DLL data symbols.
+#[cfg(target_os = "windows")]
+mod win_bss {
+    use super::lean_object;
+    use std::collections::HashMap;
+    use std::ffi::CString;
+    use std::sync::Mutex;
+
+    // Windows API types and functions
+    type HMODULE = *mut std::ffi::c_void;
+    type FARPROC = *mut std::ffi::c_void;
+    type LPCSTR = *const i8;
+
+    extern "system" {
+        fn GetModuleHandleA(lpModuleName: LPCSTR) -> HMODULE;
+        fn GetProcAddress(hModule: HMODULE, lpProcName: LPCSTR) -> FARPROC;
+    }
+
+    /// DLL names to search for BSS globals. Lean splits its library across multiple DLLs.
+    const LEAN_DLLS: &[&str] = &[
+        "leanshared.dll",
+        "libleanshared.dll",
+        "leanshared_2.dll",
+        "libleanshared_2.dll",
+        "leanshared_1.dll",
+        "libleanshared_1.dll",
+        "Init_shared.dll",
+        "libInit_shared.dll",
+    ];
+
+    static CACHE: Mutex<Option<HashMap<&'static str, usize>>> = Mutex::new(None);
+
+    /// Look up a BSS global variable by symbol name across all loaded Lean DLLs.
+    ///
+    /// Returns the value of the global (i.e., the `lean_object*` it points to),
+    /// or null if the symbol is not found in any DLL.
+    ///
+    /// Results are cached so each symbol is only looked up once.
+    pub(super) unsafe fn lookup_bss_global(sym_name: &'static str) -> *mut lean_object {
+        let mut guard = CACHE.lock().unwrap_or_else(|e| e.into_inner());
+        let cache = guard.get_or_insert_with(HashMap::new);
+
+        if let Some(&cached) = cache.get(sym_name) {
+            return cached as *mut lean_object;
+        }
+
+        let c_name = match CString::new(sym_name) {
+            Ok(s) => s,
+            Err(_) => {
+                cache.insert(sym_name, 0);
+                return std::ptr::null_mut();
+            }
+        };
+
+        for dll_name in LEAN_DLLS {
+            let c_dll = match CString::new(*dll_name) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let handle = GetModuleHandleA(c_dll.as_ptr());
+            if handle.is_null() {
+                continue;
+            }
+            let addr = GetProcAddress(handle, c_name.as_ptr());
+            if !addr.is_null() {
+                // addr points to the global variable itself (lean_object**).
+                // Dereference to get the lean_object* value.
+                let global_ptr = addr as *const *mut lean_object;
+                let value = *global_ptr;
+                cache.insert(sym_name, value as usize);
+                return value;
+            }
+        }
+
+        // Symbol not found in any DLL
+        cache.insert(sym_name, 0);
+        std::ptr::null_mut()
+    }
 }
 
 bss_accessor!(/// Get the default `Meta.Config`.
@@ -313,16 +397,21 @@ pub unsafe fn lean_inhabited_options() -> *mut lean_object {
     }
     #[cfg(target_os = "windows")]
     {
-        std::ptr::null_mut()
+        #[cfg(not(lean_4_28))]
+        let result = win_bss::lookup_bss_global("l_Lean_instInhabitedOptions");
+        #[cfg(lean_4_28)]
+        let result = win_bss::lookup_bss_global("l_Lean_Options_instInhabited");
+        result
     }
 }
 
 /// Get the empty `PersistentHashMap` singleton.
 ///
 /// On non-Windows, reads the BSS global directly.
-/// On Windows, manually constructs the value (cached via `OnceLock`).
+/// On Windows, tries `GetProcAddress` first, then manually constructs (cached via `OnceLock`).
 ///
-/// Layout: `PersistentHashMap.mk (Node.entries (mkArray 32 Entry.null)) 0`
+/// `PersistentHashMap` is a single-field structure wrapping `Node`, so the compiler
+/// represents it as just the `Node`. Layout: `Node.entries (mkArray 32 Entry.null)`.
 pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
     {
@@ -335,13 +424,12 @@ pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
         let ptr = *CACHED.get_or_init(|| {
             // Entry.null = lean_box(2) (tag 2, 0 fields → scalar)
             let entries = crate::array::lean_mk_array(lean_box(32), lean_box(2));
-            // Node.entries: ctor tag 0, 1 obj field
-            let node = crate::lean_alloc_ctor(0, 1, 0);
-            lean_ctor_set(node, 0, entries);
-            // PersistentHashMap.mk: ctor tag 0, 2 obj fields
-            let phm = crate::lean_alloc_ctor(0, 2, 0);
-            lean_ctor_set(phm, 0, node);
-            lean_ctor_set(phm, 1, lean_box(0)); // size = 0
+            // PersistentHashMap is a single-field structure wrapping Node.
+            // The compiler represents it as just Node.entries: ctor tag 0, 1 obj field.
+            let phm = crate::lean_alloc_ctor(0, 1, 0);
+            lean_ctor_set(phm, 0, entries);
+            // Mark as persistent (m_rc = 0) so lean_inc/lean_dec are no-ops.
+            crate::object::lean_mark_persistent(phm);
             phm as usize
         });
         ptr as *mut lean_object
@@ -351,9 +439,10 @@ pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
 /// Get the empty `PersistentArray` singleton.
 ///
 /// On non-Windows, reads the BSS global directly.
-/// On Windows, manually constructs the value (cached via `OnceLock`).
+/// On Windows, tries `GetProcAddress` first, then manually constructs (cached via `OnceLock`).
 ///
 /// Layout: `PersistentArray.mk (Node.node #[]) #[] 0 initShift 0`
+/// Fields: root (Node), tail (Array), size (Nat), tailOff (Nat) + shift (USize scalar)
 pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
     {
@@ -367,13 +456,18 @@ pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
             // PersistentArrayNode.node: ctor tag 0, 1 obj field (children: Array)
             let root_node = crate::lean_alloc_ctor(0, 1, 0);
             lean_ctor_set(root_node, 0, crate::array::lean_mk_empty_array());
-            // PersistentArray: ctor tag 0, 4 obj fields, 4 scalar bytes (shift: UInt32)
-            let pa = crate::lean_alloc_ctor(0, 4, 4);
+            // PersistentArray: ctor tag 0, 4 obj fields, sizeof(size_t) scalar bytes
+            // shift is USize (= size_t), not UInt32
+            let scalar_sz = std::mem::size_of::<usize>() as u32;
+            let pa = crate::lean_alloc_ctor(0, 4, scalar_sz);
             lean_ctor_set(pa, 0, root_node); // root
             lean_ctor_set(pa, 1, crate::array::lean_mk_empty_array()); // tail
             lean_ctor_set(pa, 2, lean_box(0)); // size = 0
             lean_ctor_set(pa, 3, lean_box(0)); // tailOff = 0
-            lean_ctor_set_uint32(pa, 0, 5); // shift = initShift = 5
+                                               // shift = initShift = 5, stored as USize via lean_ctor_set_usize
+            crate::inline::lean_ctor_set_usize(pa, 4, 5);
+            // Mark as persistent (m_rc = 0) so lean_inc/lean_dec are no-ops.
+            crate::object::lean_mark_persistent(pa);
             pa as usize
         });
         ptr as *mut lean_object
@@ -383,7 +477,8 @@ pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
 /// Get the empty `KVMap` (Options) singleton.
 ///
 /// On non-Windows, reads the BSS global directly.
-/// On Windows, returns `lean_box(0)` — KVMap.empty is a zero-field enum (tag 0).
+/// On Windows, tries `GetProcAddress` first, then returns `lean_box(0)`.
+/// KVMap.empty is a zero-field enum (tag 0).
 #[inline]
 pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
     #[cfg(not(target_os = "windows"))]
@@ -392,6 +487,10 @@ pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
     }
     #[cfg(target_os = "windows")]
     {
+        let result = win_bss::lookup_bss_global("l_Lean_KVMap_empty");
+        if !result.is_null() {
+            return result;
+        }
         lean_box(0)
     }
 }
