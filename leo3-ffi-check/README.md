@@ -87,7 +87,7 @@ By validating against the actual headers, we catch these issues at compile time 
 - [ ] Check field offsets in addition to sizes
 - [ ] Validate function pointer types
 - [ ] Support for testing against multiple Lean4 versions in CI
-- [ ] Automated checks in GitHub Actions
+- [x] Automated checks in GitHub Actions (gated in CI via `ffi-check` job)
 
 ## Related
 
