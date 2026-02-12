@@ -1,7 +1,11 @@
 //! Implementation of the `#[leanclass]` macro.
 //!
 //! This macro generates both Rust and Lean code for exposing Rust structs
-//! as Lean external classes.
+//! as Lean external classes. In addition to the Rust FFI wrappers and
+//! `ExternalClass` trait implementation, the macro produces string constants
+//! containing the corresponding Lean source code (`opaque` type declarations
+//! and `@[extern]`-annotated function signatures) that can be embedded into
+//! `.lean` files.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -626,26 +630,113 @@ fn generate_owned_method_wrapper(
     })
 }
 
-/// Generate metadata for Lean code generation (struct only)
+/// Generate a string constant containing the Lean `opaque` type declaration for the struct.
+///
+/// For a struct named `Foo`, this produces:
+/// ```ignore
+/// pub const FOO_LEAN_CLASS_DECL: &str = "opaque Foo : Type";
+/// ```
 fn generate_lean_code_metadata(
-    _struct_info: &StructInfo,
+    struct_info: &StructInfo,
     _methods: &[MethodInfo],
     _leo3_crate: &TokenStream,
 ) -> TokenStream {
-    // TODO: Generate Lean code files
-    // For now, return empty
-    quote! {}
+    let struct_name_str = struct_info.name.to_string();
+    let const_name = format_ident!("{}_LEAN_CLASS_DECL", struct_name_str.to_uppercase());
+    let lean_code = format!("opaque {} : Type", struct_name_str);
+
+    quote! {
+        pub const #const_name: &str = #lean_code;
+    }
 }
 
-/// Generate metadata for Lean code generation (methods)
+/// Generate a string constant containing Lean `@[extern]` declarations for each method.
+///
+/// For a struct `Foo` with a method `bar(&self, x: u32) -> u32`, this produces:
+/// ```ignore
+/// pub const FOO_LEAN_METHODS_DECL: &str = r#"@[extern "__lean_ffi_Foo_bar"] opaque Foo.bar : Foo → UInt32 → UInt32"#;
+/// ```
+///
+/// Receiver types are mapped as follows:
+/// - `&self` / `&mut self` / `self` → the struct type as the first parameter
+/// - `&mut self` with `()` return → return type becomes the struct (modified-in-place semantics)
 fn generate_lean_code_metadata_for_methods(
-    _struct_name: &syn::Ident,
-    _methods: &[MethodInfo],
+    struct_name: &syn::Ident,
+    methods: &[MethodInfo],
     _leo3_crate: &TokenStream,
 ) -> TokenStream {
-    // TODO: Generate Lean code files
-    // For now, return empty
-    quote! {}
+    let struct_name_str = struct_name.to_string();
+    let const_name = format_ident!("{}_LEAN_METHODS_DECL", struct_name_str.to_uppercase());
+
+    let mut lean_lines = Vec::new();
+
+    for method in methods {
+        let ffi_name = format!("__lean_ffi_{}_{}", struct_name, method.name);
+        let lean_name = &method.lean_name;
+
+        // Build the type signature parts
+        let mut type_parts: Vec<String> = Vec::new();
+
+        // Add self parameter if applicable
+        match &method.receiver {
+            MethodReceiver::Ref | MethodReceiver::MutRef | MethodReceiver::Owned => {
+                type_parts.push(struct_name_str.clone());
+            }
+            MethodReceiver::None => {}
+        }
+
+        // Add regular parameters
+        for (_name, ty) in &method.params {
+            type_parts.push(rust_type_to_lean(ty, &struct_name_str));
+        }
+
+        // Determine return type
+        // For &mut self with unit return, the FFI returns the modified struct
+        let return_lean_type = match &method.receiver {
+            MethodReceiver::MutRef if is_unit_type(&method.return_type) => struct_name_str.clone(),
+            _ => rust_type_to_lean(&method.return_type, &struct_name_str),
+        };
+        type_parts.push(return_lean_type);
+
+        let type_sig = type_parts.join(" \u{2192} ");
+
+        lean_lines.push(format!(
+            "@[extern \"{}\"] opaque {} : {}",
+            ffi_name, lean_name, type_sig
+        ));
+    }
+
+    let lean_code = lean_lines.join("\n");
+
+    quote! {
+        pub const #const_name: &str = #lean_code;
+    }
+}
+
+/// Map a Rust type to its Lean equivalent string
+fn rust_type_to_lean(ty: &syn::Type, struct_name: &str) -> String {
+    match ty {
+        syn::Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                match segment.ident.to_string().as_str() {
+                    "i32" => "Int32".to_string(),
+                    "i64" => "Int64".to_string(),
+                    "u32" => "UInt32".to_string(),
+                    "u64" => "UInt64".to_string(),
+                    "f64" => "Float".to_string(),
+                    "String" => "String".to_string(),
+                    "bool" => "Bool".to_string(),
+                    "Self" => struct_name.to_string(),
+                    other if other == struct_name => struct_name.to_string(),
+                    other => other.to_string(),
+                }
+            } else {
+                "Unit".to_string()
+            }
+        }
+        syn::Type::Tuple(tuple) if tuple.elems.is_empty() => "Unit".to_string(),
+        _ => "Unit".to_string(),
+    }
 }
 
 /// Check if a type is unit ()

@@ -157,7 +157,7 @@ Leo3 adapts PyO3's architecture for Lean4:
 | `Bound<'py, T>` | `LeanBound<'l, T>` | Lifetime-bound smart pointer |
 | `Py<T>` | `LeanRef<T>` | Unbound smart pointer |
 | `#[pyfunction]` | `#[leanfn]` | Function export macro |
-| `#[pyclass]` | `#[leanclass]` | Class export macro (planned) |
+| `#[pyclass]` | `#[leanclass]` | Class export macro |
 | `PyObject` | `lean_object` | Base object type |
 | GIL | Lean runtime | No equivalent (Lean has no GIL) |
 
@@ -179,6 +179,7 @@ Leo3 adapts PyO3's architecture for Lean4:
 - [x] Floating-point conversions (f32, f64 ↔ LeanFloat)
 - [x] Option type conversions (Option<T> ↔ LeanOption)
 - [x] Result type conversions (Result<T, E> ↔ LeanExcept)
+- [x] `#[leanclass]` for Rust structs as Lean classes (with Lean source code generation)
 
 ### In Progress 🚧
 - [ ] Complete FFI bindings (more Lean API functions)
@@ -186,7 +187,6 @@ Leo3 adapts PyO3's architecture for Lean4:
 
 ### Planned 📋
 - [ ] IO monad support
-- [ ] `#[leanclass]` for Rust structs as Lean classes
 - [ ] `#[leanmodule]` for module creation
 - [ ] Proof object support
 - [ ] Tactic integration
