@@ -212,6 +212,33 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
         &mut *(data_ptr as *mut T)
     }
 
+    /// Take the inner value out of an exclusively-owned external object.
+    ///
+    /// This moves the Rust value out without cloning. The external object's
+    /// data pointer is set to null so the finalizer will not double-free.
+    ///
+    /// # Safety
+    ///
+    /// - The object must be exclusively owned (reference count == 1).
+    /// - After calling this, the `LeanBound` wrapper should still be dropped
+    ///   normally (it will dec-ref the Lean object, whose finalizer will see
+    ///   null data and skip the Rust destructor).
+    pub unsafe fn take_inner(&mut self) -> T {
+        let data_ptr = ffi::lean_get_external_data(self.as_ptr());
+        debug_assert!(
+            !data_ptr.is_null(),
+            "take_inner called on already-taken external object"
+        );
+        // Read the value out of the Box allocation.
+        let value = std::ptr::read(data_ptr as *const T);
+        // Null out m_data so the finalizer skips the Rust destructor.
+        let ext = ffi::lean_to_external(self.as_ptr());
+        (*ext).m_data = std::ptr::null_mut();
+        // Free the Box allocation (without running T's destructor).
+        std::alloc::dealloc(data_ptr as *mut u8, std::alloc::Layout::new::<T>());
+        value
+    }
+
     /// Check if this external object is of the correct type.
     ///
     /// # Example

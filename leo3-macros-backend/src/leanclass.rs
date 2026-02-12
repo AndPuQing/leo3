@@ -569,12 +569,19 @@ fn generate_owned_method_wrapper(
         })
         .collect();
 
-    // Convert self parameter (consuming).
-    // If exclusively owned, read the value and let the LeanBound drop handle
-    // the deallocation. If shared, clone the inner value instead.
+    // Convert self parameter (consuming) with move semantics.
+    // If exclusively owned (RC == 1), move the value out without cloning.
+    // If shared (RC > 1), clone the inner value instead.
     let self_conversion = quote! {
-        let self_obj = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
-        let self_owned: #struct_name = self_obj.get_ref().clone();
+        let self_owned: #struct_name = if #leo3_crate::ffi::object::lean_is_exclusive(arg0) {
+            // Exclusively owned — move the value out (no clone).
+            let mut self_obj = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
+            self_obj.take_inner()
+        } else {
+            // Shared — clone the inner value.
+            let self_obj = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
+            self_obj.get_ref().clone()
+        };
     };
 
     // Convert other parameters

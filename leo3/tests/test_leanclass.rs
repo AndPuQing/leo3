@@ -274,3 +274,72 @@ fn test_cow_multiple_shared_mutations_create_independent_copies() {
     })
     .unwrap();
 }
+
+// --- Move semantics tests for consuming (self) methods ---
+
+#[test]
+fn test_move_exclusive_does_not_clone() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        // Create a Counter with value 42 — RC starts at 1 (exclusive)
+        let counter = Counter { value: 42 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let ptr = external.into_ptr();
+
+        // Verify it's exclusive
+        assert!(unsafe { leo3::ffi::object::lean_is_exclusive(ptr) });
+
+        // Call consume_and_return via FFI — should move the value, not clone
+        let result_ptr = unsafe { __lean_ffi_Counter_consume_and_return(ptr) };
+
+        // The result should be the Lean representation of 42
+        let result_obj =
+            unsafe { leo3::LeanBound::<leo3::types::LeanInt32>::from_owned_ptr(lean, result_ptr) };
+        let result_val = <i32 as leo3::conversion::FromLean>::from_lean(&result_obj).unwrap();
+        assert_eq!(result_val, 42);
+
+        // ptr was consumed by the FFI call (ownership transferred), no cleanup needed
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}
+
+#[test]
+fn test_move_shared_clones_value() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        // Create a Counter with value 99
+        let counter = Counter { value: 99 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let ptr = external.into_ptr();
+
+        // Simulate sharing: bump refcount so lean_is_exclusive returns false
+        unsafe { leo3::ffi::object::lean_inc_ref(ptr) };
+        // ptr now has RC=2
+
+        // Call consume_and_return via FFI — should clone since shared
+        let result_ptr = unsafe { __lean_ffi_Counter_consume_and_return(ptr) };
+
+        // The result should be the Lean representation of 99
+        let result_obj =
+            unsafe { leo3::LeanBound::<leo3::types::LeanInt32>::from_owned_ptr(lean, result_ptr) };
+        let result_val = <i32 as leo3::conversion::FromLean>::from_lean(&result_obj).unwrap();
+        assert_eq!(result_val, 99);
+
+        // Original object should still be valid (we hold one extra ref)
+        let original_val = unsafe { read_counter_value(ptr) };
+        assert_eq!(
+            original_val, 99,
+            "original object must be unchanged after shared consume"
+        );
+
+        // Clean up the extra ref
+        unsafe { leo3::ffi::object::lean_dec_ref(ptr) };
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}
