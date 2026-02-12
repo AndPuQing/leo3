@@ -398,8 +398,8 @@ extern "C" {
     /// task object has its refcount incremented (caller owns the reference).
     ///
     /// # Safety
-    /// - `promise` is consumed
-    pub fn lean_io_promise_result_opt(promise: lean_obj_arg) -> lean_obj_res;
+    /// - `promise` is borrowed (NOT consumed)
+    pub fn lean_io_promise_result_opt(promise: b_lean_obj_arg) -> lean_obj_res;
 }
 
 // ============================================================================
