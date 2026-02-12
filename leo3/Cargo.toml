@@ -56,3 +56,7 @@ runtime-tests = []
 # Future features
 # auto-initialize = []
 # extension-module = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

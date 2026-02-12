@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Build-time configuration for Leo3 (Rust-Lean4 bindings).
 //!
 //! This crate provides functionality to detect Lean4 installations and

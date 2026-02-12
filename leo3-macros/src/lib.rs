@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Procedural macros for Leo3 (Rust-Lean4 bindings).
 //!
 //! This crate provides the proc macro attributes for Leo3. The actual implementation

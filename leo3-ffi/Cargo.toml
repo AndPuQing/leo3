@@ -18,3 +18,6 @@ libloading.workspace = true
 
 [build-dependencies]
 leo3-build-config = { workspace = true }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]

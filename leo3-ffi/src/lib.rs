@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(non_camel_case_types, non_snake_case, clippy::missing_safety_doc)]
 //! Raw FFI declarations for Lean4's C API.
 //!

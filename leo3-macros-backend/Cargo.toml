@@ -17,3 +17,6 @@ syn = { version = "2.0", features = ["full", "extra-traits"] }
 
 [features]
 default = []
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]

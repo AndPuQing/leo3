@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! # Leo3: Rust bindings for the Lean4 theorem prover
 //!
 //! Leo3 provides safe, ergonomic Rust bindings to Lean4, similar to how PyO3

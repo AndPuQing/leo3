@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Implementation details for Leo3 procedural macros.
 //!
 //! This crate contains the actual implementation of the Leo3 proc macros.
