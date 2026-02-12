@@ -84,9 +84,13 @@ pub mod module;
 pub mod promise;
 pub mod sync;
 pub mod task;
+pub mod task_combinators;
 pub mod thunk;
 pub mod types;
 pub mod unbound;
+
+#[cfg(feature = "tokio")]
+pub mod tokio_bridge;
 
 // Re-export key types
 pub use err::{KernelExceptionCode, LeanError, LeanResult};
@@ -114,6 +118,16 @@ pub mod prelude {
 
     #[cfg(feature = "macros")]
     pub use leo3_macros::{leanclass, leanfn, leanmodule, FromLean, IntoLean};
+
+    // Re-export task combinators
+    pub use crate::task_combinators::{
+        join, join_future, race, race_future, select, select_future, timeout, timeout_future,
+        Either, JoinFuture, RaceFuture, SelectFuture, TimeoutError, TimeoutFuture,
+    };
+
+    // Re-export tokio bridge when enabled
+    #[cfg(feature = "tokio")]
+    pub use crate::tokio_bridge::lean_block_in_place;
 }
 
 /// Initialize the Lean runtime for standalone use.

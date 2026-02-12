@@ -44,7 +44,8 @@ use crate::unbound::LeanUnbound;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
 
 // ============================================================================
 // Task Manager Functions
@@ -95,21 +96,21 @@ pub fn check_canceled() -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum TaskState {
-    /// The task is still running.
-    Running = 0,
-    /// The task has completed successfully.
-    Finished = 1,
-    /// The task was aborted (canceled or errored).
-    Aborted = 2,
+    /// The task is waiting to be run (queued in the task manager).
+    Waiting = 0,
+    /// The task is actively running on a thread (or awaiting a promise resolution).
+    Running = 1,
+    /// The task has completed and its result is available.
+    Finished = 2,
 }
 
 impl From<u8> for TaskState {
     fn from(value: u8) -> Self {
         match value {
-            0 => TaskState::Running,
-            1 => TaskState::Finished,
-            2 => TaskState::Aborted,
-            _ => TaskState::Aborted, // Unknown states treated as aborted
+            0 => TaskState::Waiting,
+            1 => TaskState::Running,
+            2 => TaskState::Finished,
+            _ => TaskState::Finished, // Unknown states treated as finished
         }
     }
 }
@@ -264,13 +265,13 @@ impl<'l, T> LeanTask<'l, T> {
         unsafe { ffi::closure::lean_io_get_task_state_core(self.as_ptr()).into() }
     }
 
-    /// Check if this task has finished (successfully or with an error).
+    /// Check if this task has finished and its result is available.
     ///
     /// # Lean4 Reference
     /// Corresponds to `IO.hasFinished` in Lean4.
     #[inline]
     pub fn is_finished(&self) -> bool {
-        self.state() != TaskState::Running
+        self.state() == TaskState::Finished
     }
 
     /// Alias for `is_finished` to match Lean4 naming.
@@ -283,16 +284,10 @@ impl<'l, T> LeanTask<'l, T> {
         self.is_finished()
     }
 
-    /// Check if this task is still running.
+    /// Check if this task is still running or waiting to run.
     #[inline]
     pub fn is_running(&self) -> bool {
-        self.state() == TaskState::Running
-    }
-
-    /// Check if this task was aborted.
-    #[inline]
-    pub fn is_aborted(&self) -> bool {
-        self.state() == TaskState::Aborted
+        !self.is_finished()
     }
 
     // ========================================================================
@@ -405,13 +400,22 @@ impl<'l, T> LeanTask<'l, T> {
 
     /// Convert this task into a `Future` for async/await.
     ///
-    /// # Note
+    /// # Waker Strategy
     ///
-    /// Lean's task system doesn't have native waker support, so this uses
-    /// polling. The future will yield `Pending` until the task finishes,
-    /// then return `Ready`.
+    /// Lean's task system doesn't support native waker callbacks. When the
+    /// task isn't immediately ready on first poll, a lightweight background
+    /// thread is spawned that monitors the task with exponential backoff
+    /// and wakes the executor once the task completes.
     pub fn into_future(self) -> LeanTaskFuture<'l, T> {
-        LeanTaskFuture { task: Some(self) }
+        let task_ptr = self.as_ptr();
+        LeanTaskFuture {
+            task: Some(self),
+            waker_state: Arc::new(WakerState {
+                task_ptr,
+                waker: Mutex::new(None),
+                thread_spawned: std::sync::atomic::AtomicBool::new(false),
+            }),
+        }
     }
 
     /// Convert this task into a thread-safe `TaskHandle`.
@@ -465,15 +469,34 @@ impl<'l, T> LeanTask<'l, T> {
 ///
 /// This allows using Lean tasks with Rust's async/await syntax.
 ///
-/// # Note
+/// # Waker Strategy
 ///
-/// Because Lean's task system doesn't support native wakers, this future
-/// uses polling. For best results, use with an executor that supports
-/// polling (like `futures::executor::block_on`) or a runtime that can
-/// handle non-native futures.
+/// Because Lean's task system doesn't support native waker callbacks, this
+/// future spawns a lightweight background thread on first poll when the task
+/// isn't ready. The thread polls `lean_io_get_task_state_core` with
+/// exponential backoff (1ms → 50ms cap) and calls `waker.wake()` once the
+/// task completes. This avoids busy-polling the executor while still
+/// providing timely notification.
 pub struct LeanTaskFuture<'l, T = LeanAny> {
     task: Option<LeanTask<'l, T>>,
+    waker_state: Arc<WakerState>,
 }
+
+/// Shared state between the future and its background watcher thread.
+struct WakerState {
+    /// The raw task pointer, used by the background thread to check state.
+    /// Valid for the lifetime of the future (the future owns the task).
+    task_ptr: *mut ffi::lean_object,
+    /// The waker to notify when the task completes.
+    waker: Mutex<Option<Waker>>,
+    /// Whether the background watcher thread has been spawned.
+    thread_spawned: std::sync::atomic::AtomicBool,
+}
+
+// SAFETY: task_ptr points to an MT-marked Lean object whose refcount keeps it alive.
+// lean_io_get_task_state_core is safe to call from any thread on a live task object.
+unsafe impl Send for WakerState {}
+unsafe impl Sync for WakerState {}
 
 impl<'l, T> Future for LeanTaskFuture<'l, T> {
     type Output = LeanBound<'l, T>;
@@ -482,17 +505,50 @@ impl<'l, T> Future for LeanTaskFuture<'l, T> {
         let task = self.task.as_ref().expect("Future polled after completion");
 
         if task.is_finished() {
-            // Task is done - take ownership and return the result
             let task = self.task.take().unwrap();
-            Poll::Ready(task.get_owned())
-        } else {
-            // Task still running - schedule a wake-up
-            // Since Lean doesn't have native waker support, we just wake immediately
-            // This is inefficient but correct. A proper implementation would use
-            // a background thread to poll and wake when done.
-            cx.waker().wake_by_ref();
-            Poll::Pending
+            return Poll::Ready(task.get_owned());
         }
+
+        // Store/update the waker so the background thread can notify us
+        {
+            let mut waker_guard = self.waker_state.waker.lock().unwrap();
+            match waker_guard.as_ref() {
+                Some(existing) if existing.will_wake(cx.waker()) => {}
+                _ => *waker_guard = Some(cx.waker().clone()),
+            }
+        }
+
+        // Spawn the background watcher thread exactly once
+        if !self
+            .waker_state
+            .thread_spawned
+            .swap(true, std::sync::atomic::Ordering::Relaxed)
+        {
+            let state = Arc::clone(&self.waker_state);
+            std::thread::Builder::new()
+                .name("lean-task-waker".into())
+                .spawn(move || {
+                    let mut backoff_us: u64 = 1_000; // start at 1ms
+                    const MAX_BACKOFF_US: u64 = 50_000; // cap at 50ms
+
+                    loop {
+                        let task_state: u8 =
+                            unsafe { ffi::closure::lean_io_get_task_state_core(state.task_ptr) };
+                        // 0 = waiting, 1 = running, 2 = finished
+                        if task_state == 2 {
+                            if let Some(waker) = state.waker.lock().unwrap().take() {
+                                waker.wake();
+                            }
+                            return;
+                        }
+                        std::thread::sleep(std::time::Duration::from_micros(backoff_us));
+                        backoff_us = (backoff_us * 2).min(MAX_BACKOFF_US);
+                    }
+                })
+                .expect("failed to spawn lean-task-waker thread");
+        }
+
+        Poll::Pending
     }
 }
 
@@ -572,19 +628,13 @@ impl<T> TaskHandle<T> {
     /// Check if this task has finished.
     #[inline]
     pub fn is_finished(&self) -> bool {
-        self.state() != TaskState::Running
+        self.state() == TaskState::Finished
     }
 
-    /// Check if this task is still running.
+    /// Check if this task is still running or waiting to run.
     #[inline]
     pub fn is_running(&self) -> bool {
-        self.state() == TaskState::Running
-    }
-
-    /// Check if this task was aborted.
-    #[inline]
-    pub fn is_aborted(&self) -> bool {
-        self.state() == TaskState::Aborted
+        !self.is_finished()
     }
 
     /// Request cancellation of this task.
@@ -672,9 +722,9 @@ mod tests {
 
     #[test]
     fn test_task_state_conversion() {
-        assert_eq!(TaskState::from(0), TaskState::Running);
-        assert_eq!(TaskState::from(1), TaskState::Finished);
-        assert_eq!(TaskState::from(2), TaskState::Aborted);
-        assert_eq!(TaskState::from(255), TaskState::Aborted);
+        assert_eq!(TaskState::from(0), TaskState::Waiting);
+        assert_eq!(TaskState::from(1), TaskState::Running);
+        assert_eq!(TaskState::from(2), TaskState::Finished);
+        assert_eq!(TaskState::from(255), TaskState::Finished);
     }
 }
