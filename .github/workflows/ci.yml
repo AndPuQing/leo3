@@ -43,6 +43,24 @@ jobs:
       - name: Clippy check
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
+  msrv:
+    name: MSRV Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Read MSRV from Cargo.toml
+        id: msrv
+        run: |
+          MSRV=$(grep '^rust-version' Cargo.toml | sed 's/.*"\(.*\)"/\1/')
+          echo "version=$MSRV" >> "$GITHUB_OUTPUT"
+      - name: Install Rust ${{ steps.msrv.outputs.version }}
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check
+        run: LEO3_NO_LEAN=1 cargo check --workspace --all-features
+
   test:
     name: Test (${{ matrix.os }}, Lean ${{ matrix.lean }})
     runs-on: ${{ matrix.os }}
