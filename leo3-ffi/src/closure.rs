@@ -358,11 +358,6 @@ extern "C" {
     ///   Returns: 0 = running, 1 = finished, 2 = aborted
     pub fn lean_io_get_task_state_core(t: b_lean_obj_arg) -> u8;
 
-    /// Wait for any task in a list to complete
-    ///
-    /// # Safety
-    /// - `task_list` must be a valid list of task objects
-    pub fn lean_io_wait_any_core(task_list: b_lean_obj_arg) -> b_lean_obj_res;
 }
 
 // ============================================================================

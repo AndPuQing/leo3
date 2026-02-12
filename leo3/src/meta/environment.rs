@@ -52,6 +52,7 @@ pub(crate) fn ensure_worker_initialized() {
                 unsafe {
                     ffi::lean_initialize_runtime_module();
                     ffi::lean_initialize_thread();
+                    ffi::closure::lean_init_task_manager();
                 }
                 crate::meta::ensure_environment_initialized();
 

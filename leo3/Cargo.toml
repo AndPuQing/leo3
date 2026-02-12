@@ -20,12 +20,17 @@ paste = "1.0"
 # Optional macro support
 leo3-macros = { workspace = true, optional = true }
 
+# Optional Tokio integration
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync"], optional = true }
+
 [build-dependencies]
 leo3-build-config = { workspace = true }
 
 [dev-dependencies]
 trybuild = "1.0"
 criterion.workspace = true
+futures = "0.3"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
 
 [[bench]]
 name = "array_conversion"
@@ -42,6 +47,7 @@ harness = false
 [features]
 default = ["macros"]
 macros = ["leo3-macros"]
+tokio = ["dep:tokio"]
 
 # Runtime testing feature - enables tests that require Lean4 to be linked
 # When disabled, only compile-time tests run
