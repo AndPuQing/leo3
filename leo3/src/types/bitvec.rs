@@ -74,9 +74,7 @@ impl LeanBitVec {
         let modded = LeanNat::mod_(value, bound)?;
 
         unsafe {
-            // BitVec is constructor 0 with 1 field (wrapped Fin/Nat)
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, modded.into_ptr());
+            let ptr = ffi::lean_mk_wrapper(modded.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -315,8 +313,7 @@ impl LeanBitVec {
         })?;
 
         unsafe {
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, shifted.into_ptr());
+            let ptr = ffi::lean_mk_wrapper(shifted.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

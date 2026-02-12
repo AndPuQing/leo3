@@ -259,9 +259,8 @@ pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
             }
 
             // Return IO.ok ()
-            let unit = ::leo3::ffi::lean_alloc_ctor(0, 0, 0);
-            let io_ok = ::leo3::ffi::lean_alloc_ctor(1, 1, 0);
-            ::leo3::ffi::object::lean_ctor_set(io_ok, 0, unit);
+            let unit = ::leo3::ffi::lean_mk_unit();
+            let io_ok = ::leo3::ffi::lean_except_ok(unit);
             io_ok as *mut ::std::ffi::c_void
         }
     };

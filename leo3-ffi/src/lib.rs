@@ -55,6 +55,10 @@ pub mod string;
 // Inline function implementations
 pub mod inline;
 
+// Semantic constructor helpers for standard Lean types
+pub mod constructors;
+pub use constructors::*;
+
 // Re-export commonly used types from object module
 pub use object::{
     b_lean_obj_arg,

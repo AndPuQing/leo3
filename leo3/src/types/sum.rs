@@ -48,9 +48,7 @@ impl LeanSum {
     pub fn inl<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = value.lean_token();
-            // Sum.inl is constructor 0 with 1 field
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, value.into_ptr());
+            let ptr = ffi::lean_sum_inl(value.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -75,9 +73,7 @@ impl LeanSum {
     pub fn inr<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = value.lean_token();
-            // Sum.inr is constructor 1 with 1 field
-            let ptr = ffi::lean_alloc_ctor(1, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, value.into_ptr());
+            let ptr = ffi::lean_sum_inr(value.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

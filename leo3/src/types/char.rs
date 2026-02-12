@@ -116,7 +116,7 @@ impl LeanChar {
     /// Corresponds to `Char.isAlpha` in Lean4.
     #[allow(non_snake_case)]
     pub fn isAlpha<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_alphabetic())
+        Self::toChar(obj).is_some_and(|c| c.is_alphabetic())
     }
 
     /// Check if the character is alphanumeric.
@@ -125,7 +125,7 @@ impl LeanChar {
     /// Corresponds to `Char.isAlphanum` in Lean4.
     #[allow(non_snake_case)]
     pub fn isAlphanum<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_alphanumeric())
+        Self::toChar(obj).is_some_and(|c| c.is_alphanumeric())
     }
 
     /// Check if the character is a digit.
@@ -134,7 +134,7 @@ impl LeanChar {
     /// Corresponds to `Char.isDigit` in Lean4.
     #[allow(non_snake_case)]
     pub fn isDigit<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_ascii_digit())
+        Self::toChar(obj).is_some_and(|c| c.is_ascii_digit())
     }
 
     /// Check if the character is lowercase.
@@ -143,7 +143,7 @@ impl LeanChar {
     /// Corresponds to `Char.isLower` in Lean4.
     #[allow(non_snake_case)]
     pub fn isLower<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_lowercase())
+        Self::toChar(obj).is_some_and(|c| c.is_lowercase())
     }
 
     /// Check if the character is uppercase.
@@ -152,7 +152,7 @@ impl LeanChar {
     /// Corresponds to `Char.isUpper` in Lean4.
     #[allow(non_snake_case)]
     pub fn isUpper<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_uppercase())
+        Self::toChar(obj).is_some_and(|c| c.is_uppercase())
     }
 
     /// Check if the character is whitespace.
@@ -161,7 +161,7 @@ impl LeanChar {
     /// Corresponds to `Char.isWhitespace` in Lean4.
     #[allow(non_snake_case)]
     pub fn isWhitespace<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        Self::toChar(obj).map_or(false, |c| c.is_whitespace())
+        Self::toChar(obj).is_some_and(|c| c.is_whitespace())
     }
 
     /// Convert to uppercase.

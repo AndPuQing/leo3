@@ -76,10 +76,7 @@ impl LeanSubtype {
     pub fn mk<'l>(val: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = val.lean_token();
-            // Subtype has constructor 0 with 1 field (val only, property is erased)
-            // At runtime it's just a trivial wrapper around the value
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, val.into_ptr());
+            let ptr = ffi::lean_mk_wrapper(val.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

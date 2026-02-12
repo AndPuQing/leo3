@@ -67,10 +67,7 @@ impl LeanList {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = head.lean_token();
-            // List.cons is constructor 1 with 2 fields (head, tail)
-            let ptr = ffi::lean_alloc_ctor(1, 2, 0);
-            ffi::lean_ctor_set(ptr, 0, head.into_ptr());
-            ffi::lean_ctor_set(ptr, 1, tail.into_ptr());
+            let ptr = ffi::lean_list_cons(head.into_ptr(), tail.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

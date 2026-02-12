@@ -36,9 +36,8 @@ impl LeanBool {
     /// ```
     pub fn mk<'l>(lean: Lean<'l>, value: bool) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
-            // Bool.false is constructor 0, Bool.true is constructor 1
-            let tag = if value { 1 } else { 0 };
-            let ptr = ffi::lean_alloc_ctor(tag, 0, 0);
+            // Bool.false = tag 0, Bool.true = tag 1 — both are scalars
+            let ptr = ffi::lean_mk_bool(value);
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

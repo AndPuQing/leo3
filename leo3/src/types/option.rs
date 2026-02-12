@@ -65,9 +65,7 @@ impl LeanOption {
     pub fn some<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = value.lean_token();
-            // Option.some is constructor 1 with 1 field (val)
-            let ptr = ffi::lean_alloc_ctor(1, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, value.into_ptr());
+            let ptr = ffi::lean_option_some(value.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

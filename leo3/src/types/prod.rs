@@ -39,10 +39,7 @@ impl LeanProd {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = fst.lean_token();
-            // Prod.mk is constructor 0 with 2 fields (fst, snd)
-            let ptr = ffi::lean_alloc_ctor(0, 2, 0);
-            ffi::lean_ctor_set(ptr, 0, fst.into_ptr());
-            ffi::lean_ctor_set(ptr, 1, snd.into_ptr());
+            let ptr = ffi::lean_prod_mk(fst.into_ptr(), snd.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

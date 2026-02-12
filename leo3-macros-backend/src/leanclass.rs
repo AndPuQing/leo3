@@ -322,7 +322,7 @@ fn generate_static_method_wrapper(
         }
     } else if is_unit_type(return_type) {
         quote! {
-            #leo3_crate::ffi::lean_alloc_ctor(0, 0, 0)
+            #leo3_crate::ffi::lean_mk_unit()
         }
     } else {
         quote! {
@@ -407,7 +407,7 @@ fn generate_ref_method_wrapper(
     // Generate result conversion
     let result_conversion = if is_unit_type(return_type) {
         quote! {
-            unsafe { #leo3_crate::ffi::lean_alloc_ctor(0, 0, 0) }
+            unsafe { #leo3_crate::ffi::lean_mk_unit() }
         }
     } else {
         quote! {
@@ -606,7 +606,7 @@ fn generate_owned_method_wrapper(
     // Generate result conversion
     let result_conversion = if is_unit_type(return_type) {
         quote! {
-            unsafe { #leo3_crate::ffi::lean_alloc_ctor(0, 0, 0) }
+            unsafe { #leo3_crate::ffi::lean_mk_unit() }
         }
     } else {
         quote! {

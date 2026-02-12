@@ -40,9 +40,7 @@ impl LeanExcept {
     pub fn error<'l>(error: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = error.lean_token();
-            // Except.error is constructor 0 with 1 field (the error value)
-            let ptr = ffi::lean_alloc_ctor(0, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, error.into_ptr());
+            let ptr = ffi::lean_except_error(error.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -62,9 +60,7 @@ impl LeanExcept {
     pub fn ok<'l>(value: LeanBound<'l, LeanAny>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = value.lean_token();
-            // Except.ok is constructor 1 with 1 field (the success value)
-            let ptr = ffi::lean_alloc_ctor(1, 1, 0);
-            ffi::lean_ctor_set(ptr, 0, value.into_ptr());
+            let ptr = ffi::lean_except_ok(value.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

@@ -57,11 +57,8 @@ impl LeanSigma {
     ) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let lean = fst.lean_token();
-            // Sigma.mk is constructor 0 with 2 fields (fst, snd)
-            // Identical to Prod at runtime
-            let ptr = ffi::lean_alloc_ctor(0, 2, 0);
-            ffi::lean_ctor_set(ptr, 0, fst.into_ptr());
-            ffi::lean_ctor_set(ptr, 1, snd.into_ptr());
+            // Sigma.mk is identical to Prod.mk at runtime
+            let ptr = ffi::lean_prod_mk(fst.into_ptr(), snd.into_ptr());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

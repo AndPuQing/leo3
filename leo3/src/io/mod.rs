@@ -319,15 +319,10 @@ extern "C" fn io_pure_impl(
     world: ffi::object::lean_obj_arg,
 ) -> ffi::object::lean_obj_res {
     unsafe {
-        // Create pair (value, world)
-        let pair = ffi::lean_alloc_ctor(0, 2, 0);
-        ffi::object::lean_ctor_set(pair, 0, value);
-        ffi::object::lean_ctor_set(pair, 1, world);
-
-        // Wrap in Except.ok (tag 0)
-        let result = ffi::lean_alloc_ctor(0, 1, 0);
-        ffi::object::lean_ctor_set(result, 0, pair);
-        result
+        // Create pair (value, world) and wrap in EStateM.Result.ok (tag 0)
+        let pair = ffi::lean_prod_mk(value, world);
+        // EStateM tag 0 = ok, same layout as Except.error
+        ffi::lean_except_error(pair)
     }
 }
 
