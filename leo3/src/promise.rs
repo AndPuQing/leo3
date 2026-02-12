@@ -12,22 +12,24 @@
 //!
 //! fn example<'l>(lean: Lean<'l>) -> LeanResult<()> {
 //!     // Create a promise
-//!     let promise = LeanPromise::new(lean);
+//!     let promise = LeanPromise::new(lean)?;
 //!
 //!     // Get the associated task (can be awaited)
 //!     let task = promise.task();
 //!
 //!     // Later, resolve the promise with a value
-//!     promise.resolve(some_value);
+//!     promise.resolve(some_value)?;
 //!
 //!     // The task will now complete with the resolved value
 //!     Ok(())
 //! }
 //! ```
 
+use crate::err::{LeanError, LeanResult};
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
+use crate::meta::environment::with_env_worker;
 use crate::task::LeanTask;
 use std::marker::PhantomData;
 
@@ -98,18 +100,25 @@ impl<'l, T> LeanPromise<'l, T> {
     ///
     /// The promise can be resolved later with [`resolve`](Self::resolve).
     ///
-    /// # Note
+    /// # Errors
     ///
-    /// This function requires Lean runtime promise support which may not be
-    /// available in all Lean versions. The `lean_promise_new` function is not
-    /// currently exported from the Lean shared library.
-    #[allow(unreachable_code)]
-    pub fn new(_lean: Lean<'l>) -> Self {
-        // TODO: lean_promise_new is not exported from libleanshared.so
-        // This needs to be implemented when/if Lean exports these functions
-        unimplemented!(
-            "Promise creation requires lean_promise_new which is not exported from Lean shared library"
-        );
+    /// Returns `LeanError` if the Lean task manager is not initialized or
+    /// the IO operation fails.
+    pub fn new(lean: Lean<'l>) -> LeanResult<Self> {
+        let result_ptr = with_env_worker(move || unsafe {
+            let world = ffi::io::lean_io_mk_world();
+            let result = ffi::closure::lean_io_promise_new(world);
+
+            if ffi::io::lean_io_result_is_ok(result) {
+                Ok(ffi::io::lean_io_result_take_value(result))
+            } else {
+                ffi::lean_dec(result);
+                Err(LeanError::other(
+                    "Promise::new: lean_io_promise_new failed (is the task manager initialized?)",
+                ))
+            }
+        })?;
+        Ok(unsafe { LeanBound::from_owned_ptr(lean, result_ptr) })
     }
 
     // ========================================================================
@@ -122,19 +131,30 @@ impl<'l, T> LeanPromise<'l, T> {
     ///
     /// # Important
     ///
-    /// - This consumes the promise (it can only be resolved once)
     /// - The value is consumed and transferred to the waiting task
+    /// - The promise itself is consumed (it can only be resolved once)
     ///
-    /// # Note
+    /// # Errors
     ///
-    /// This function requires Lean runtime promise support which may not be
-    /// available in all Lean versions.
-    #[allow(unreachable_code)]
-    pub fn resolve(self, _value: LeanBound<'l, T>) {
-        // TODO: lean_promise_resolve is not exported from libleanshared.so
-        unimplemented!(
-            "Promise resolution requires lean_promise_resolve which is not exported from Lean shared library"
-        );
+    /// Returns `LeanError` if the IO operation fails.
+    pub fn resolve(self, value: LeanBound<'l, T>) -> LeanResult<()> {
+        let value_ptr = value.into_ptr();
+        let promise_ptr = self.as_ptr();
+        with_env_worker(move || unsafe {
+            let world = ffi::io::lean_io_mk_world();
+            // value is consumed, promise is borrowed
+            let result = ffi::closure::lean_io_promise_resolve(value_ptr, promise_ptr, world);
+
+            if ffi::io::lean_io_result_is_ok(result) {
+                ffi::lean_dec(result);
+                Ok(())
+            } else {
+                ffi::lean_dec(result);
+                Err(LeanError::other(
+                    "Promise::resolve: lean_io_promise_resolve failed",
+                ))
+            }
+        })
     }
 
     // ========================================================================
@@ -145,17 +165,15 @@ impl<'l, T> LeanPromise<'l, T> {
     ///
     /// The returned task will complete when this promise is resolved.
     /// Multiple calls return independent references to the same underlying task.
-    ///
-    /// # Note
-    ///
-    /// This function requires Lean runtime promise support which may not be
-    /// available in all Lean versions.
-    #[allow(unreachable_code)]
     pub fn task(&self) -> LeanTask<'l, T> {
-        // TODO: lean_promise_get_task is not exported from libleanshared.so
-        unimplemented!(
-            "Promise task access requires lean_promise_get_task which is not exported from Lean shared library"
-        );
+        unsafe {
+            // lean_io_promise_result_opt borrows the promise and returns an
+            // owned reference to the underlying task (with lean_inc_ref
+            // inside the C implementation).
+            let lean = self.lean_token();
+            let task_ptr = ffi::closure::lean_io_promise_result_opt(self.as_ptr());
+            LeanBound::from_owned_ptr(lean, task_ptr)
+        }
     }
 }
 

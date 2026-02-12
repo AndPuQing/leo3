@@ -86,7 +86,7 @@ pub(crate) fn ensure_worker_initialized() {
 /// The closure `f` and its return value cross a thread boundary via channels.
 /// Callers must ensure that any captured pointers remain valid and that
 /// reference counts are properly managed before and after the call.
-pub(super) fn with_env_worker<F, R>(f: F) -> R
+pub(crate) fn with_env_worker<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
 {

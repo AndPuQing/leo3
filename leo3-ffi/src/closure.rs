@@ -361,17 +361,46 @@ extern "C" {
 }
 
 // ============================================================================
-// Promise Functions
+// Promise Functions (IO-wrapped, exported from libleanshared)
 // ============================================================================
 //
-// NOTE: The following promise functions are NOT exported from libleanshared.so
-// in current Lean versions (tested up to 4.25.2). They are internal functions.
-// The promise types are still available for type-checking purposes.
-//
-// If you need promise functionality, you may need to:
-// 1. Link against a static Lean build that exports these symbols
-// 2. Wait for a future Lean version that exports these functions
-// 3. Use alternative patterns (e.g., Task + channel)
+// NOTE: The raw `lean_promise_new` / `lean_promise_resolve` are NOT exported
+// from libleanshared.so, but the IO-wrapped versions below ARE exported with
+// `LEAN_EXPORT` and can be called directly.
+
+extern "C" {
+    /// Create a new unresolved promise (IO-wrapped).
+    ///
+    /// Returns `IO (Except IO.Error (Promise α))`.
+    /// The `obj_arg` parameter is the RealWorld token (consumed).
+    ///
+    /// # Safety
+    /// - Lean task manager must be initialized
+    pub fn lean_io_promise_new(world: lean_obj_arg) -> lean_obj_res;
+
+    /// Resolve a promise with a value (IO-wrapped).
+    ///
+    /// Returns `IO (Except IO.Error Unit)`.
+    ///
+    /// # Safety
+    /// - `value` is consumed (ownership transferred to the promise)
+    /// - `promise` is borrowed
+    /// - `world` is the RealWorld token (consumed)
+    pub fn lean_io_promise_resolve(
+        value: lean_obj_arg,
+        promise: b_lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Get the task associated with a promise.
+    ///
+    /// Returns the `m_result` task object from the promise. The returned
+    /// task object has its refcount incremented (caller owns the reference).
+    ///
+    /// # Safety
+    /// - `promise` is consumed
+    pub fn lean_io_promise_result_opt(promise: lean_obj_arg) -> lean_obj_res;
+}
 
 // ============================================================================
 // Reference Objects (Mutable Cells)
