@@ -45,8 +45,13 @@ LEAN_INCLUDE_DIR=/path/to/lean/include cargo test -p leo3-ffi-check
 ## What Gets Checked
 
 ### Structures
-- [x] `lean_object` - Core Lean object struct
-- [ ] Additional structs as we add them
+- [x] `lean_object` - Core Lean object struct (size, alignment, `m_rc` offset)
+- [x] `lean_array_object` - Array objects (all field offsets)
+- [x] `lean_string_object` - String objects (all field offsets)
+- [x] `lean_closure_object` - Closure objects (all field offsets)
+- [x] `lean_ctor_object` - Constructor objects (all field offsets)
+- [x] `lean_sarray_object` - Scalar array objects (all field offsets)
+- [x] `lean_ref_object` - Reference objects (all field offsets)
 
 ### Type Aliases
 - [x] `lean_obj_arg`
@@ -84,7 +89,7 @@ By validating against the actual headers, we catch these issues at compile time 
 ## Future Improvements
 
 - [ ] Validate all structs from lean.h
-- [ ] Check field offsets in addition to sizes
+- [x] Check field offsets in addition to sizes
 - [ ] Validate function pointer types
 - [ ] Support for testing against multiple Lean4 versions in CI
 - [ ] Automated checks in GitHub Actions

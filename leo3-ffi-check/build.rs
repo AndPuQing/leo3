@@ -46,6 +46,13 @@ fn main() {
         .clang_arg(format!("-I{}", lean_include_dir.display()))
         // Allowlist items we want to check
         .allowlist_type("lean_object")
+        .allowlist_type("lean_array_object")
+        .allowlist_type("lean_sarray_object")
+        .allowlist_type("lean_string_object")
+        .allowlist_type("lean_closure_object")
+        .allowlist_type("lean_ctor_object")
+        .allowlist_type("lean_ref_object")
+        .allowlist_type("lean_external_object")
         .allowlist_function("lean_.*")
         // Derive Debug for easier comparison
         .derive_debug(true)
