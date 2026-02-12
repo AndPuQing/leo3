@@ -109,6 +109,33 @@ jobs:
         run: cargo test --locked --all-features --workspace
 
 
+  ffi-check:
+    name: FFI Check (Linux, Lean stable)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install libclang
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev
+
+      - name: Install elan
+        run: |
+          echo "::group::Elan Installation Output"
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:stable
+          rm -f elan-init
+          echo "::endgroup::"
+
+      - name: Setup Lean PATH
+        run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Run FFI validation checks
+        run: |
+          LEAN_PREFIX="$("$HOME"/.elan/bin/lean --print-prefix)"
+          LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --manifest-path leo3-ffi-check/Cargo.toml
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest
