@@ -128,3 +128,149 @@ fn test_leanclass_ffi_functions_exist() {
     // We can't easily call them from Rust, but we can at least check they exist
     // by verifying the test compiles
 }
+
+// --- COW (Copy-on-Write) behavior tests ---
+
+/// Helper: read the Counter value by borrowing the external object's inner data.
+unsafe fn read_counter_value(ptr: *mut leo3::ffi::lean_object) -> i32 {
+    let data_ptr = leo3::ffi::lean_get_external_data(ptr);
+    (*(data_ptr as *const Counter)).value
+}
+
+#[test]
+fn test_cow_exclusive_mutation_is_in_place() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        // Create a Counter with value 5 — RC starts at 1 (exclusive)
+        let counter = Counter { value: 5 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let ptr = external.into_ptr();
+
+        // Verify it's exclusive
+        assert!(unsafe { leo3::ffi::object::lean_is_exclusive(ptr) });
+
+        // Call increment via FFI — should mutate in place since RC == 1
+        let result_ptr = unsafe { __lean_ffi_Counter_increment(ptr) };
+
+        // For exclusive objects, the returned pointer should be the same object
+        assert_eq!(
+            ptr, result_ptr,
+            "exclusive mutation must return the same object (in-place)"
+        );
+
+        // Read value directly from the external data
+        let val = unsafe { read_counter_value(result_ptr) };
+        assert_eq!(val, 6, "in-place mutation must update the value");
+
+        // Clean up
+        unsafe { leo3::ffi::object::lean_dec_ref(result_ptr) };
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}
+
+#[test]
+fn test_cow_shared_mutation_creates_copy() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        // Create a Counter with value 10
+        let counter = Counter { value: 10 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let ptr = external.into_ptr();
+
+        // Simulate sharing: bump refcount so lean_is_exclusive returns false
+        unsafe { leo3::ffi::object::lean_inc_ref(ptr) };
+        // ptr now has RC=2
+
+        // Call increment via FFI — should COW-clone since RC > 1
+        let new_ptr = unsafe { __lean_ffi_Counter_increment(ptr) };
+
+        // The returned pointer must be a different object (a clone was made)
+        assert_ne!(
+            ptr, new_ptr,
+            "shared mutation must return a new object, not mutate in place"
+        );
+
+        // Original should still have value 10
+        let original_val = unsafe { read_counter_value(ptr) };
+        assert_eq!(
+            original_val, 10,
+            "original object must be unchanged after COW"
+        );
+
+        // New object should have value 11
+        let new_val = unsafe { read_counter_value(new_ptr) };
+        assert_eq!(new_val, 11, "COW copy must reflect the mutation");
+
+        // Clean up: we hold one extra ref on ptr (from inc_ref), and one on new_ptr
+        unsafe {
+            leo3::ffi::object::lean_dec_ref(ptr);
+            leo3::ffi::object::lean_dec_ref(new_ptr);
+        }
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}
+
+#[test]
+fn test_cow_multiple_shared_mutations_create_independent_copies() {
+    use leo3::conversion::IntoLean;
+
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        // Create a Counter with value 0
+        let counter = Counter { value: 0 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let original_ptr = external.into_ptr();
+
+        // Bump RC to 3 so it stays shared across two mutations
+        unsafe {
+            leo3::ffi::object::lean_inc_ref(original_ptr);
+            leo3::ffi::object::lean_inc_ref(original_ptr);
+        }
+        // RC is now 3
+
+        // First shared mutation: increment (0 -> 1)
+        // This consumes one ref (RC 3→2 inside the wrapper's drop of borrowed)
+        let copy1 = unsafe { __lean_ffi_Counter_increment(original_ptr) };
+
+        // Second shared mutation: set(42)
+        // original_ptr still has RC=2, so it's still shared.
+        // inc_ref to give the FFI call a ref to consume
+        unsafe { leo3::ffi::object::lean_inc_ref(original_ptr) };
+        let copy2 = unsafe {
+            // Create a proper LeanInt32 object for the i32 argument
+            let lean_val = 42i32.into_lean(lean).unwrap();
+            __lean_ffi_Counter_set(original_ptr, lean_val.into_ptr())
+        };
+
+        // All three should be different objects
+        assert_ne!(original_ptr, copy1, "first COW must produce a new object");
+        assert_ne!(original_ptr, copy2, "second COW must produce a new object");
+        assert_ne!(copy1, copy2, "each COW must produce independent copies");
+
+        // Verify values
+        let orig_val = unsafe { read_counter_value(original_ptr) };
+        let copy1_val = unsafe { read_counter_value(copy1) };
+        let copy2_val = unsafe { read_counter_value(copy2) };
+
+        assert_eq!(orig_val, 0, "original must remain 0");
+        assert_eq!(copy1_val, 1, "first copy must be incremented to 1");
+        assert_eq!(copy2_val, 42, "second copy must be set to 42");
+
+        // Clean up remaining refs
+        unsafe {
+            leo3::ffi::object::lean_dec_ref(original_ptr);
+            leo3::ffi::object::lean_dec_ref(copy1);
+            leo3::ffi::object::lean_dec_ref(copy2);
+        }
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}

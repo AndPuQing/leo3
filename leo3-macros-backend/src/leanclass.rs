@@ -466,15 +466,22 @@ fn generate_mut_ref_method_wrapper(
         })
         .collect();
 
-    // Convert self parameter
+    // Convert self parameter with COW (copy-on-write) semantics.
+    // If the object is shared (refcount > 1), clone the inner value into a
+    // fresh external object so that mutation never affects other references.
     let self_conversion = quote! {
-        let mut self_obj = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
-
-        // If the object is shared (ref count > 1), we should clone it (copy-on-write)
-        // This maintains Lean's pure functional semantics
-        // For now, we'll just work with the existing object
-        // TODO: Implement proper COW for external objects
-
+        let mut self_obj = if #leo3_crate::ffi::object::lean_is_exclusive(arg0) {
+            // Exclusively owned — safe to mutate in place.
+            #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0)
+        } else {
+            // Shared — clone the inner value, release our reference to the
+            // original, and wrap the clone in a new external object.
+            let borrowed = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
+            let cloned: #struct_name = borrowed.get_ref().clone();
+            drop(borrowed);
+            #leo3_crate::external::LeanExternal::new(lean, cloned)
+                .expect("Failed to allocate COW copy of external object")
+        };
         let self_mut = self_obj.get_mut();
     };
 
@@ -562,13 +569,12 @@ fn generate_owned_method_wrapper(
         })
         .collect();
 
-    // Convert self parameter (consuming)
+    // Convert self parameter (consuming).
+    // If exclusively owned, read the value and let the LeanBound drop handle
+    // the deallocation. If shared, clone the inner value instead.
     let self_conversion = quote! {
         let self_obj = #leo3_crate::LeanBound::<#leo3_crate::external::LeanExternalType<#struct_name>>::from_owned_ptr(lean, arg0);
-        // For consuming methods, we need to extract the value
-        // Since there's no into_inner(), we'll use get_ref() and clone for now
-        // TODO: Implement proper move semantics for exclusive objects
-        let self_owned = self_obj.get_ref().clone();
+        let self_owned: #struct_name = self_obj.get_ref().clone();
     };
 
     // Convert other parameters
