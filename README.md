@@ -143,6 +143,23 @@ fn main() -> LeanResult<()> {
 }
 ```
 
+## Examples
+
+The `leo3/examples/` directory contains runnable demos:
+
+| Example | Description |
+|---------|-------------|
+| [`io_monad`](leo3/examples/io_monad.rs) | IO monad basics — wrap side-effects in Lean's IO type |
+| [`proof_construction`](leo3/examples/proof_construction.rs) | Build and type-check kernel proofs programmatically |
+| [`leanmodule_export`](leo3/examples/leanmodule_export.rs) | `#[leanmodule]` macro — generate Lean4 module init functions |
+| [`async_task_promise`](leo3/examples/async_task_promise.rs) | Task/promise combinators — `join`, `select`, `timeout` |
+
+Run any example with:
+
+```bash
+cargo run --example <name>          # e.g. cargo run --example leanmodule_export
+```
+
 ## Feature Flags
 
 - **`macros`** (default): Enable procedural macros (`#[leanfn]`, `#[leanclass]`, etc.)
@@ -180,6 +197,10 @@ Leo3 adapts PyO3's architecture for Lean4:
 - [x] Option type conversions (Option<T> ↔ LeanOption)
 - [x] Result type conversions (Result<T, E> ↔ LeanExcept)
 - [x] `#[leanclass]` for Rust structs as Lean classes (with Lean source code generation)
+- [x] `#[leanmodule]` for module creation
+- [x] Async support (task/promise combinators)
+- [x] CI/CD pipeline
+- [x] Example projects
 
 ### In Progress 🚧
 - [ ] Complete FFI bindings (more Lean API functions)
@@ -187,15 +208,11 @@ Leo3 adapts PyO3's architecture for Lean4:
 
 ### Planned 📋
 - [ ] IO monad support
-- [ ] `#[leanmodule]` for module creation
 - [ ] Proof object support
 - [ ] Tactic integration
 - [ ] Environment and context management
-- [ ] Async support
 - [ ] Documentation generation
 - [ ] Integration tests with actual Lean4
-- [ ] CI/CD pipeline
-- [ ] Example projects
 
 ## Development
 
