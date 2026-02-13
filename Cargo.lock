@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "leo3"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "futures",
@@ -367,11 +367,11 @@ dependencies = [
 
 [[package]]
 name = "leo3-build-config"
-version = "0.1.6"
+version = "0.2.0"
 
 [[package]]
 name = "leo3-ffi"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "leo3-build-config",
  "libc",
@@ -380,7 +380,7 @@ dependencies = [
 
 [[package]]
 name = "leo3-macros"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "leo3-macros-backend",
  "proc-macro2",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "leo3-macros-backend"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
