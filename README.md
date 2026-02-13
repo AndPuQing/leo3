@@ -14,7 +14,7 @@ Requires Lean 4.25.2 (install via [elan](https://github.com/leanprover/elan)).
 
 ```toml
 [dependencies]
-leo3 = "0.2.0"
+leo3 = "0.2.1"
 ```
 
 ```rust
