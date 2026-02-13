@@ -258,7 +258,6 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
@@ -296,6 +295,7 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+          flags: ${{ github.event_name == 'pull_request' && 'pr' || 'main' }}
 
   # Single required check for branch protection — add/remove jobs freely
   # without updating branch protection settings.
