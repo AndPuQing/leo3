@@ -10,12 +10,9 @@ description = "Build-time configuration for Leo3"
 keywords = ["lean", "lean4", "build"]
 categories = ["development-tools::build-utils"]
 
-[dependencies]
-# For build script utilities
-once_cell = "1.19"
-
 [features]
 default = []
+resolve-config = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]

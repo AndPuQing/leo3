@@ -368,9 +368,6 @@ dependencies = [
 [[package]]
 name = "leo3-build-config"
 version = "0.1.6"
-dependencies = [
- "once_cell",
-]
 
 [[package]]
 name = "leo3-ffi"
