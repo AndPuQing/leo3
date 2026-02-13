@@ -188,6 +188,58 @@ jobs:
           LEAN_PREFIX="$("$HOME"/.elan/bin/lean --print-prefix)"
           LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --manifest-path leo3-ffi-check/Cargo.toml
 
+  careful:
+    name: Careful (UB detection)
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-careful
+
+      - name: Install elan
+        run: |
+          echo "::group::Elan Installation Output"
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          rm -f elan-init
+          echo "::endgroup::"
+
+      - name: Setup Lean PATH
+        run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Run tests under cargo-careful
+        run: cargo careful test --all-features --workspace
+
+  valgrind:
+    name: Valgrind (memory leak detection)
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install valgrind
+        run: sudo apt-get update && sudo apt-get install -y valgrind
+
+      - name: Install elan
+        run: |
+          echo "::group::Elan Installation Output"
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          rm -f elan-init
+          echo "::endgroup::"
+
+      - name: Setup Lean PATH
+        run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
+
+      - name: Run tests under valgrind
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=no --error-exitcode=1"
+        run: cargo test --release --all-features --workspace
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest
