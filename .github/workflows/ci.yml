@@ -103,6 +103,20 @@ jobs:
       - name: cargo check
         run: LEO3_NO_LEAN=1 cargo check --workspace --all-features
 
+  check-feature-powerset:
+    name: Feature Powerset
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      - uses: taiki-e/install-action@cargo-hack
+      - name: Check all feature combinations
+        run: LEO3_NO_LEAN=1 cargo hack check --feature-powerset --workspace
+
   test-pr:
     name: Test (${{ matrix.os }}, Lean ${{ matrix.lean }})
     if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'CI-build-full')
