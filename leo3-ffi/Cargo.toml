@@ -9,6 +9,7 @@ license.workspace = true
 description = "Raw FFI bindings to the Lean4 C API"
 keywords = ["lean", "lean4", "ffi", "bindings"]
 categories = ["api-bindings", "external-ffi-bindings"]
+links = "lean4"
 
 [dependencies]
 libc.workspace = true
@@ -17,7 +18,7 @@ libc.workspace = true
 libloading.workspace = true
 
 [build-dependencies]
-leo3-build-config = { workspace = true }
+leo3-build-config = { workspace = true, features = ["resolve-config"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]
