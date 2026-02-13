@@ -34,9 +34,11 @@ impl LeanModule {
     /// ```
     pub fn load<P: AsRef<Path>>(path: P, module_name: &str) -> Result<Self, String> {
         unsafe {
-            // Ensure Lean runtime is initialized
-            ffi::lean_initialize_runtime_module();
-            ffi::lean_initialize_thread();
+            // Ensure Lean runtime is initialized via the worker thread.
+            // Do NOT call lean_initialize_runtime_module / lean_initialize_thread
+            // directly — that creates a mimalloc heap on the calling thread whose
+            // teardown crashes under AddressSanitizer (and can SIGSEGV in general).
+            crate::prepare_freethreaded_lean();
 
             // Load the library
             let library = Library::new(path.as_ref())
