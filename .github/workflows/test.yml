@@ -1,0 +1,77 @@
+name: Test
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      lean:
+        required: true
+        type: string
+      save-cache:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test (${{ inputs.os }}, Lean ${{ inputs.lean }})
+    runs-on: ${{ inputs.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ inputs.save-cache }}
+
+      - name: Install elan
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-pc-windows-msvc.zip -o elan.zip
+            unzip elan.zip
+            ./elan-init.exe -y --default-toolchain leanprover/lean4:${{ inputs.lean }}
+            rm -f elan-init.exe elan.zip
+          else
+            echo "::group::Elan Installation Output"
+            set -o pipefail
+            curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:${{ inputs.lean }}
+            rm -f elan-init
+            echo "::endgroup::"
+          fi
+
+      - name: Setup Lean PATH
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            echo "$USERPROFILE/.elan/bin" >> $GITHUB_PATH
+          else
+            echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          fi
+
+      - name: Verify Lean installation
+        shell: bash
+        run: |
+          "$HOME"/.elan/bin/elan override set leanprover/lean4:${{ inputs.lean }}
+          "$HOME"/.elan/bin/lean --version
+          "$HOME"/.elan/bin/lake --version
+
+      # On Windows, add Lean library directory to PATH so DLLs can be found at runtime
+      - name: Configure Lean library path (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          "$USERPROFILE"/.elan/bin/elan override set leanprover/lean4:${{ inputs.lean }}
+          LEAN_PATH=$("$USERPROFILE"/.elan/bin/elan which lean)
+          LEAN_HOME=$(dirname "$(dirname "$LEAN_PATH")")
+          echo "$LEAN_HOME/bin" >> $GITHUB_PATH
+          echo "LEAN_HOME=$LEAN_HOME" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: cargo test --locked --all-features --workspace
