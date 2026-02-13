@@ -1,0 +1,38 @@
+name: Coverage PR base
+
+# Set the Codecov PR base commit so coverage diffs are accurate.
+# Uses pull_request_target so it has access to secrets even for fork PRs,
+# while only running trusted code (no checkout of PR head).
+
+on:
+  pull_request_target:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  set-pr-base:
+    name: Set Codecov PR base
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Find merge base
+        id: merge-base
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git fetch origin ${{ github.event.pull_request.head.sha }}
+          MERGE_BASE=$(git merge-base ${{ github.event.pull_request.head.sha }} origin/${{ github.event.pull_request.base.ref }})
+          echo "sha=$MERGE_BASE" >> "$GITHUB_OUTPUT"
+          echo "Merge base: $MERGE_BASE"
+
+      - name: Set Codecov PR base
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          override_commit: ${{ steps.merge-base.outputs.sha }}
+          override_branch: ${{ github.event.pull_request.base.ref }}
+          flags: pr-base
