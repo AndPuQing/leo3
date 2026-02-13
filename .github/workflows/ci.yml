@@ -349,3 +349,31 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Single required check for branch protection — add/remove jobs freely
+  # without updating branch protection settings.
+  conclusion:
+    name: CI Conclusion
+    if: always()
+    needs:
+      - rustfmt
+      - clippy
+      - semver-checks
+      - msrv
+      - test-pr
+      - test-full
+      - ffi-check
+      - careful
+      - valgrind
+      - docs
+      - coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Result
+        run: |
+          # Fail if any dependency failed or was cancelled.
+          # Skipped jobs (e.g. test-pr vs test-full, conditional jobs) are OK.
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "::error::One or more CI jobs failed or were cancelled"
+            exit 1
+          fi
