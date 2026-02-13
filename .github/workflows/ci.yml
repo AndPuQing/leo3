@@ -190,6 +190,7 @@ jobs:
 
   careful:
     name: Careful (UB detection)
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -213,6 +214,7 @@ jobs:
 
   valgrind:
     name: Valgrind (memory leak detection)
+    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
