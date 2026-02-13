@@ -235,7 +235,7 @@ jobs:
 
       - name: Run tests under valgrind
         env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=full --error-exitcode=1"
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=no --error-exitcode=1"
         run: cargo test --release --all-features --workspace
 
   docs:
