@@ -1,4 +1,5 @@
 name: CI
+# test semver-checks job
 
 on:
   push:
