@@ -419,7 +419,9 @@ pub unsafe fn lean_alloc_ctor(
         + (num_objs as usize) * std::mem::size_of::<*mut lean_object>()
         + (scalar_sz as usize);
     let obj = object::lean_alloc_object(sz);
-    // Initialize header (matching lean_set_st_header from lean.h)
+    // SAFETY: `lean_alloc_object` returned an allocation of the requested size,
+    // and constructor headers occupy the leading `lean_object` bytes exactly as
+    // in `lean.h`, so writing the header fields here is layout-correct.
     (*obj).m_rc = 1;
     (*obj).m_tag = tag as u8;
     (*obj).m_other = num_objs as u8; // Stores number of object fields
