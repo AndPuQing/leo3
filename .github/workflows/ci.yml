@@ -5,6 +5,8 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '17 3 * * *'
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.ref }}"
@@ -15,8 +17,8 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  rustfmt:
-    name: Rustfmt
+  smoke-rustfmt:
+    name: Smoke / Rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -31,8 +33,8 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
-  clippy:
-    name: Clippy
+  smoke-clippy:
+    name: Smoke / Clippy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -47,8 +49,9 @@ jobs:
       - name: Clippy check
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
-  clippy-beta:
-    name: Clippy (beta)
+  compat-clippy-beta:
+    name: Compat / Clippy (beta)
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -62,12 +65,11 @@ jobs:
       - name: Clippy check (beta)
         run: cargo clippy --all-targets --all-features --workspace -- -D warnings
 
-  semver-checks:
-    name: Semver Checks
+  api-semver:
+    name: API / Semver Checks
     if: >-
       github.event_name == 'pull_request'
       && !contains(github.event.pull_request.labels.*.name, 'semver-break')
-    needs: [rustfmt]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -98,8 +100,8 @@ jobs:
           package: leo3, leo3-ffi
           baseline-rev: ${{ steps.merge-base.outputs.sha }}
 
-  msrv:
-    name: MSRV Check
+  smoke-msrv:
+    name: Smoke / MSRV Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -116,11 +118,10 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       - name: cargo check
-        run: LEO3_NO_LEAN=1 cargo check --workspace --all-features
+        run: LEO3_NO_LEAN=1 cargo check --locked --workspace --all-features
 
-  check-feature-powerset:
-    name: Feature Powerset
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
+  smoke-no-lean:
+    name: Smoke / No Lean
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -128,51 +129,70 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
-      - uses: taiki-e/install-action@cargo-hack
-      - name: Check all feature combinations
-        run: LEO3_NO_LEAN=1 cargo hack check --feature-powerset --exclude-features runtime-tests --workspace --tests
+      - name: Run non-runtime library tests without Lean
+        run: LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
+      - name: Compile all tests without Lean
+        run: LEO3_NO_LEAN=1 cargo check --locked --workspace --tests --all-features
 
-  test-minimal:
-    name: Minimal Feature Set
+  smoke-minimal-surface:
     uses: ./.github/workflows/test.yml
     with:
       os: ubuntu-latest
       lean: stable
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
-      label: minimal
-      cargo-args: --no-default-features -p leo3 --test test_features
+      suite: Smoke / Minimal Surface
+      command: cargo test --locked -p leo3 --no-default-features --test test_features
 
-  test-pr:
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'CI-build-full')
-    strategy:
-      fail-fast: ${{ !contains(github.event.pull_request.labels.*.name, 'CI-no-fail-fast') }}
-      matrix:
-        os: [ubuntu-latest]
-        lean: ['stable', 'nightly']
+  smoke-optional-surface:
     uses: ./.github/workflows/test.yml
     with:
-      os: ${{ matrix.os }}
-      lean: ${{ matrix.lean }}
-      save-cache: ${{ contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
-      label: all-features
-
-  test-full:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
-    strategy:
-      fail-fast: ${{ !contains(github.event.pull_request.labels.*.name, 'CI-no-fail-fast') }}
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        lean: ['stable', 'beta', 'nightly', 'v4.20.0']
-    uses: ./.github/workflows/test.yml
-    with:
-      os: ${{ matrix.os }}
-      lean: ${{ matrix.lean }}
+      os: ubuntu-latest
+      lean: stable
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
-      label: all-features
+      suite: Smoke / Optional Feature Surface
+      command: 'cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features'
 
+  macro-ui:
+    name: Macro / UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      - name: Run trybuild UI tests
+        run: LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
+
+  runtime-core:
+    uses: ./.github/workflows/test.yml
+    with:
+      os: ubuntu-latest
+      lean: stable
+      save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      suite: Runtime / Core
+      command: cargo test --locked -p leo3 --features runtime-tests --test basic --test nat_ops --test string_ops --test array_ops --test test_conversion --test test_gc
+
+  runtime-async:
+    uses: ./.github/workflows/test.yml
+    with:
+      os: ubuntu-latest
+      lean: stable
+      save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      suite: Runtime / Async
+      command: 'cargo test --locked -p leo3 --features "tokio,runtime-tests" --test test_task_async --test test_tokio_bridge'
+
+  macro-runtime:
+    uses: ./.github/workflows/test.yml
+    with:
+      os: ubuntu-latest
+      lean: stable
+      save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      suite: Macro / Runtime
+      command: 'cargo test --locked -p leo3 --features "macros,runtime-tests" --test test_conversion_macros --test test_derive_macros --test test_leanclass --test test_leanclass_codegen --test test_leanclass_minimal --test test_leanfn_macro --test test_lean_instance --test test_leanmodule'
 
   ffi-check:
-    name: FFI Check (Linux, Lean stable)
+    name: Runtime / FFI Check (Linux, Lean stable)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -198,11 +218,40 @@ jobs:
       - name: Run FFI validation checks
         run: |
           LEAN_PREFIX="$("$HOME"/.elan/bin/lean --print-prefix)"
-          LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --manifest-path leo3-ffi-check/Cargo.toml
+          LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --locked --manifest-path leo3-ffi-check/Cargo.toml
 
-  careful:
-    name: Careful (UB detection)
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
+  compat-feature-powerset:
+    name: Compat / Feature Powerset
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      - uses: taiki-e/install-action@cargo-hack
+      - name: Check all feature combinations
+        run: LEO3_NO_LEAN=1 cargo hack check --feature-powerset --exclude-features runtime-tests --workspace --tests
+
+  compat-runtime-matrix:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
+    strategy:
+      fail-fast: ${{ !contains(github.event.pull_request.labels.*.name, 'CI-no-fail-fast') }}
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        lean: ['stable', 'beta', 'nightly', 'v4.20.0']
+    uses: ./.github/workflows/test.yml
+    with:
+      os: ${{ matrix.os }}
+      lean: ${{ matrix.lean }}
+      save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      suite: Compat / Full Matrix
+      command: cargo test --locked --all-features --workspace
+
+  heavy-careful:
+    name: Heavy / Careful (UB detection)
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -224,11 +273,11 @@ jobs:
         run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
 
       - name: Run tests under cargo-careful
-        run: cargo careful test --all-features --workspace
+        run: cargo careful test --locked --all-features --workspace
 
-  valgrind:
-    name: Valgrind (memory leak detection)
-    if: ${{ github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full') }}
+  heavy-valgrind:
+    name: Heavy / Valgrind
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -253,11 +302,11 @@ jobs:
 
       - name: Run tests under valgrind
         env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: "valgrind --leak-check=no --error-exitcode=1"
-        run: cargo test --release --all-features --workspace
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: 'valgrind --leak-check=no --error-exitcode=1'
+        run: cargo test --locked --release --all-features --workspace
 
-  asan:
-    name: AddressSanitizer
+  heavy-asan:
+    name: Heavy / AddressSanitizer
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
     runs-on: ubuntu-latest
     steps:
@@ -283,26 +332,27 @@ jobs:
       - name: Run tests under AddressSanitizer
         env:
           RUSTFLAGS: -Zsanitizer=address
-          # Lean's mimalloc conflicts with ASan's memory tracking.
-          # - detect_leaks=0: suppress leak reports from Lean runtime
-          # - intercept_tls_get_addr=0: avoid false positives from TLS access
-          # - alloc_dealloc_mismatch=0: mimalloc/ASan allocator mismatch
           ASAN_OPTIONS: detect_leaks=0:intercept_tls_get_addr=0:alloc_dealloc_mismatch=0
-        run: cargo test -Zbuild-std --target x86_64-unknown-linux-gnu --all-features --workspace
+        run: cargo test --locked -Zbuild-std --target x86_64-unknown-linux-gnu --all-features --workspace
 
-  docs:
-    name: Documentation
+  smoke-docs:
+    name: Smoke / Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       - name: Build documentation
-        run: cargo doc --workspace --no-deps --all-features
+        run: cargo doc --locked --workspace --no-deps --all-features
         env:
+          LEO3_NO_LEAN: 1
           RUSTDOCFLAGS: -D warnings --cfg docsrs
 
   coverage:
-    name: Coverage
+    name: Heavy / Coverage
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -323,7 +373,6 @@ jobs:
           rm -f elan-init
           echo "::endgroup::"
 
-      # Add elan to PATH (needed whether cached or not)
       - name: Setup Lean PATH
         run: |
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
@@ -343,30 +392,33 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: ${{ github.event_name == 'pull_request' && 'pr' || 'main' }}
 
-  # Single required check for branch protection — add/remove jobs freely
-  # without updating branch protection settings.
   conclusion:
     name: CI Conclusion
     if: always()
     needs:
-      - rustfmt
-      - clippy
-      - semver-checks
-      - msrv
-      - test-pr
-      - test-full
+      - smoke-rustfmt
+      - smoke-clippy
+      - api-semver
+      - smoke-msrv
+      - smoke-no-lean
+      - smoke-minimal-surface
+      - smoke-optional-surface
+      - macro-ui
+      - runtime-core
+      - runtime-async
+      - macro-runtime
       - ffi-check
-      - careful
-      - valgrind
-      - asan
-      - docs
+      - compat-feature-powerset
+      - compat-runtime-matrix
+      - heavy-careful
+      - heavy-valgrind
+      - heavy-asan
+      - smoke-docs
       - coverage
     runs-on: ubuntu-latest
     steps:
       - name: Result
         run: |
-          # Fail if any dependency failed or was cancelled.
-          # Skipped jobs (e.g. test-pr vs test-full, conditional jobs) are OK.
           if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
             echo "::error::One or more CI jobs failed or were cancelled"
             exit 1
