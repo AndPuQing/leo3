@@ -85,7 +85,7 @@ fn test_promise_feature_surface() {
 #[cfg(feature = "module-loading")]
 #[test]
 fn test_module_loading_feature_surface() {
-    fn _check(path: &str, name: &str) -> Result<leo3::module::LeanModule, String> {
+    fn _check(path: &str, name: &str) -> leo3::LeanResult<leo3::module::LeanModule> {
         leo3::module::LeanModule::load(path, name)
     }
 }

@@ -6,10 +6,37 @@
 use crate::conversion::{FromLean, IntoLean};
 use crate::err::LeanResult;
 use crate::ffi;
+use crate::instance::LeanAny;
 use crate::marker::Lean;
 use crate::{LeanBound, LeanError};
 use libloading::{Library, Symbol};
 use std::path::Path;
+
+unsafe fn try_decode_error_string<'l>(
+    lean: Lean<'l>,
+    ptr: *mut ffi::lean_object,
+) -> Option<String> {
+    ffi::lean_inc(ptr);
+    let bound: LeanBound<'l, LeanAny> = LeanBound::from_owned_ptr(lean, ptr);
+    String::from_lean(&bound.cast()).ok()
+}
+
+unsafe fn decode_io_error_message<'l>(lean: Lean<'l>, result: *mut ffi::lean_object) -> String {
+    let err_ptr = ffi::io::lean_io_result_get_error(result) as *mut ffi::lean_object;
+
+    if let Some(message) = try_decode_error_string(lean, err_ptr) {
+        return message;
+    }
+
+    if !ffi::inline::lean_is_scalar(err_ptr) && ffi::inline::lean_ctor_num_objs(err_ptr) > 0 {
+        let payload_ptr = ffi::lean_ctor_get(err_ptr, 0) as *mut ffi::lean_object;
+        if let Some(message) = try_decode_error_string(lean, payload_ptr) {
+            return message;
+        }
+    }
+
+    "Lean IO.Error".to_string()
+}
 
 /// A loaded Lean module with its exported functions
 pub struct LeanModule {
@@ -32,7 +59,7 @@ impl LeanModule {
     ///
     /// let module = LeanModule::load("./libMyModule.so", "MyModule").unwrap();
     /// ```
-    pub fn load<P: AsRef<Path>>(path: P, module_name: &str) -> Result<Self, String> {
+    pub fn load<P: AsRef<Path>>(path: P, module_name: &str) -> LeanResult<Self> {
         unsafe {
             // Ensure Lean runtime is initialized via the worker thread.
             // Do NOT call lean_initialize_runtime_module / lean_initialize_thread
@@ -40,20 +67,19 @@ impl LeanModule {
             // teardown crashes under AddressSanitizer (and can SIGSEGV in general).
             crate::prepare_freethreaded_lean();
 
+            let path = path.as_ref();
+
             // Load the library
-            let library = Library::new(path.as_ref())
-                .map_err(|e| format!("Failed to load library: {}", e))?;
+            let library =
+                Library::new(path).map_err(|e| LeanError::module_load(path, e.to_string()))?;
 
             // Call the module's initialize function
             let init_fn_name = format!("initialize_{}", module_name);
             let init_fn: Symbol<
                 unsafe extern "C" fn(u8, *mut std::ffi::c_void) -> *mut std::ffi::c_void,
-            > = library.get(init_fn_name.as_bytes()).map_err(|e| {
-                format!(
-                    "Failed to find initialization function {}: {}",
-                    init_fn_name, e
-                )
-            })?;
+            > = library
+                .get(init_fn_name.as_bytes())
+                .map_err(|e| LeanError::symbol_lookup(&init_fn_name, e.to_string()))?;
 
             // Call initialize function (builtin=0, world token)
             let world = ffi::io::lean_io_mk_world();
@@ -62,8 +88,10 @@ impl LeanModule {
             // Check if initialization was successful
             let result_ptr = result as *mut ffi::lean_object;
             if ffi::io::lean_io_result_is_error(result_ptr) {
+                let lean = Lean::assume_initialized();
+                let message = decode_io_error_message(lean, result_ptr);
                 ffi::lean_dec(result_ptr);
-                return Err(format!("Module {} initialization failed", module_name));
+                return Err(LeanError::module_initialization(module_name, message));
             }
             ffi::lean_dec(result_ptr);
 
@@ -91,7 +119,7 @@ impl LeanModule {
         &'lib self,
         name: &str,
         arity: usize,
-    ) -> Result<LeanFunction<'lib>, String> {
+    ) -> LeanResult<LeanFunction<'lib>> {
         unsafe { LeanFunction::lookup(&self.library, name, arity) }
     }
 
@@ -116,10 +144,10 @@ impl<'lib> LeanFunction<'lib> {
     /// # Safety
     /// - The function must exist and have the correct signature
     /// - The arity must match the actual function signature
-    unsafe fn lookup(library: &'lib Library, name: &str, arity: usize) -> Result<Self, String> {
+    unsafe fn lookup(library: &'lib Library, name: &str, arity: usize) -> LeanResult<Self> {
         let symbol: Symbol<unsafe extern "C" fn() -> *mut ffi::lean_object> = library
             .get(name.as_bytes())
-            .map_err(|e| format!("Failed to find function {}: {}", name, e))?;
+            .map_err(|e| LeanError::symbol_lookup(name, e.to_string()))?;
 
         Ok(Self {
             symbol,
@@ -141,10 +169,7 @@ impl<'lib> LeanFunction<'lib> {
     /// Check if the provided arity matches the function's arity
     fn check_arity(&self, provided: usize) -> LeanResult<()> {
         if self.arity != provided {
-            Err(LeanError::other(&format!(
-                "Function '{}' expects {} argument(s), but {} provided",
-                self.name, self.arity, provided
-            )))
+            Err(LeanError::arity_mismatch(&self.name, self.arity, provided))
         } else {
             Ok(())
         }

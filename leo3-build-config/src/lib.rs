@@ -112,13 +112,23 @@ fn get() -> Result<ResolvedLeanConfig, ResolutionError> {
     impl_::resolve_lean_config()
 }
 
+/// Detect Lean4 configuration (cached) with a typed error.
+pub fn resolve_lean_config() -> Result<LeanConfig, ResolutionError> {
+    get_lean_config_with_source().map(|resolved| resolved.config)
+}
+
 /// Detect Lean4 configuration (cached).
+pub fn get_lean_config() -> Result<LeanConfig, ResolutionError> {
+    resolve_lean_config()
+}
+
+/// Detect Lean4 configuration (cached) and stringify any resolution error.
 ///
-/// Returns `Result<LeanConfig, String>` for backward compatibility.
-pub fn get_lean_config() -> Result<LeanConfig, String> {
-    get_lean_config_with_source()
-        .map(|resolved| resolved.config)
-        .map_err(|error| error.to_string())
+/// Deprecated: prefer [`get_lean_config`] or [`get_lean_config_with_source`]
+/// for structured [`ResolutionError`] diagnostics.
+#[deprecated(note = "use get_lean_config() or get_lean_config_with_source() for typed errors")]
+pub fn get_lean_config_string() -> Result<LeanConfig, String> {
+    get_lean_config().map_err(|error| error.to_string())
 }
 
 /// Detect Lean4 configuration (cached), returning the resolution source.
@@ -134,6 +144,13 @@ pub fn get_lean_config_with_source() -> Result<ResolvedLeanConfig, ResolutionErr
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn get_lean_config_has_typed_error() {
+        let _typed: fn() -> Result<LeanConfig, ResolutionError> = get_lean_config;
+    }
+
     #[test]
     fn test_version_parsing() {
         // This test requires Lean to be installed

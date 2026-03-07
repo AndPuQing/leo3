@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 fn main() {
     // Get Lean4 configuration
-    let lean_config = match leo3_build_config::get_lean_config() {
+    let lean_config = match leo3_build_config::resolve_lean_config() {
         Ok(config) => {
             println!("cargo:info=Found Lean4 at {}", config.lean_home.display());
             config

@@ -475,7 +475,7 @@ where
     ///
     /// Maps `Except.error` to `Err(error)` and `Except.ok` to `Ok(value)`.
     fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
-        match LeanExcept::toRustResult(obj) {
+        match LeanExcept::toRustResult(obj)? {
             Err(any_error) => {
                 let typed_error: LeanBound<'l, E::Source> = any_error.cast();
                 let rust_error = E::from_lean(&typed_error)?;

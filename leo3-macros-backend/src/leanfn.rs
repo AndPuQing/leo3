@@ -104,7 +104,11 @@ fn generate_param_conversions(
                 let #name = {
                     let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
                     <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                        .expect(&format!("Failed to convert {} from Lean to Rust", stringify!(#name)))
+                        .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
+                            "Failed to convert `{}` from Lean to Rust: {}",
+                            stringify!(#name),
+                            e
+                        )))?
                 };
             }
         })
@@ -117,16 +121,19 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
     if matches!(return_type, syn::Type::Tuple(t) if t.elems.is_empty()) {
         // For unit return type, return a unit Lean object (constructor 0 with 0 fields)
         quote! {
-            unsafe {
+            Ok(unsafe {
                 #leo3_crate::ffi::lean_alloc_ctor(0, 0, 0)
-            }
+            })
         }
     } else {
         quote! {
             {
                 let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
-                    .expect("Failed to convert result from Rust to Lean");
-                lean_result.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
+                        "Failed to convert Rust result to Lean: {}",
+                        e
+                    )))?;
+                Ok(lean_result.into_ptr())
             }
         }
     }
@@ -161,23 +168,17 @@ fn generate_ffi_wrapper(info: &FunctionInfo, leo3_crate: &TokenStream) -> TokenS
         ) -> #leo3_crate::ffi::object::lean_obj_res {
             // Panic safety boundary - catch any panics and convert to Lean panic
             match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
-                __ffi_wrapper(#(#wrapper_call_args),*)
+                __ffi_try_wrapper(#(#wrapper_call_args),*)
             })) {
-                Ok(ptr) => ptr,
-                Err(_) => {
-                    // Return Lean panic object
+                Ok(Ok(ptr)) => ptr,
+                Ok(Err(err)) => {
                     let lean = #leo3_crate::Lean::assume_initialized();
-                    let msg = match #leo3_crate::types::LeanString::mk(lean, "Rust panic in FFI") {
-                        Ok(s) => s.into_ptr(),
-                        Err(_) => {
-                            // If we can't even create the error message, use a boxed 0
-                            #leo3_crate::ffi::inline::lean_box(0)
-                        }
-                    };
-                    #leo3_crate::ffi::object::lean_panic_fn(
-                        #leo3_crate::ffi::inline::lean_box(0),
-                        msg
-                    )
+                    #leo3_crate::__private::lean_panic_message(lean, &err.to_string())
+                }
+                Err(payload) => {
+                    let lean = #leo3_crate::Lean::assume_initialized();
+                    let message = #leo3_crate::__private::panic_payload_message(payload.as_ref());
+                    #leo3_crate::__private::lean_panic_message(lean, &message)
                 }
             }
         }
@@ -220,9 +221,9 @@ fn generate_conversion_wrapper(info: &FunctionInfo, leo3_crate: &TokenStream) ->
     };
 
     quote! {
-        unsafe fn __ffi_wrapper(
+        pub(crate) unsafe fn __ffi_try_wrapper(
             #(#ffi_params),*
-        ) -> #leo3_crate::ffi::object::lean_obj_res {
+        ) -> #leo3_crate::err::LeanResult<#leo3_crate::ffi::object::lean_obj_res> {
             // Get Lean token (proves runtime is initialized)
             let lean = #leo3_crate::Lean::assume_initialized();
 
@@ -317,4 +318,35 @@ pub fn build_lean_function(
         #[allow(non_snake_case)]
         pub use #wrapper_module::__leo3_metadata as #metadata_name;
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::CommonOptions;
+
+    #[test]
+    fn generated_wrapper_avoids_expect_for_boundary_failures() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(x: u64) -> u64 {
+                x
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__private :: lean_panic_message"));
+        assert!(rendered.contains("__private :: panic_payload_message"));
+        assert!(rendered.contains("Failed to convert"));
+        assert!(rendered.contains("Failed to convert Rust result to Lean"));
+        assert!(!rendered.contains(".expect("));
+        assert!(!rendered.contains(". expect ("));
+    }
 }

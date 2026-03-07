@@ -448,20 +448,30 @@ fn test_environment_different_trust_levels() {
 #[cfg(feature = "module-loading")]
 #[test]
 fn test_module_struct_exists() {
-    use leo3::module::LeanModule;
+    use leo3::{module::LeanModule, LeanResult};
 
     // Verify the LeanModule type is available and can be referenced
     let _type_check =
-        |path: &str, name: &str| -> Result<LeanModule, String> { LeanModule::load(path, name) };
+        |path: &str, name: &str| -> LeanResult<LeanModule> { LeanModule::load(path, name) };
 }
 
 #[cfg(feature = "module-loading")]
 #[test]
 fn test_module_load_nonexistent_file_fails() {
-    use leo3::module::LeanModule;
+    use leo3::{module::LeanModule, LeanError};
+    use std::path::PathBuf;
 
-    let result = LeanModule::load("/nonexistent/path/libFoo.so", "Foo");
-    assert!(result.is_err(), "loading nonexistent .so should fail");
+    let err = match LeanModule::load("/nonexistent/path/libFoo.so", "Foo") {
+        Ok(_) => panic!("loading nonexistent .so should fail"),
+        Err(err) => err,
+    };
+    match err {
+        LeanError::ModuleLoad { path, message } => {
+            assert_eq!(path, PathBuf::from("/nonexistent/path/libFoo.so"));
+            assert!(!message.is_empty());
+        }
+        other => panic!("expected ModuleLoad error, got: {:?}", other),
+    }
 }
 
 #[test]

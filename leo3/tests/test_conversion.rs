@@ -5,6 +5,7 @@
 
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
+use leo3::types::LeanExcept;
 
 // =============================================================================
 // Natural Number Conversions
@@ -39,6 +40,30 @@ fn test_nat_from_usize() {
     });
 
     assert!(result.is_ok());
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_except_to_rust_result_rejects_scalar_values() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let invalid: LeanBound<LeanExcept> =
+            unsafe { LeanBound::from_borrowed_ptr(lean, leo3::ffi::inline::lean_box(0)) };
+
+        let err = match LeanExcept::toRustResult(&invalid) {
+            Ok(_) => panic!("expected malformed Except conversion to fail"),
+            Err(err) => err,
+        };
+        assert!(matches!(err, LeanError::Conversion(_)));
+        assert!(err
+            .to_string()
+            .contains("Except value must be a constructor"));
+
+        Ok(())
+    });
+
+    assert!(result.is_ok(), "test failed: {:?}", result.err());
 }
 
 #[test]

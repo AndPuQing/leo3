@@ -252,6 +252,8 @@ impl fmt::Display for ResolutionError {
     }
 }
 
+impl std::error::Error for ResolutionError {}
+
 // ---------------------------------------------------------------------------
 // CrossCompileConfig
 // ---------------------------------------------------------------------------
