@@ -152,7 +152,7 @@ impl LeanName {
     pub fn kind<'l>(name: &LeanBound<'l, Self>) -> crate::LeanResult<NameKind> {
         unsafe {
             let tag = ffi::lean_obj_tag(name.as_ptr());
-            NameKind::from_u8(tag)
+            NameKind::from_u8(tag as u8)
         }
     }
 }

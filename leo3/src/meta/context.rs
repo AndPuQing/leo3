@@ -30,6 +30,11 @@ use crate::meta::{LeanEnvironment, LeanExpr, LeanName};
 use crate::types::{LeanList, LeanOption, LeanString};
 use leo3_ffi as ffi;
 
+#[inline(always)]
+const fn ctor_scalar_offset(num_obj_fields: u32, scalar_offset: u32) -> u32 {
+    num_obj_fields * std::mem::size_of::<*mut ffi::lean_object>() as u32 + scalar_offset
+}
+
 /// Core.Context - context for CoreM monad
 ///
 /// Lean < 4.25: 13 object fields + 2 scalar bytes (constructor tag 0)
@@ -152,10 +157,10 @@ impl CoreContext {
             ffi::lean_ctor_set(ctx, field_offset + 2, empty_hashset.into_ptr());
 
             // Scalar offset 0: diag (Bool) - use false (0)
-            ffi::inline::lean_ctor_set_uint8(ctx, 0, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(num_obj_fields, 0), 0);
 
             // Scalar offset 1: suppressElabErrors (Bool) - use false (0)
-            ffi::inline::lean_ctor_set_uint8(ctx, 1, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(num_obj_fields, 1), 0);
 
             Ok(LeanBound::from_owned_ptr(lean, ctx))
         }
@@ -496,7 +501,7 @@ impl CoreState {
             let pa_empty = ffi::meta::get_PersistentArrayEmpty();
             ffi::lean_inc(pa_empty);
             ffi::lean_ctor_set(ml, 0, pa_empty);
-            ffi::inline::lean_ctor_set_uint8(ml, 0, 0); // hasErrors = false
+            ffi::inline::lean_ctor_set_uint8(ml, ctor_scalar_offset(1, 0), 0); // hasErrors = false
             Ok(LeanBound::from_owned_ptr(lean, ml))
         }
     }
@@ -525,7 +530,7 @@ impl CoreState {
             let pa_empty = ffi::meta::get_PersistentArrayEmpty();
             ffi::lean_inc(pa_empty);
             ffi::lean_ctor_set(is, 1, pa_empty);
-            ffi::inline::lean_ctor_set_uint8(is, 0, 0); // enabled = false
+            ffi::inline::lean_ctor_set_uint8(is, ctor_scalar_offset(2, 0), 0); // enabled = false
             Ok(LeanBound::from_owned_ptr(lean, is))
         }
     }
@@ -649,7 +654,7 @@ impl MetaContext {
             *base.add(16) = 1; // zetaDelta = true
             *base.add(17) = 1; // zetaUnused = true
             ffi::lean_ctor_set(cwk, 0, config);
-            ffi::lean_ctor_set_uint64(cwk, 0, 0); // key = 0
+            ffi::lean_ctor_set_uint64(cwk, ctor_scalar_offset(1, 0), 0); // key = 0
             ffi::lean_ctor_set(ctx, 0, cwk);
 
             // field 1: zetaDeltaSet (FVarIdSet) — empty HashSet
@@ -689,11 +694,11 @@ impl MetaContext {
             ffi::lean_ctor_set(ctx, 6, none2.into_ptr());
 
             // Scalar offset 0: trackZetaDelta (Bool) = false
-            ffi::inline::lean_ctor_set_uint8(ctx, 0, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 0), 0);
             // Scalar offset 1: univApprox (Bool) = false
-            ffi::inline::lean_ctor_set_uint8(ctx, 1, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 1), 0);
             // Scalar offset 2: inTypeClassResolution (Bool) = false
-            ffi::inline::lean_ctor_set_uint8(ctx, 2, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 2), 0);
 
             Ok(LeanBound::from_owned_ptr(lean, ctx))
         }
@@ -737,16 +742,16 @@ impl MetaContext {
             ffi::lean_ctor_set(ctx, 6, none2.into_ptr());
 
             // Scalar offset 0-7: configKey (UInt64) - use 0
-            ffi::lean_ctor_set_uint64(ctx, 0, 0);
+            ffi::lean_ctor_set_uint64(ctx, ctor_scalar_offset(7, 0), 0);
 
             // Scalar offset 8: trackZetaDelta (Bool) - use false (0)
-            ffi::inline::lean_ctor_set_uint8(ctx, 8, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 8), 0);
 
             // Scalar offset 9: univApprox (Bool) - use false (0)
-            ffi::inline::lean_ctor_set_uint8(ctx, 9, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 9), 0);
 
             // Scalar offset 10: inTypeClassResolution (Bool) - use false (0)
-            ffi::inline::lean_ctor_set_uint8(ctx, 10, 0);
+            ffi::inline::lean_ctor_set_uint8(ctx, ctor_scalar_offset(7, 10), 0);
 
             Ok(LeanBound::from_owned_ptr(lean, ctx))
         }

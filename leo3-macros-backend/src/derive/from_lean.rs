@@ -209,7 +209,7 @@ fn generate_struct_construction(type_name: &syn::Ident, fields: &[Field]) -> Tok
 /// Generate a match arm for an enum variant.
 fn generate_variant_arm(type_name: &syn::Ident, variant: &Variant) -> TokenStream {
     let variant_name = &variant.name;
-    let tag = variant.tag as u8;
+    let tag = variant.tag as u32;
 
     let _leo3_crate = get_leo3_crate();
 

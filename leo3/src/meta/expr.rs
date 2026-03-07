@@ -412,7 +412,7 @@ impl LeanExpr {
     pub fn kind<'l>(expr: &LeanBound<'l, Self>) -> LeanResult<ExprKind> {
         unsafe {
             let tag = ffi::lean_obj_tag(expr.as_ptr());
-            ExprKind::from_u8(tag)
+            ExprKind::from_u8(tag as u8)
         }
     }
 
