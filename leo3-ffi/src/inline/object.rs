@@ -13,9 +13,12 @@ use crate::{
     LEAN_ARRAY, LEAN_CLOSURE, LEAN_EXTERNAL, LEAN_MAX_CTOR_TAG, LEAN_MPZ, LEAN_PROMISE, LEAN_REF,
     LEAN_SCALAR_ARRAY, LEAN_STRING, LEAN_TASK, LEAN_THUNK,
 };
-use libc::{c_uint, c_void, size_t};
+#[cfg(lean_mimalloc)]
+use libc::c_void;
+use libc::{c_uint, size_t};
 use std::sync::atomic::{AtomicI32, Ordering};
 
+#[cfg(any(lean_small_allocator, lean_mimalloc))]
 const LEAN_OBJECT_SIZE_DELTA: size_t = 8;
 
 #[cfg(lean_mimalloc)]
@@ -61,6 +64,7 @@ pub unsafe fn lean_ptr_other(o: *const lean_object) -> u8 {
     (*o).m_other
 }
 
+#[cfg(any(lean_small_allocator, lean_mimalloc))]
 #[inline(always)]
 unsafe fn lean_align(v: size_t, a: size_t) -> size_t {
     (v / a) * a + a * usize::from(!v.is_multiple_of(a))
@@ -531,14 +535,7 @@ pub unsafe fn lean_set_st_header(o: *mut lean_object, tag: u8, other: u8) {
 
 // ============================================================================
 
-#[cfg(lean_small_allocator)]
-#[inline(always)]
-unsafe fn lean_zero_ctor_padding(r: *mut lean_object, aligned_sz: size_t) {
-    let end = (r as *mut u8).add(aligned_sz) as *mut size_t;
-    end.sub(1).write(0);
-}
-
-#[cfg(not(lean_small_allocator))]
+#[cfg(any(lean_small_allocator, lean_mimalloc))]
 #[inline(always)]
 unsafe fn lean_zero_ctor_padding(r: *mut lean_object, aligned_sz: size_t) {
     let end = (r as *mut u8).add(aligned_sz) as *mut size_t;
@@ -613,7 +610,7 @@ pub unsafe fn lean_alloc_small_object(sz: c_uint) -> *mut lean_object {
         }
 
         *(mem as *mut size_t) = sz as size_t;
-        return (mem as *mut size_t).add(1) as *mut lean_object;
+        (mem as *mut size_t).add(1) as *mut lean_object
     }
 }
 
