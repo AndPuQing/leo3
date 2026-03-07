@@ -586,6 +586,26 @@ fn resolve_lean_home(lean_bin: &Path) -> errors::Result<PathBuf> {
         .map(|p| p.to_path_buf())
         .context("could not determine LEAN_HOME from binary path")
 }
+
+fn lean_binary_in_home(lean_home: &Path) -> errors::Result<PathBuf> {
+    let bin_dir = lean_home.join("bin");
+    let lean = bin_dir.join("lean");
+    if lean.exists() {
+        return Ok(lean);
+    }
+
+    let lean_exe = bin_dir.join("lean.exe");
+    if lean_exe.exists() {
+        return Ok(lean_exe);
+    }
+
+    bail!(
+        "lean binary not found: {} or {}",
+        lean.display(),
+        lean_exe.display()
+    );
+}
+
 /// Validate a Lean installation directory and build a `LeanConfig`.
 ///
 /// Respects `LEAN_LIB_DIR` and `LEAN_INCLUDE_DIR` env var overrides.
@@ -617,12 +637,7 @@ fn validate_lean_installation(lean_home: &Path) -> errors::Result<LeanConfig> {
         lean_lib_dir.display()
     );
 
-    let lean_bin = lean_home.join("bin").join("lean");
-    ensure!(
-        lean_bin.exists(),
-        "lean binary not found: {}",
-        lean_bin.display()
-    );
+    let lean_bin = lean_binary_in_home(lean_home)?;
     let version = get_lean_version(&lean_bin)?;
     let shared = has_shared_libs(&lean_lib_dir);
     let allocator = detect_allocator_from_include_dir(&lean_include_dir)?;
@@ -1255,5 +1270,25 @@ mod tests {
 
             std::fs::remove_dir_all(lean_home).unwrap();
         });
+    }
+
+    #[test]
+    fn test_lean_binary_in_home_accepts_windows_exe_name() {
+        let lean_home = std::env::temp_dir().join(format!(
+            "leo3-lean-exe-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let bin_dir = lean_home.join("bin");
+        std::fs::create_dir_all(&bin_dir).unwrap();
+        std::fs::write(bin_dir.join("lean.exe"), b"").unwrap();
+
+        let lean_bin = lean_binary_in_home(&lean_home).unwrap();
+        assert_eq!(lean_bin, bin_dir.join("lean.exe"));
+
+        std::fs::remove_dir_all(lean_home).unwrap();
     }
 }
