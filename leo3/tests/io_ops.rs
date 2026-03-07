@@ -2,6 +2,8 @@
 //!
 //! These tests verify the Phase 1 IO functionality from the Leo3 roadmap.
 
+#![cfg(feature = "io")]
+
 use leo3::io::{env, fs};
 use leo3::prelude::*;
 use std::fs as std_fs;

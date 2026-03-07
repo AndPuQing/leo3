@@ -1,5 +1,7 @@
 //! Integration tests for MetaMContext::is_def_eq()
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

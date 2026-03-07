@@ -7,6 +7,8 @@
 //! - Cross-environment proof sharing (same proof in different envs)
 //! - Proofs with complex dependent types (nested foralls, higher-order)
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

@@ -3,6 +3,8 @@
 //! Runtime tests are gated behind `feature = "runtime-tests"` since they
 //! require the Lean4 runtime to be linked.
 
+#![cfg(feature = "task")]
+
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
 use leo3::task::LeanTask;

@@ -1,5 +1,7 @@
 //! Tests for derive macros: `#[derive(IntoLean, FromLean)]`
 
+#![cfg(feature = "macros")]
+
 use leo3::ffi;
 use leo3::prelude::*;
 

@@ -3,6 +3,8 @@
 //! Verifies that the generated `*_LEAN_CLASS_DECL` and `*_LEAN_METHODS_DECL`
 //! string constants contain the expected Lean declarations.
 
+#![cfg(feature = "macros")]
+
 use leo3::prelude::*;
 
 #[derive(Clone)]

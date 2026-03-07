@@ -1,17 +1,15 @@
-//! Feature flag testing
+//! Feature flag testing.
 //!
-//! These tests verify that Leo3 works correctly with different feature combinations.
+//! These tests verify that the crate's minimal default surface remains usable
+//! while optional subsystems become available behind named features.
 
-// Test that core functionality works without any features
-#[cfg(not(feature = "macros"))]
+use leo3::prelude::*;
+
 #[test]
-fn test_no_features() {
-    use leo3::prelude::*;
-
+fn test_core_surface_always_available() {
     leo3::prepare_freethreaded_lean();
 
     let result: LeanResult<()> = leo3::with_lean(|lean| {
-        // Core API should work without macros
         let n = LeanNat::from_usize(lean, 42)?;
         assert_eq!(LeanNat::to_usize(&n)?, 42);
 
@@ -27,31 +25,78 @@ fn test_no_features() {
     assert!(result.is_ok());
 }
 
-// Test that macros feature enables procedural macros
 #[cfg(feature = "macros")]
-#[test]
-fn test_with_macros() {
-    // TODO: Once macros are implemented, test them here
-    // For now, just check that the feature is enabled
-    #[cfg(feature = "macros")]
-    {
-        // Macros are available
-        let _ = ();
+mod macros_feature {
+    use super::*;
+
+    #[derive(Debug, PartialEq, IntoLean, FromLean)]
+    struct FeaturePair(u64, u64);
+
+    #[test]
+    fn test_macros_feature_surface() {
+        leo3::prepare_freethreaded_lean();
+
+        let result: LeanResult<()> = leo3::with_lean(|lean| {
+            let pair = FeaturePair(1, 2);
+            let lean_pair = pair.into_lean(lean)?;
+            let roundtrip = FeaturePair::from_lean(&lean_pair)?;
+            assert_eq!(roundtrip, FeaturePair(1, 2));
+            Ok(())
+        });
+
+        assert!(result.is_ok());
     }
 }
 
-// Test default features
+#[cfg(feature = "meta")]
 #[test]
-fn test_default_config() {
-    use leo3::prelude::*;
+fn test_meta_feature_surface() {
+    fn _check<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, leo3::meta::LeanEnvironment>> {
+        leo3::meta::LeanEnvironment::empty(lean, 0)
+    }
+}
 
-    leo3::prepare_freethreaded_lean();
+#[cfg(feature = "io")]
+#[test]
+fn test_io_feature_surface() {
+    fn _check<'l>(lean: Lean<'l>) -> LeanResult<Option<String>> {
+        leo3::io::env::get_env(lean, "PATH")
+    }
+}
 
-    let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let n = LeanNat::from_usize(lean, 100)?;
-        assert_eq!(LeanNat::to_usize(&n)?, 100);
-        Ok(())
-    });
+#[cfg(feature = "task")]
+#[test]
+fn test_task_feature_surface() {
+    fn _check<'l>(value: LeanBound<'l, LeanNat>) -> leo3::task::LeanTask<'l, LeanNat> {
+        leo3::task::LeanTask::pure(value)
+    }
+}
 
-    assert!(result.is_ok());
+#[cfg(feature = "task")]
+#[test]
+fn test_promise_feature_surface() {
+    fn _check<'l>(
+        promise: &leo3::promise::LeanPromise<'l, leo3::instance::LeanAny>,
+    ) -> leo3::task::LeanTask<'l, leo3::instance::LeanAny> {
+        promise.task()
+    }
+}
+
+#[cfg(feature = "module-loading")]
+#[test]
+fn test_module_loading_feature_surface() {
+    fn _check(path: &str, name: &str) -> Result<leo3::module::LeanModule, String> {
+        leo3::module::LeanModule::load(path, name)
+    }
+}
+
+#[cfg(feature = "tokio")]
+#[test]
+fn test_tokio_feature_surface() {
+    fn _check<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        leo3::tokio_bridge::lean_block_in_place(f)
+    }
 }

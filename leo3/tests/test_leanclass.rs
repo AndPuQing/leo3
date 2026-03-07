@@ -1,5 +1,7 @@
 //! Tests for the #[leanclass] macro
 
+#![cfg(feature = "macros")]
+
 use leo3::external::LeanExternal;
 use leo3::prelude::*;
 

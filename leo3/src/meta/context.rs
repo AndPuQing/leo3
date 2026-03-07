@@ -169,7 +169,7 @@ impl CoreContext {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_filemap<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let filemap = ffi::meta::get_instInhabitedFileMap();
             if !filemap.is_null() {
@@ -199,7 +199,7 @@ impl CoreContext {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_options<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let options = ffi::meta::lean_inhabited_options();
             if !options.is_null() {
@@ -225,7 +225,7 @@ impl CoreContext {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_syntax_missing<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let syntax = ffi::meta::get_instInhabitedSyntax();
             if !syntax.is_null() {
@@ -363,7 +363,7 @@ impl CoreState {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let ngen = ffi::meta::get_instInhabitedNameGenerator();
             if !ngen.is_null() {
@@ -392,7 +392,7 @@ impl CoreState {
     /// Requires: `ensure_meta_initialized()` must have been called.
     #[cfg(lean_4_25)]
     fn mk_decl_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let decl_ngen = ffi::meta::get_instInhabitedDeclNameGenerator();
             if !decl_ngen.is_null() {
@@ -417,7 +417,7 @@ impl CoreState {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_trace_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let trace_state = ffi::meta::get_instInhabitedTraceState();
             if !trace_state.is_null() {
@@ -444,7 +444,7 @@ impl CoreState {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let cache = ffi::meta::get_CoreInstInhabitedCache();
             if !cache.is_null() {
@@ -483,7 +483,7 @@ impl CoreState {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_message_log<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let msg_log = ffi::meta::get_instInhabitedMessageLog();
             if !msg_log.is_null() {
@@ -508,7 +508,7 @@ impl CoreState {
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_info_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let info_state = ffi::meta::get_ElabInstInhabitedInfoState();
             if !info_state.is_null() {
@@ -583,7 +583,7 @@ impl MetaContext {
         // Falls back to manual construction if the symbol is not available (Windows).
         #[cfg(lean_4_25)]
         {
-            crate::meta::ensure_meta_initialized();
+            crate::runtime::ensure_meta_initialized();
             unsafe {
                 let ctx = ffi::meta::get_instInhabitedContext();
                 if !ctx.is_null() {
@@ -831,7 +831,7 @@ impl MetaContext {
     /// Requires: `ensure_meta_initialized()` must have been called.
     #[cfg(not(lean_4_25))]
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let lctx = ffi::meta::get_instInhabitedLocalContext();
             if !lctx.is_null() {
@@ -896,7 +896,7 @@ impl MetaState {
     /// })
     /// ```
     pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             let state = ffi::meta::get_instInhabitedState();
             if !state.is_null() {

@@ -2,6 +2,8 @@
 //!
 //! This macro generates module initialization functions for Lean4.
 
+#![cfg(feature = "macros")]
+
 use leo3::prelude::*;
 
 // Define a test module with #[leanmodule]

@@ -2,6 +2,8 @@
 //!
 //! LeanPromise provides safe wrappers for manually-resolvable async values.
 
+#![cfg(feature = "task")]
+
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
 use leo3::promise::{LeanPromise, LeanPromiseType};

@@ -10,6 +10,8 @@
 //! - Definition declaration lifecycle
 //! - Memory safety in proof construction workflows
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

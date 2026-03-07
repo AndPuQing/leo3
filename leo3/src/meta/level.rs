@@ -27,7 +27,7 @@ impl LeanLevel {
     /// let prop_level = LeanLevel::zero(lean)?;
     /// ```
     pub fn zero<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_level_mk_zero();
             if ptr.is_null() {
@@ -47,7 +47,7 @@ impl LeanLevel {
     /// let type_level = LeanLevel::one(lean)?;
     /// ```
     pub fn one<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let zero = ffi::expr::lean_level_mk_zero();
             if zero.is_null() {
@@ -70,7 +70,7 @@ impl LeanLevel {
     /// let next_level = LeanLevel::succ(level)?; // Type 1
     /// ```
     pub fn succ<'l>(level: LeanBound<'l, Self>) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let lean = level.lean_token();
             let ptr = ffi::expr::lean_level_mk_succ(level.into_ptr());
@@ -92,7 +92,7 @@ impl LeanLevel {
         a: LeanBound<'l, Self>,
         b: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_max(a.into_ptr(), b.into_ptr());
@@ -111,7 +111,7 @@ impl LeanLevel {
         a: LeanBound<'l, Self>,
         b: LeanBound<'l, Self>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let lean = a.lean_token();
             let ptr = ffi::expr::lean_level_mk_imax(a.into_ptr(), b.into_ptr());
@@ -134,7 +134,7 @@ impl LeanLevel {
         lean: Lean<'l>,
         name: LeanBound<'l, LeanName>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        super::ensure_expr_initialized();
+        crate::runtime::ensure_expr_initialized();
         unsafe {
             let ptr = ffi::expr::lean_level_mk_param(name.into_ptr());
             if ptr.is_null() {

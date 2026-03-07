@@ -1,4 +1,6 @@
 //! Minimal reproduction test
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 
