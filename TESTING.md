@@ -31,6 +31,19 @@ LEO3_NO_LEAN=1 cargo test --lib
 LEO3_NO_LEAN=1 cargo check
 ```
 
+## Lean Discovery Order
+
+Build scripts share the same strict precedence rules:
+
+1. `LEO3_NO_LEAN=1` short-circuits detection and linking.
+2. If present, `DEP_LEAN4_LEO3_CONFIG` wins.
+3. Otherwise `LEO3_CONFIG_FILE` provides an explicit config file.
+4. Otherwise host discovery tries `LEO3_CROSS_LIB_DIR` + `LEO3_CROSS_LEAN_VERSION`, then `LEAN_HOME`, then `lake`, then `elan`, then `PATH`.
+
+Explicit higher-priority inputs are authoritative: if `DEP_LEAN4_LEO3_CONFIG`, `LEO3_CONFIG_FILE`, `LEO3_CROSS_*`, `LEAN_HOME`, `LEAN_LIB_DIR`, or `LEAN_INCLUDE_DIR` is set but invalid, Leo3 reports that error instead of silently falling back.
+
+`leo3-ffi` resolves the config first and re-exports it as `DEP_LEAN4_LEO3_CONFIG`; `leo3` intentionally consumes that propagated value so both crates use identical cfg flags.
+
 ## Test Organization
 
 ### Integration Tests (`leo3/tests/`)
@@ -87,5 +100,7 @@ export LD_LIBRARY_PATH=~/.elan/toolchains/leanprover--lean4---v4.25.2/lib/lean:$
 - Ensure Lean core libraries (e.g. `libLean.a` / `Lean.lib`) are present in the Lean installation and are being linked
 
 **Compilation errors but Lean4 is installed**
+- Check the `cargo:warning=` lines from `leo3-build-config`; they now list each attempted source in order
+- If you want to bypass host discovery, set `LEO3_CONFIG_FILE=/path/to/leo3-build-config.txt`
 - Use `LEO3_NO_LEAN=1` to isolate the issue
 - Check `leo3-build-config` output for detection errors

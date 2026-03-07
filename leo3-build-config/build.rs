@@ -1,8 +1,7 @@
 //! Build script for leo3-build-config.
 //!
-//! When the `resolve-config` feature is enabled (used by leo3-ffi's build-dep),
-//! this script detects the Lean4 installation and writes the config to
-//! `$OUT_DIR/leo3-build-config.txt` so that lib.rs can read it via `include_str!`.
+//! When the `resolve-config` feature is enabled, this script materializes the
+//! same `LEO3_CONFIG_FILE` / host-detection result that the library API uses.
 
 #[cfg(feature = "resolve-config")]
 #[path = "src/errors.rs"]
@@ -37,23 +36,20 @@ fn resolve_config() {
         return;
     }
 
-    // LEO3_CONFIG_FILE: copy user-supplied config
-    if let Ok(user_path) = env::var("LEO3_CONFIG_FILE") {
-        let contents = std::fs::read_to_string(&user_path)
-            .unwrap_or_else(|e| panic!("failed to read LEO3_CONFIG_FILE '{}': {}", user_path, e));
-        std::fs::write(&config_path, contents).expect("failed to write config");
-        return;
-    }
-
-    // Normal detection
-    match impl_::detect_lean_config() {
-        Ok(config) => {
+    match impl_::resolve_user_or_detect_config() {
+        Ok(resolved) => {
+            impl_::emit_resolved_config_rerun_if_changed(&resolved);
             let mut file =
                 std::fs::File::create(&config_path).expect("failed to create config file");
-            config.to_writer(&mut file).expect("failed to write config");
+            resolved
+                .config
+                .to_writer(&mut file)
+                .expect("failed to write config");
         }
-        Err(e) => {
-            errors::cargo_warn!("Failed to detect Lean4: {}", e);
+        Err(error) => {
+            for line in error.warning_lines() {
+                errors::cargo_warn!("{}", line);
+            }
             // Write empty sentinel so downstream doesn't fail on missing file
             std::fs::write(&config_path, "").expect("failed to write sentinel config");
         }

@@ -12,7 +12,7 @@ use std::cmp::Ordering;
 use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 use std::str::FromStr;
 
 /// Maximum minor version for `cargo:rustc-check-cfg` generation.
@@ -135,6 +135,123 @@ pub struct LeanConfig {
     pub pointer_width: Option<u32>,
 }
 
+/// Where a [`LeanConfig`] was resolved from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeanConfigSource {
+    /// Cargo metadata exported by an upstream `links = "lean4"` crate.
+    CargoDepEnv,
+    /// A user-supplied key=value config file.
+    ConfigFile,
+    /// Cross-compilation environment variables.
+    CrossCompileEnv,
+    /// `LEAN_HOME` (plus optional `LEAN_LIB_DIR` / `LEAN_INCLUDE_DIR`).
+    LeanHomeEnv,
+    /// `lake env printenv LEAN_HOME`.
+    Lake,
+    /// `elan which lean`.
+    Elan,
+    /// `which lean` / `where.exe lean`.
+    Path,
+}
+
+impl LeanConfigSource {
+    fn label(self) -> &'static str {
+        match self {
+            LeanConfigSource::CargoDepEnv => "DEP_LEAN4_LEO3_CONFIG",
+            LeanConfigSource::ConfigFile => "LEO3_CONFIG_FILE",
+            LeanConfigSource::CrossCompileEnv => "LEO3_CROSS_LIB_DIR + LEO3_CROSS_LEAN_VERSION",
+            LeanConfigSource::LeanHomeEnv => "LEAN_HOME",
+            LeanConfigSource::Lake => "lake env printenv LEAN_HOME",
+            LeanConfigSource::Elan => "elan which lean",
+            LeanConfigSource::Path => "PATH (lean)",
+        }
+    }
+}
+
+impl fmt::Display for LeanConfigSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+/// A [`LeanConfig`] paired with the source that produced it.
+#[derive(Debug, Clone)]
+pub struct ResolvedLeanConfig {
+    pub source: LeanConfigSource,
+    pub config: LeanConfig,
+}
+
+/// One failed configuration attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolutionAttempt {
+    pub source: LeanConfigSource,
+    pub error: String,
+}
+
+/// Rich error describing the resolution policy and every failed attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolutionError {
+    pub summary: String,
+    pub attempts: Vec<ResolutionAttempt>,
+    pub hints: Vec<String>,
+}
+
+impl ResolutionError {
+    fn single(
+        summary: impl Into<String>,
+        source: LeanConfigSource,
+        error: impl Into<String>,
+        hints: Vec<String>,
+    ) -> Self {
+        Self {
+            summary: summary.into(),
+            attempts: vec![ResolutionAttempt {
+                source,
+                error: error.into(),
+            }],
+            hints,
+        }
+    }
+
+    fn host_detection(attempts: Vec<ResolutionAttempt>) -> Self {
+        Self {
+            summary: "failed to detect Lean4 via host discovery".to_string(),
+            attempts,
+            hints: vec![
+                "Host discovery order: LEO3_CROSS_* -> LEAN_HOME -> lake -> elan -> PATH"
+                    .to_string(),
+                "Set LEO3_CONFIG_FILE=/path/to/leo3-build-config.txt to bypass host discovery"
+                    .to_string(),
+                "Set LEO3_NO_LEAN=1 for compile-only builds that should not link Lean4".to_string(),
+            ],
+        }
+    }
+
+    pub fn warning_lines(&self) -> Vec<String> {
+        let mut lines = vec![format!(
+            "Failed to resolve Lean4 configuration: {}",
+            self.summary
+        )];
+        for attempt in &self.attempts {
+            lines.push(format!("  {}: {}", attempt.source, attempt.error));
+        }
+        lines.extend(self.hints.iter().map(|hint| format!("  hint: {}", hint)));
+        lines
+    }
+}
+
+impl fmt::Display for ResolutionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (index, line) in self.warning_lines().iter().enumerate() {
+            if index > 0 {
+                writeln!(f)?;
+            }
+            write!(f, "{}", line)?;
+        }
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // CrossCompileConfig
 // ---------------------------------------------------------------------------
@@ -190,6 +307,198 @@ impl CrossCompileConfig {
     }
 }
 
+fn resolved(source: LeanConfigSource, config: LeanConfig) -> ResolvedLeanConfig {
+    ResolvedLeanConfig { source, config }
+}
+
+fn load_config_file(path: &Path) -> errors::Result<LeanConfig> {
+    let file = std::fs::File::open(path)
+        .with_context(|| format!("failed to open config file '{}'", path.display()))?;
+    LeanConfig::from_reader(std::io::BufReader::new(file))
+        .with_context(|| format!("failed to parse config file '{}'", path.display()))
+}
+
+fn format_command_failure(output: &Output) -> String {
+    let mut details = vec![format!("exit status {}", output.status)];
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stderr.is_empty() {
+        details.push(format!("stderr: {}", stderr));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !stdout.is_empty() {
+        details.push(format!("stdout: {}", stdout));
+    }
+
+    details.join(", ")
+}
+
+fn run_command(command: &mut Command, description: &str) -> errors::Result<Output> {
+    let output = command
+        .output()
+        .with_context(|| format!("failed to run {}", description))?;
+    ensure!(
+        output.status.success(),
+        "{} failed: {}",
+        description,
+        format_command_failure(&output)
+    );
+    Ok(output)
+}
+
+fn run_command_stdout(command: &mut Command, description: &str) -> errors::Result<String> {
+    let output = run_command(command, description)?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn detect_from_cross_compile() -> errors::Result<LeanConfig> {
+    CrossCompileConfig::from_env().and_then(CrossCompileConfig::into_lean_config)
+}
+
+fn has_explicit_cross_compile_config() -> bool {
+    env::var_os("LEO3_CROSS_LIB_DIR").is_some() || env::var_os("LEO3_CROSS_LEAN_VERSION").is_some()
+}
+
+pub fn resolve_host_lean_config() -> Result<ResolvedLeanConfig, ResolutionError> {
+    if has_explicit_cross_compile_config() {
+        return detect_from_cross_compile()
+            .map(|config| resolved(LeanConfigSource::CrossCompileEnv, config))
+            .map_err(|error| {
+                ResolutionError::single(
+                    "LEO3_CROSS_* was set but could not be resolved",
+                    LeanConfigSource::CrossCompileEnv,
+                    error.to_string(),
+                    vec![
+                        "Unset LEO3_CROSS_LIB_DIR and LEO3_CROSS_LEAN_VERSION to fall back to host discovery".to_string(),
+                        "Set LEO3_CONFIG_FILE=/path/to/leo3-build-config.txt to bypass host discovery entirely".to_string(),
+                    ],
+                )
+            });
+    }
+
+    if env::var_os("LEAN_HOME").is_some() {
+        return detect_from_env()
+            .map(|config| resolved(LeanConfigSource::LeanHomeEnv, config))
+            .map_err(|error| {
+                ResolutionError::single(
+                    "LEAN_HOME was set but could not be resolved",
+                    LeanConfigSource::LeanHomeEnv,
+                    error.to_string(),
+                    vec![
+                        "Unset LEAN_HOME to fall back to lake / elan / PATH discovery".to_string(),
+                        "If you use LEAN_LIB_DIR or LEAN_INCLUDE_DIR, verify those override paths exist".to_string(),
+                    ],
+                )
+            });
+    }
+
+    let mut attempts = Vec::new();
+
+    for (source, detect) in [
+        (
+            LeanConfigSource::Lake,
+            detect_from_lake as fn() -> errors::Result<LeanConfig>,
+        ),
+        (
+            LeanConfigSource::Elan,
+            detect_from_elan as fn() -> errors::Result<LeanConfig>,
+        ),
+        (
+            LeanConfigSource::Path,
+            detect_from_path as fn() -> errors::Result<LeanConfig>,
+        ),
+    ] {
+        let result = detect();
+        match result {
+            Ok(config) => return Ok(resolved(source, config)),
+            Err(error) => attempts.push(ResolutionAttempt {
+                source,
+                error: error.to_string(),
+            }),
+        }
+    }
+
+    Err(ResolutionError::host_detection(attempts))
+}
+
+pub fn resolve_user_or_detect_config() -> Result<ResolvedLeanConfig, ResolutionError> {
+    if let Ok(path) = env::var("LEO3_CONFIG_FILE") {
+        return load_config_file(Path::new(&path))
+            .map(|config| resolved(LeanConfigSource::ConfigFile, config))
+            .map_err(|error| {
+                ResolutionError::single(
+                    "LEO3_CONFIG_FILE was set but could not be loaded",
+                    LeanConfigSource::ConfigFile,
+                    error.to_string(),
+                    vec![
+                        format!("Unset LEO3_CONFIG_FILE to fall back to host discovery (current value: {})", path),
+                        "Set LEO3_NO_LEAN=1 for compile-only builds that should not link Lean4".to_string(),
+                    ],
+                )
+            });
+    }
+
+    resolve_host_lean_config()
+}
+
+pub fn resolve_dep_lean_config() -> Result<ResolvedLeanConfig, ResolutionError> {
+    let hex = env::var("DEP_LEAN4_LEO3_CONFIG").map_err(|_| {
+        ResolutionError::single(
+            "leo3 expects leo3-ffi to export DEP_LEAN4_LEO3_CONFIG",
+            LeanConfigSource::CargoDepEnv,
+            "not set",
+            vec![
+                "Build leo3 together with leo3-ffi so Cargo can propagate the shared Lean4 config".to_string(),
+                "If leo3-ffi could not detect Lean4, check its warnings or set LEO3_CONFIG_FILE / LEAN_HOME before building".to_string(),
+                "Set LEO3_NO_LEAN=1 for compile-only builds that should not link Lean4".to_string(),
+            ],
+        )
+    })?;
+
+    LeanConfig::from_cargo_dep_env(&hex)
+        .map(|config| resolved(LeanConfigSource::CargoDepEnv, config))
+        .map_err(|error| {
+            ResolutionError::single(
+                "DEP_LEAN4_LEO3_CONFIG was present but invalid",
+                LeanConfigSource::CargoDepEnv,
+                error.to_string(),
+                vec![
+                    "Rebuild leo3-ffi so it can re-export a fresh Lean4 config".to_string(),
+                    "If you set LEO3_CONFIG_FILE, set it for the leo3-ffi build so the propagated config stays in sync".to_string(),
+                ],
+            )
+        })
+}
+
+pub fn resolve_lean_config() -> Result<ResolvedLeanConfig, ResolutionError> {
+    if let Ok(hex) = env::var("DEP_LEAN4_LEO3_CONFIG") {
+        return LeanConfig::from_cargo_dep_env(&hex)
+            .map(|config| resolved(LeanConfigSource::CargoDepEnv, config))
+            .map_err(|error| {
+                ResolutionError::single(
+                    "DEP_LEAN4_LEO3_CONFIG was present but invalid",
+                    LeanConfigSource::CargoDepEnv,
+                    error.to_string(),
+                    vec![
+                        "Rebuild the upstream links = \"lean4\" crate so it can export a fresh config".to_string(),
+                        "Unset DEP_LEAN4_LEO3_CONFIG only if you intentionally want local discovery to run instead".to_string(),
+                    ],
+                )
+            });
+    }
+
+    resolve_user_or_detect_config()
+}
+
+pub fn emit_resolved_config_rerun_if_changed(resolved: &ResolvedLeanConfig) {
+    if matches!(resolved.source, LeanConfigSource::ConfigFile) {
+        if let Ok(path) = env::var("LEO3_CONFIG_FILE") {
+            println!("cargo:rerun-if-changed={}", path);
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Detection functions
 // ---------------------------------------------------------------------------
@@ -198,13 +507,9 @@ impl CrossCompileConfig {
 ///
 /// Tries cross-compile config first, then env vars, lake, elan, PATH.
 pub fn detect_lean_config() -> errors::Result<LeanConfig> {
-    if let Ok(cross) = CrossCompileConfig::from_env() {
-        return cross.into_lean_config();
-    }
-    detect_from_env()
-        .or_else(|_| detect_from_lake())
-        .or_else(|_| detect_from_elan())
-        .or_else(|_| detect_from_path())
+    resolve_host_lean_config()
+        .map(|resolved| resolved.config)
+        .map_err(|error| errors::Error::new(error.to_string()))
 }
 
 /// Try to detect Lean from the `LEAN_HOME` environment variable.
@@ -215,20 +520,13 @@ fn detect_from_env() -> errors::Result<LeanConfig> {
 
 /// Try to detect Lean from the `lake` command.
 fn detect_from_lake() -> errors::Result<LeanConfig> {
-    let output = Command::new("lake")
-        .arg("--version")
-        .output()
-        .context("failed to run lake")?;
-    if !output.status.success() {
-        bail!("lake command failed");
-    }
-    let output = Command::new("lake")
-        .arg("env")
-        .arg("printenv")
-        .arg("LEAN_HOME")
-        .output()
-        .context("failed to get LEAN_HOME from lake")?;
-    let lean_home = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let mut version_cmd = Command::new("lake");
+    version_cmd.arg("--version");
+    run_command(&mut version_cmd, "lake --version")?;
+
+    let mut env_cmd = Command::new("lake");
+    env_cmd.arg("env").arg("printenv").arg("LEAN_HOME");
+    let lean_home = run_command_stdout(&mut env_cmd, "lake env printenv LEAN_HOME")?;
     if lean_home.is_empty() {
         bail!("lake did not provide LEAN_HOME");
     }
@@ -237,15 +535,9 @@ fn detect_from_lake() -> errors::Result<LeanConfig> {
 
 /// Try to detect Lean from the `elan` toolchain manager.
 fn detect_from_elan() -> errors::Result<LeanConfig> {
-    let output = Command::new("elan")
-        .arg("which")
-        .arg("lean")
-        .output()
-        .context("failed to run elan")?;
-    if !output.status.success() {
-        bail!("elan command failed");
-    }
-    let lean_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let mut elan_cmd = Command::new("elan");
+    elan_cmd.arg("which").arg("lean");
+    let lean_path = run_command_stdout(&mut elan_cmd, "elan which lean")?;
     let lean_home = resolve_lean_home(Path::new(&lean_path))?;
     validate_lean_installation(&lean_home)
 }
@@ -259,13 +551,9 @@ fn detect_from_path() -> errors::Result<LeanConfig> {
     } else {
         ("which", "lean")
     };
-    let output = Command::new(cmd)
-        .arg(arg)
-        .output()
-        .context("failed to find lean in PATH")?;
-    if !output.status.success() {
-        bail!("lean not found in PATH");
-    }
+    let mut path_cmd = Command::new(cmd);
+    path_cmd.arg(arg);
+    let output = run_command(&mut path_cmd, &format!("{} {}", cmd, arg))?;
     // `where.exe` may return multiple lines; take the first.
     let lean_path = String::from_utf8_lossy(&output.stdout)
         .lines()
@@ -323,7 +611,18 @@ fn validate_lean_installation(lean_home: &Path) -> errors::Result<LeanConfig> {
         lean_include_dir.display()
     );
 
+    ensure!(
+        lean_lib_dir.exists(),
+        "library directory not found: {}",
+        lean_lib_dir.display()
+    );
+
     let lean_bin = lean_home.join("bin").join("lean");
+    ensure!(
+        lean_bin.exists(),
+        "lean binary not found: {}",
+        lean_bin.display()
+    );
     let version = get_lean_version(&lean_bin)?;
     let shared = has_shared_libs(&lean_lib_dir);
     let allocator = detect_allocator_from_include_dir(&lean_include_dir)?;
@@ -375,13 +674,12 @@ fn parse_allocator_from_config_h(config: &str) -> LeanAllocator {
 
 /// Run `lean --version` and parse the output into a `LeanVersion`.
 fn get_lean_version(lean_bin: &Path) -> errors::Result<LeanVersion> {
-    let output = Command::new(lean_bin)
-        .arg("--version")
-        .output()
-        .context("failed to run lean --version")?;
-    if !output.status.success() {
-        bail!("lean --version failed");
-    }
+    let mut version_cmd = Command::new(lean_bin);
+    version_cmd.arg("--version");
+    let output = run_command(
+        &mut version_cmd,
+        &format!("{} --version", lean_bin.display()),
+    )?;
     let version_output = String::from_utf8_lossy(&output.stdout);
     // Output looks like "Lean (version 4.25.2, ...)"
     let version_str = version_output
@@ -556,6 +854,7 @@ pub fn print_expected_cfgs() {
 /// Print `cargo:rerun-if-env-changed` for every env var we inspect.
 pub fn print_rerun_if_env_changed() {
     for var in &[
+        "DEP_LEAN4_LEO3_CONFIG",
         "LEO3_NO_LEAN",
         "LEAN_HOME",
         "ELAN_HOME",
@@ -671,6 +970,75 @@ pub fn emit_allocator_cfgs(config: &LeanConfig) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    fn env_lock() -> &'static Mutex<()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn with_temp_env<T>(f: impl FnOnce() -> T) -> T {
+        let _guard = env_lock().lock().unwrap();
+
+        let keys = [
+            "DEP_LEAN4_LEO3_CONFIG",
+            "LEO3_CONFIG_FILE",
+            "LEO3_CROSS_LIB_DIR",
+            "LEO3_CROSS_LEAN_VERSION",
+            "LEAN_HOME",
+            "LEAN_LIB_DIR",
+            "LEAN_INCLUDE_DIR",
+        ];
+
+        let saved: Vec<_> = keys
+            .iter()
+            .map(|key| ((*key).to_string(), std::env::var(key).ok()))
+            .collect();
+
+        for key in keys {
+            std::env::remove_var(key);
+        }
+
+        let result = f();
+
+        for (key, value) in saved {
+            if let Some(value) = value {
+                std::env::set_var(key, value);
+            } else {
+                std::env::remove_var(key);
+            }
+        }
+
+        result
+    }
+
+    fn write_temp_config(config: &LeanConfig, stem: &str) -> PathBuf {
+        let unique = format!(
+            "{}-{}-{}",
+            stem,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let path = std::env::temp_dir().join(format!("{}.txt", unique));
+        let mut file = std::fs::File::create(&path).unwrap();
+        config.to_writer(&mut file).unwrap();
+        path
+    }
+
+    fn sample_config(version: &str) -> LeanConfig {
+        LeanConfig {
+            lean_home: PathBuf::from("/opt/lean"),
+            lean_lib_dir: PathBuf::from("/opt/lean/lib/lean"),
+            lean_include_dir: PathBuf::from("/opt/lean/include"),
+            version: version.parse().unwrap(),
+            shared: true,
+            allocator: LeanAllocator::Mimalloc,
+            pointer_width: Some(64),
+        }
+    }
 
     #[test]
     fn test_lean_version_parse() {
@@ -783,5 +1151,109 @@ mod tests {
     fn test_hex_decode_invalid() {
         assert!(hex_decode("0").is_err()); // odd length
         assert!(hex_decode("zz").is_err()); // invalid chars
+    }
+
+    #[test]
+    fn test_resolution_error_warning_lines() {
+        let error = ResolutionError::host_detection(vec![ResolutionAttempt {
+            source: LeanConfigSource::LeanHomeEnv,
+            error: "LEAN_HOME not set".to_string(),
+        }]);
+
+        let lines = error.warning_lines();
+        assert!(lines[0].contains("Failed to resolve Lean4 configuration"));
+        assert!(lines
+            .iter()
+            .any(|line| line.contains("LEAN_HOME: LEAN_HOME not set")));
+        assert!(lines
+            .iter()
+            .any(|line| line.contains("Host discovery order")));
+    }
+
+    #[test]
+    fn test_resolve_lean_config_prefers_dep_env() {
+        with_temp_env(|| {
+            let dep_config = sample_config("4.25.2");
+            let file_config = sample_config("4.30.0");
+            let file_path = write_temp_config(&file_config, "leo3-config-file");
+
+            std::env::set_var("DEP_LEAN4_LEO3_CONFIG", dep_config.to_cargo_dep_env());
+            std::env::set_var("LEO3_CONFIG_FILE", &file_path);
+
+            let resolved = resolve_lean_config().unwrap();
+            assert_eq!(resolved.source, LeanConfigSource::CargoDepEnv);
+            assert_eq!(resolved.config.version, dep_config.version);
+
+            std::fs::remove_file(file_path).unwrap();
+        });
+    }
+
+    #[test]
+    fn test_resolve_user_or_detect_config_prefers_config_file() {
+        with_temp_env(|| {
+            let file_config = sample_config("4.28.1");
+            let file_path = write_temp_config(&file_config, "leo3-config-file-only");
+
+            std::env::set_var("LEO3_CONFIG_FILE", &file_path);
+
+            let resolved = resolve_user_or_detect_config().unwrap();
+            assert_eq!(resolved.source, LeanConfigSource::ConfigFile);
+            assert_eq!(resolved.config.version, file_config.version);
+
+            std::fs::remove_file(file_path).unwrap();
+        });
+    }
+
+    #[test]
+    fn test_resolve_host_lean_config_stops_on_invalid_lean_home() {
+        with_temp_env(|| {
+            std::env::set_var("LEAN_HOME", "/definitely/not/here");
+
+            let err = resolve_host_lean_config().unwrap_err();
+            assert_eq!(err.attempts.len(), 1);
+            assert_eq!(err.attempts[0].source, LeanConfigSource::LeanHomeEnv);
+            assert!(err.attempts[0].error.contains("Lean home does not exist"));
+        });
+    }
+
+    #[test]
+    fn test_resolve_host_lean_config_stops_on_partial_cross_compile_env() {
+        with_temp_env(|| {
+            std::env::set_var("LEO3_CROSS_LIB_DIR", "/definitely/not/here");
+
+            let err = resolve_host_lean_config().unwrap_err();
+            assert_eq!(err.attempts.len(), 1);
+            assert_eq!(err.attempts[0].source, LeanConfigSource::CrossCompileEnv);
+            assert!(err.attempts[0]
+                .error
+                .contains("LEO3_CROSS_LEAN_VERSION not set"));
+        });
+    }
+
+    #[test]
+    fn test_validate_lean_installation_requires_existing_lib_dir() {
+        with_temp_env(|| {
+            let lean_home = std::env::temp_dir().join(format!(
+                "leo3-invalid-lib-dir-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(lean_home.join("include")).unwrap();
+
+            std::env::set_var("LEAN_HOME", &lean_home);
+            std::env::set_var("LEAN_LIB_DIR", lean_home.join("missing-lib"));
+
+            let err = resolve_host_lean_config().unwrap_err();
+            assert_eq!(err.attempts.len(), 1);
+            assert_eq!(err.attempts[0].source, LeanConfigSource::LeanHomeEnv);
+            assert!(err.attempts[0]
+                .error
+                .contains("library directory not found"));
+
+            std::fs::remove_dir_all(lean_home).unwrap();
+        });
     }
 }

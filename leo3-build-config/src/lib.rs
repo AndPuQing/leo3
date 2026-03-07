@@ -12,9 +12,25 @@ use errors::cargo_warn;
 use std::env;
 use std::sync::OnceLock;
 
-pub use impl_::{LeanAllocator, LeanConfig, LeanVersion};
+pub use impl_::{
+    LeanAllocator, LeanConfig, LeanConfigSource, LeanVersion, ResolutionAttempt, ResolutionError,
+    ResolvedLeanConfig,
+};
 
-static LEAN_CONFIG: OnceLock<LeanConfig> = OnceLock::new();
+static LEAN_CONFIG: OnceLock<ResolvedLeanConfig> = OnceLock::new();
+
+fn warn_resolution_error(error: &ResolutionError) {
+    for line in error.warning_lines() {
+        cargo_warn!("{}", line);
+    }
+}
+
+fn emit_resolved_config(config: &LeanConfig) {
+    impl_::emit_link_config(config);
+    impl_::emit_version_cfgs(config);
+    impl_::emit_allocator_cfgs(config);
+    println!("cargo:rerun-if-changed={}", config.lean_home.display());
+}
 
 /// Main entry point: adds all Leo3 configuration to the current compilation.
 ///
@@ -27,6 +43,16 @@ static LEAN_CONFIG: OnceLock<LeanConfig> = OnceLock::new();
 /// - `LEO3_CONFIG_FILE` - Path to a pre-built config file
 /// - `LEO3_CROSS_LIB_DIR` - Cross-compile: Lean library directory
 /// - `LEO3_CROSS_LEAN_VERSION` - Cross-compile: Lean version string
+/// - `DEP_LEAN4_LEO3_CONFIG` - Upstream propagated config from `leo3-ffi`
+///
+/// Resolution order:
+/// 1. `DEP_LEAN4_LEO3_CONFIG`
+/// 2. `LEO3_CONFIG_FILE`
+/// 3. Host discovery (`LEO3_CROSS_*` → `LEAN_HOME` → `lake` → `elan` → `PATH`)
+///
+/// Explicit higher-priority inputs are authoritative: if they are present but
+/// invalid, Leo3 reports that configuration error instead of silently falling
+/// back to a lower-priority discovery source.
 pub fn use_leo3_cfgs() {
     impl_::print_expected_cfgs();
     impl_::print_rerun_if_env_changed();
@@ -37,17 +63,40 @@ pub fn use_leo3_cfgs() {
         return;
     }
 
-    match get() {
-        Ok(config) => {
-            impl_::emit_link_config(&config);
-            impl_::emit_version_cfgs(&config);
-            impl_::emit_allocator_cfgs(&config);
-            println!("cargo:rerun-if-changed={}", config.lean_home.display());
+    match get_lean_config_with_source() {
+        Ok(resolved) => {
+            impl_::emit_resolved_config_rerun_if_changed(&resolved);
+            emit_resolved_config(&resolved.config);
         }
-        Err(e) => {
-            cargo_warn!("Failed to detect Lean4: {}", e);
+        Err(error) => {
+            warn_resolution_error(&error);
             cargo_warn!("Leo3 will not function without Lean4 installed");
             cargo_warn!("Set LEO3_NO_LEAN=1 to build without Lean4 (compile-only)");
+        }
+    }
+}
+
+/// Like [`use_leo3_cfgs`], but only accepts config propagated from `leo3-ffi`.
+///
+/// This keeps `leo3` aligned with the exact Lean cfg flags chosen by the
+/// upstream `links = "lean4"` crate during `cargo publish` verification.
+pub fn use_upstream_leo3_cfgs() {
+    impl_::print_expected_cfgs();
+    impl_::print_rerun_if_env_changed();
+
+    if env::var("LEO3_NO_LEAN").is_ok() {
+        cargo_warn!("LEO3_NO_LEAN set: skipping Lean4 configuration");
+        return;
+    }
+
+    match impl_::resolve_dep_lean_config() {
+        Ok(resolved) => {
+            impl_::emit_resolved_config_rerun_if_changed(&resolved);
+            emit_resolved_config(&resolved.config)
+        }
+        Err(error) => {
+            warn_resolution_error(&error);
+            cargo_warn!("leo3 reuses the Lean4 config chosen by leo3-ffi to avoid cfg mismatches");
         }
     }
 }
@@ -56,28 +105,24 @@ pub fn use_leo3_cfgs() {
 ///
 /// 1. `DEP_LEAN4_LEO3_CONFIG` env var (hex-encoded, set by `leo3-ffi` via `links = "lean4"`)
 /// 2. `LEO3_CONFIG_FILE` env var (path to a key=value config file)
-/// 3. Host detection (cross-compile → env → lake → elan → PATH)
-fn get() -> Result<LeanConfig, String> {
-    // Priority 1: Cargo DEP_* from upstream `links = "lean4"` crate
-    if let Ok(hex) = env::var("DEP_LEAN4_LEO3_CONFIG") {
-        return LeanConfig::from_cargo_dep_env(&hex).map_err(|e| e.to_string());
-    }
-
-    // Priority 2: user-supplied config file
-    if let Ok(path) = env::var("LEO3_CONFIG_FILE") {
-        let file = std::fs::File::open(&path)
-            .map_err(|e| format!("failed to open LEO3_CONFIG_FILE '{}': {}", path, e))?;
-        return LeanConfig::from_reader(std::io::BufReader::new(file)).map_err(|e| e.to_string());
-    }
-
-    // Priority 3: host detection
-    impl_::detect_lean_config().map_err(|e| e.to_string())
+/// 3. Host detection (`LEO3_CROSS_*` → `LEAN_HOME` → lake → elan → PATH)
+///
+/// Explicit higher-priority inputs are authoritative.
+fn get() -> Result<ResolvedLeanConfig, ResolutionError> {
+    impl_::resolve_lean_config()
 }
 
 /// Detect Lean4 configuration (cached).
 ///
 /// Returns `Result<LeanConfig, String>` for backward compatibility.
 pub fn get_lean_config() -> Result<LeanConfig, String> {
+    get_lean_config_with_source()
+        .map(|resolved| resolved.config)
+        .map_err(|error| error.to_string())
+}
+
+/// Detect Lean4 configuration (cached), returning the resolution source.
+pub fn get_lean_config_with_source() -> Result<ResolvedLeanConfig, ResolutionError> {
     if let Some(config) = LEAN_CONFIG.get() {
         return Ok(config.clone());
     }
