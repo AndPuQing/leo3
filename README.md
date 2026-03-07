@@ -175,11 +175,13 @@ leo3/
 
 ## Development
 
+See `TESTING.md` for the full tiered CI map and exact contributor workflows. Common local commands:
+
 ```bash
-cargo test --all-features                           # Full test suite (requires Lean 4.25.2)
-cargo test --no-default-features --test test_features # Minimal default surface
-cargo test --no-default-features --features meta --test meta_basic
-LEO3_NO_LEAN=1 cargo check --all-features              # Compile-only, no Lean runtime
+LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
+cargo test --locked -p leo3 --no-default-features --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
+cargo test --locked --all-features --workspace
 ```
 
 ## License

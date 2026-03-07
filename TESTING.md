@@ -1,106 +1,123 @@
 # Leo3 Testing Guide
 
-Quick reference for testing Leo3, inspired by PyO3's testing infrastructure.
+Leo3 CI is split into small, named tiers so failures are easier to localize and contributors can run the same commands locally.
 
-## Running Tests
+## CI Tiers
 
-### Quick Commands
+| Tier | Purpose | Typical jobs | Default trigger |
+| --- | --- | --- | --- |
+| Smoke | Fast formatting / compile / feature-surface regressions | `rustfmt`, `clippy`, `msrv`, `no-lean`, minimal + optional feature surface, docs | Every PR and push |
+| Runtime | Focused Lean-backed integration coverage | core runtime, async/tokio, macro runtime, FFI layout check | Every PR and push |
+| API | PR-only compatibility guard | semver checks | Pull requests |
+| Compat / Heavy | Broad matrix and expensive diagnostics | feature powerset, full OS/Lean matrix, beta clippy, careful, valgrind, ASan, coverage | Pushes to `main` / `develop`, daily schedule, or PRs labeled `CI-build-full` |
+
+The scheduled compatibility sweep runs daily at **03:17 UTC**.
+
+## Required vs Optional Paths
+
+- **Required on PRs:** Smoke + Runtime + API tiers.
+- **Required on pushes to `main` / `develop`:** Smoke + Runtime + Compat / Heavy tiers.
+- **Opt into the full PR matrix:** add the `CI-build-full` label.
+- **Disable matrix fail-fast on a PR:** add the `CI-no-fail-fast` label.
+- **Allow PR cache writes:** add the `CI-save-pr-cache` label.
+
+## Local Commands
+
+### Smoke
 
 ```bash
-# Run all tests (requires Lean4 runtime linked)
-export LD_LIBRARY_PATH=~/.elan/toolchains/leanprover--lean4---v4.25.2/lib/lean:$LD_LIBRARY_PATH
-cargo test --all-features
-
-# Run only library checks without Lean4
-LEO3_NO_LEAN=1 cargo test --lib
-
-# Run specific feature-scoped suites
-cargo test --no-default-features --test test_features
-cargo test --no-default-features --features meta --test meta_basic
+cargo fmt --all --check
+cargo clippy --all-targets --all-features --workspace -- -D warnings
+LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
+LEO3_NO_LEAN=1 cargo check --locked --workspace --tests --all-features
+cargo test --locked -p leo3 --no-default-features --test test_features
+cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
+LEO3_NO_LEAN=1 RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo +nightly doc --locked --workspace --no-deps --all-features
 ```
 
-### Testing Without Lean4
-
-Set `LEO3_NO_LEAN=1` to skip Lean4 detection and linking. This allows:
-- ✅ Compilation checks
-- ✅ Library unit tests (types, markers, etc.)
-- ❌ Integration tests (require actual Lean4 runtime)
+### Runtime
 
 ```bash
-LEO3_NO_LEAN=1 cargo test --lib
-LEO3_NO_LEAN=1 cargo check
+cargo test --locked -p leo3 --features runtime-tests \
+  --test basic \
+  --test nat_ops \
+  --test string_ops \
+  --test array_ops \
+  --test test_conversion \
+  --test test_gc
+
+cargo test --locked -p leo3 --features "tokio,runtime-tests" \
+  --test test_task_async \
+  --test test_tokio_bridge
+
+cargo test --locked -p leo3 --features "macros,runtime-tests" \
+  --test test_conversion_macros \
+  --test test_derive_macros \
+  --test test_leanclass \
+  --test test_leanclass_codegen \
+  --test test_leanclass_minimal \
+  --test test_leanfn_macro \
+  --test test_lean_instance \
+  --test test_leanmodule
+
+cargo test --manifest-path leo3-ffi-check/Cargo.toml
 ```
 
-## Lean Discovery Order
+### Compat / Heavy
 
-Build scripts share the same strict precedence rules:
+```bash
+LEO3_NO_LEAN=1 cargo hack check --feature-powerset --exclude-features runtime-tests --workspace --tests
+cargo test --locked --all-features --workspace
+cargo careful test --locked --all-features --workspace
+cargo test --locked --release --all-features --workspace
+RUSTFLAGS='-Zsanitizer=address' cargo test --locked -Zbuild-std --target x86_64-unknown-linux-gnu --all-features --workspace
+cargo llvm-cov --no-report nextest
+cargo llvm-cov --no-report --doc
+cargo llvm-cov report --doctests --lcov --output-path lcov.info
+```
 
-1. `LEO3_NO_LEAN=1` short-circuits detection and linking.
-2. If present, `DEP_LEAN4_LEO3_CONFIG` wins.
-3. Otherwise `LEO3_CONFIG_FILE` provides an explicit config file.
-4. Otherwise host discovery tries `LEO3_CROSS_LIB_DIR` + `LEO3_CROSS_LEAN_VERSION`, then `LEAN_HOME`, then `lake`, then `elan`, then `PATH`.
+## UI Snapshot Updates
 
-Explicit higher-priority inputs are authoritative: if `DEP_LEAN4_LEO3_CONFIG`, `LEO3_CONFIG_FILE`, `LEO3_CROSS_*`, `LEAN_HOME`, `LEAN_LIB_DIR`, or `LEAN_INCLUDE_DIR` is set but invalid, Leo3 reports that error instead of silently falling back.
+`macro-ui` runs the `trybuild` compile-fail suite in `leo3/tests/ui` explicitly.
+When diagnostics intentionally change, refresh the snapshots with:
 
-`leo3-ffi` resolves the config first and re-exports it as `DEP_LEAN4_LEO3_CONFIG`; `leo3` intentionally consumes that propagated value so both crates use identical cfg flags.
+```bash
+TRYBUILD=overwrite LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
+```
 
-## Test Organization
+Review the updated `leo3/tests/ui/*.stderr` files before committing them.
 
-### Integration Tests (`leo3/tests/`)
-- `basic.rs` - Runtime initialization and basic operations
-- `string_ops.rs` - String operations
-- `nat_ops.rs` - Natural number arithmetic
-- `array_ops.rs` - Array operations
-- `test_conversion.rs` - Type conversions
-- `test_gc.rs` - Reference counting and memory management
+## Lean Discovery and No-Lean Mode
 
-### FFI Validation (`leo3-ffi-check/`)
-- Verifies struct layouts match Lean4 headers using bindgen
-- Runs automatically with `cargo test`
+Build scripts use the same precedence rules in CI and locally:
 
-## Test Utilities
+1. `LEO3_NO_LEAN=1` short-circuits Lean detection and linking.
+2. `DEP_LEAN4_LEO3_CONFIG` wins if Cargo provided it.
+3. `LEO3_CONFIG_FILE` provides an explicit config file.
+4. Otherwise host discovery tries `LEO3_CROSS_*`, then `LEAN_HOME`, then `lake`, then `elan`, then `PATH`.
 
-**Available macros:**
-- `assert_lean_nat_eq!(a, b)` - Assert Lean nats are equal
-- `assert_lean_string_eq!(a, b)` - Assert Lean strings are equal
-- `assert_lean_nat_value!(nat, expected)` - Assert nat value
-- `assert_lean_string_value!(str, expected)` - Assert string value
-- `assert_lean_array_size!(arr, size)` - Assert array size
+Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depend on a Lean installation.
 
-**Helper functions:**
-- `with_lean_test(f)` - Run test with Lean runtime initialized
+## Test Coverage Map
 
-## Adding Tests
-
-When adding new functionality:
-1. Add unit tests in the implementation module
-2. Add integration tests in `leo3/tests/`
-3. Update FFI checks in `leo3-ffi-check/` if needed
-4. Add examples demonstrating usage
-
-## Architecture Notes
-
-- **Inline Functions**: Leo3 follows PyO3's pattern of re-implementing static inline C functions in Rust (see `LEAN_INLINE_FUNCTIONS.md`)
-- **FFI Validation**: Uses bindgen to verify struct layouts match Lean4 headers
-- **Reference Counting**: Lean4 uses single-threaded RC by default; tests verify proper inc/dec behavior
+- `leo3/tests/test_features.rs`: feature-surface smoke tests.
+- `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage.
+- `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.
+- `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
+- `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
+- `leo3-ffi-check/`: bindgen-backed FFI layout validation.
 
 ## Troubleshooting
 
-**"cannot open shared object file: libleanshared.so"**
-```bash
-export LD_LIBRARY_PATH=~/.elan/toolchains/leanprover--lean4---v4.25.2/lib/lean:$LD_LIBRARY_PATH
-```
+**Lean runtime not found**
+- Run a smoke command with `LEO3_NO_LEAN=1` first to confirm the Rust side still builds.
+- If you expect Lean to be present, inspect the `cargo:warning=` lines from `leo3-build-config`.
 
-**"undefined symbol: lean_*"**
-- Check if the function is a static inline (needs Rust implementation in `inline.rs`)
-- Verify Lean4 is properly linked
+**`trybuild` failures**
+- If the new error is expected, regenerate snapshots with `TRYBUILD=overwrite`.
+- If the new error is unexpected, fix the macro expansion or test input instead.
 
-**Windows: `link.exe` LNK2019/LNK1120 for `lean_mk_*` / `lean_constant_info_*`**
-- Ensure the Lean toolchain’s `lib/lean` directory is on the linker search path (handled by `leo3-build-config`)
-- Ensure Lean core libraries (e.g. `libLean.a` / `Lean.lib`) are present in the Lean installation and are being linked
-
-**Compilation errors but Lean4 is installed**
-- Check the `cargo:warning=` lines from `leo3-build-config`; they now list each attempted source in order
-- If you want to bypass host discovery, set `LEO3_CONFIG_FILE=/path/to/leo3-build-config.txt`
-- Use `LEO3_NO_LEAN=1` to isolate the issue
-- Check `leo3-build-config` output for detection errors
+**Heavy jobs are too slow for a PR**
+- Rely on the default PR tiers first.
+- Add `CI-build-full` only when you need the full matrix before merge.
