@@ -52,8 +52,13 @@ fn main() {
         .allowlist_type("lean_closure_object")
         .allowlist_type("lean_ctor_object")
         .allowlist_type("lean_ref_object")
+        .allowlist_type("lean_thunk_object")
+        .allowlist_type("lean_task_imp")
+        .allowlist_type("lean_task_object")
+        .allowlist_type("lean_promise_object")
         .allowlist_type("lean_external_object")
         .allowlist_function("lean_.*")
+        .allowlist_function("initialize_.*")
         // Derive Debug for easier comparison
         .derive_debug(true)
         .derive_default(false)

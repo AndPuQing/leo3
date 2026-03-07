@@ -7,7 +7,10 @@
 //! These implementations are based on Lean4 v4.25.2 headers.
 
 use crate::{
-    object::{b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res, lean_object},
+    object::{
+        b_lean_obj_arg, b_lean_obj_res, lean_external_class, lean_obj_arg, lean_obj_res,
+        lean_object,
+    },
     LEAN_ARRAY, LEAN_CLOSURE, LEAN_EXTERNAL, LEAN_MAX_CTOR_TAG, LEAN_MPZ, LEAN_PROMISE, LEAN_REF,
     LEAN_SCALAR_ARRAY, LEAN_STRING, LEAN_TASK, LEAN_THUNK,
 };
@@ -122,7 +125,7 @@ pub struct lean_promise_object {
 #[repr(C)]
 pub struct lean_external_object {
     pub m_header: lean_object,
-    pub m_class: *mut c_void,
+    pub m_class: *mut lean_external_class,
     pub m_data: *mut c_void,
 }
 
@@ -173,6 +176,15 @@ unsafe fn lean_is_st(o: *mut lean_object) -> bool {
 #[inline]
 pub unsafe fn lean_has_rc(o: *const lean_object) -> bool {
     (*o).m_rc != 0
+}
+
+#[inline]
+pub unsafe fn lean_is_shared(o: *const lean_object) -> bool {
+    if likely(lean_is_st(o as *mut lean_object)) {
+        (*o).m_rc > 1
+    } else {
+        false
+    }
 }
 
 #[inline(always)]
@@ -401,6 +413,14 @@ pub unsafe fn lean_ctor_obj_cptr(o: *mut lean_object) -> *mut *mut lean_object {
     (*lean_to_ctor(o)).m_objs.as_mut_ptr()
 }
 
+#[inline(always)]
+unsafe fn lean_ctor_offset_cptr(o: *mut lean_object, offset: c_uint) -> *mut u8 {
+    debug_assert!(
+        offset as usize >= lean_ctor_num_objs(o) as usize * std::mem::size_of::<*mut lean_object>()
+    );
+    (lean_ctor_obj_cptr(o) as *mut u8).add(offset as usize)
+}
+
 /// Get a pointer to the scalar data in a constructor.
 ///
 /// Scalars are stored after the object pointers.
@@ -431,6 +451,21 @@ pub unsafe fn lean_ctor_get(o: b_lean_obj_arg, i: u32) -> *const lean_object {
 pub unsafe fn lean_ctor_set(o: lean_obj_arg, i: u32, v: lean_obj_arg) {
     debug_assert!((i as u8) < lean_ctor_num_objs(o));
     *lean_ctor_obj_cptr(o).add(i as usize) = v;
+}
+
+#[inline(always)]
+pub unsafe fn lean_ctor_set_tag(o: lean_obj_arg, new_tag: u8) {
+    debug_assert!(new_tag <= LEAN_MAX_CTOR_TAG);
+    (*o).m_tag = new_tag;
+}
+
+#[inline(always)]
+pub unsafe fn lean_ctor_release(o: lean_obj_arg, i: c_uint) {
+    debug_assert!((i as u8) < lean_ctor_num_objs(o));
+    let objs = lean_ctor_obj_cptr(o);
+    let obj = *objs.add(i as usize);
+    lean_dec(obj);
+    *objs.add(i as usize) = lean_box(0);
 }
 
 // ============================================================================
@@ -476,10 +511,7 @@ extern "C" {
 /// Get C string pointer from Lean string
 #[inline]
 pub unsafe fn lean_string_cstr(o: b_lean_obj_arg) -> *const libc::c_char {
-    // The string data starts right after the lean_string_object header
-    let str_obj = o as *const lean_string_object;
-    let data_ptr = (str_obj as *const u8).add(std::mem::size_of::<lean_string_object>());
-    data_ptr as *const libc::c_char
+    (*lean_to_string(o as lean_obj_arg)).m_data.as_ptr() as *const libc::c_char
 }
 
 /// Get string length (number of UTF-8 characters)
@@ -1029,8 +1061,8 @@ pub unsafe fn lean_int_lt(a1: b_lean_obj_arg, a2: b_lean_obj_arg) -> bool {
 /// - Always safe to call
 #[inline]
 pub unsafe fn lean_box_float(v: f64) -> lean_obj_res {
-    let o = crate::lean_alloc_ctor(0, 0, 8); // tag 0, no objects, 8 bytes scalar
-    *(o as *mut f64) = v;
+    let o = crate::lean_alloc_ctor(0, 0, std::mem::size_of::<f64>() as c_uint);
+    lean_ctor_set_float(o, 0, v);
     o
 }
 
@@ -1040,7 +1072,7 @@ pub unsafe fn lean_box_float(v: f64) -> lean_obj_res {
 /// - `o` must be a valid Float object
 #[inline]
 pub unsafe fn lean_unbox_float(o: b_lean_obj_arg) -> f64 {
-    *(o as *const f64)
+    lean_ctor_get_float(o, 0)
 }
 
 /// Get uint8 scalar from constructor
@@ -1050,7 +1082,7 @@ pub unsafe fn lean_unbox_float(o: b_lean_obj_arg) -> f64 {
 /// - `offset` must be valid within scalar area
 #[inline]
 pub unsafe fn lean_ctor_get_uint8(o: b_lean_obj_arg, offset: c_uint) -> u8 {
-    *lean_ctor_scalar_cptr(o as *mut lean_object).add(offset as usize)
+    *lean_ctor_offset_cptr(o as *mut lean_object, offset)
 }
 
 /// Set uint8 scalar in constructor
@@ -1060,7 +1092,7 @@ pub unsafe fn lean_ctor_get_uint8(o: b_lean_obj_arg, offset: c_uint) -> u8 {
 /// - `offset` must be valid within scalar area
 #[inline]
 pub unsafe fn lean_ctor_set_uint8(o: lean_obj_arg, offset: c_uint, v: u8) {
-    *lean_ctor_scalar_cptr(o).add(offset as usize) = v;
+    *lean_ctor_offset_cptr(o, offset) = v;
 }
 
 /// Get uint16 scalar from constructor
@@ -1070,7 +1102,7 @@ pub unsafe fn lean_ctor_set_uint8(o: lean_obj_arg, offset: c_uint, v: u8) {
 /// - `offset` must be valid and 2-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_get_uint16(o: b_lean_obj_arg, offset: c_uint) -> u16 {
-    *(lean_ctor_scalar_cptr(o as *mut lean_object).add(offset as usize) as *const u16)
+    *(lean_ctor_offset_cptr(o as *mut lean_object, offset) as *const u16)
 }
 
 /// Set uint16 scalar in constructor
@@ -1080,7 +1112,7 @@ pub unsafe fn lean_ctor_get_uint16(o: b_lean_obj_arg, offset: c_uint) -> u16 {
 /// - `offset` must be valid and 2-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_set_uint16(o: lean_obj_arg, offset: c_uint, v: u16) {
-    *(lean_ctor_scalar_cptr(o).add(offset as usize) as *mut u16) = v;
+    *(lean_ctor_offset_cptr(o, offset) as *mut u16) = v;
 }
 
 /// Get uint32 scalar from constructor
@@ -1090,7 +1122,7 @@ pub unsafe fn lean_ctor_set_uint16(o: lean_obj_arg, offset: c_uint, v: u16) {
 /// - `offset` must be valid and 4-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_get_uint32(o: b_lean_obj_arg, offset: c_uint) -> u32 {
-    *(lean_ctor_scalar_cptr(o as *mut lean_object).add(offset as usize) as *const u32)
+    *(lean_ctor_offset_cptr(o as *mut lean_object, offset) as *const u32)
 }
 
 /// Set uint32 scalar in constructor
@@ -1100,7 +1132,7 @@ pub unsafe fn lean_ctor_get_uint32(o: b_lean_obj_arg, offset: c_uint) -> u32 {
 /// - `offset` must be valid and 4-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_set_uint32(o: lean_obj_arg, offset: c_uint, v: u32) {
-    *(lean_ctor_scalar_cptr(o).add(offset as usize) as *mut u32) = v;
+    *(lean_ctor_offset_cptr(o, offset) as *mut u32) = v;
 }
 
 /// Get uint64 scalar from constructor
@@ -1110,7 +1142,7 @@ pub unsafe fn lean_ctor_set_uint32(o: lean_obj_arg, offset: c_uint, v: u32) {
 /// - `offset` must be valid and 8-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_get_uint64(o: b_lean_obj_arg, offset: c_uint) -> u64 {
-    *(lean_ctor_scalar_cptr(o as *mut lean_object).add(offset as usize) as *const u64)
+    *(lean_ctor_offset_cptr(o as *mut lean_object, offset) as *const u64)
 }
 
 /// Set uint64 scalar in constructor
@@ -1120,7 +1152,47 @@ pub unsafe fn lean_ctor_get_uint64(o: b_lean_obj_arg, offset: c_uint) -> u64 {
 /// - `offset` must be valid and 8-byte aligned
 #[inline]
 pub unsafe fn lean_ctor_set_uint64(o: lean_obj_arg, offset: c_uint, v: u64) {
-    *(lean_ctor_scalar_cptr(o).add(offset as usize) as *mut u64) = v;
+    *(lean_ctor_offset_cptr(o, offset) as *mut u64) = v;
+}
+
+/// Get float64 scalar from constructor
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `offset` must be valid and 8-byte aligned
+#[inline]
+pub unsafe fn lean_ctor_get_float(o: b_lean_obj_arg, offset: c_uint) -> f64 {
+    *(lean_ctor_offset_cptr(o as *mut lean_object, offset) as *const f64)
+}
+
+/// Set float64 scalar in constructor
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `offset` must be valid and 8-byte aligned
+#[inline]
+pub unsafe fn lean_ctor_set_float(o: lean_obj_arg, offset: c_uint, v: f64) {
+    *(lean_ctor_offset_cptr(o, offset) as *mut f64) = v;
+}
+
+/// Get float32 scalar from constructor
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `offset` must be valid and 4-byte aligned
+#[inline]
+pub unsafe fn lean_ctor_get_float32(o: b_lean_obj_arg, offset: c_uint) -> f32 {
+    *(lean_ctor_offset_cptr(o as *mut lean_object, offset) as *const f32)
+}
+
+/// Set float32 scalar in constructor
+///
+/// # Safety
+/// - `o` must be a valid constructor object
+/// - `offset` must be valid and 4-byte aligned
+#[inline]
+pub unsafe fn lean_ctor_set_float32(o: lean_obj_arg, offset: c_uint, v: f32) {
+    *(lean_ctor_offset_cptr(o, offset) as *mut f32) = v;
 }
 
 /// Get usize scalar from constructor
@@ -1210,8 +1282,8 @@ pub unsafe fn lean_mk_empty_byte_array(capacity: b_lean_obj_arg) -> lean_obj_res
 /// - Always safe to call
 #[inline]
 pub unsafe fn lean_box_float32(v: f32) -> lean_obj_res {
-    let o = crate::lean_alloc_ctor(0, 0, 4); // tag 0, no objects, 4 bytes scalar
-    *(o as *mut f32) = v;
+    let o = crate::lean_alloc_ctor(0, 0, std::mem::size_of::<f32>() as c_uint);
+    lean_ctor_set_float32(o, 0, v);
     o
 }
 
@@ -1221,7 +1293,7 @@ pub unsafe fn lean_box_float32(v: f32) -> lean_obj_res {
 /// - `o` must be a valid Float32 object
 #[inline]
 pub unsafe fn lean_unbox_float32(o: b_lean_obj_arg) -> f32 {
-    *(o as *const f32)
+    lean_ctor_get_float32(o, 0)
 }
 
 #[inline]
@@ -2866,7 +2938,10 @@ pub unsafe fn lean_alloc_small_object(sz: c_uint) -> *mut lean_object {
 
 /// Allocate an external object (inline from lean.h)
 #[inline(always)]
-pub unsafe fn lean_alloc_external(cls: *mut c_void, data: *mut c_void) -> lean_obj_res {
+pub unsafe fn lean_alloc_external(
+    cls: *mut lean_external_class,
+    data: *mut c_void,
+) -> lean_obj_res {
     let o = lean_alloc_small_object(std::mem::size_of::<lean_external_object>() as c_uint);
     lean_set_st_header(o, crate::LEAN_EXTERNAL, 0);
 
@@ -2879,7 +2954,7 @@ pub unsafe fn lean_alloc_external(cls: *mut c_void, data: *mut c_void) -> lean_o
 
 /// Get the external class from an external object (inline from lean.h)
 #[inline(always)]
-pub unsafe fn lean_get_external_class(o: b_lean_obj_arg) -> *mut c_void {
+pub unsafe fn lean_get_external_class(o: b_lean_obj_arg) -> *mut lean_external_class {
     let ext = lean_to_external(o as lean_obj_arg);
     (*(ext as *const lean_external_object)).m_class
 }
