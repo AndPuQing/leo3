@@ -19,10 +19,11 @@
 
 use crate::ffi;
 use std::cell::Cell;
-use std::cell::UnsafeCell;
-use std::mem::MaybeUninit;
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
+
+thread_local! {
+    static LEAN_THREAD_INITIALIZED: Cell<bool> = const { Cell::new(false) };
+}
 
 /// Ensure the current thread is initialized for Lean operations.
 ///
@@ -41,11 +42,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 /// });
 /// ```
 pub fn ensure_lean_thread() {
-    thread_local! {
-        static INITIALIZED: Cell<bool> = const { Cell::new(false) };
-    }
-
-    INITIALIZED.with(|init| {
+    LEAN_THREAD_INITIALIZED.with(|init| {
         if !init.get() {
             unsafe {
                 ffi::lean_initialize_thread();
@@ -57,28 +54,18 @@ pub fn ensure_lean_thread() {
 
 /// Check if the current thread is initialized for Lean operations.
 ///
-/// Returns `true` if `ensure_lean_thread()` or `prepare_freethreaded_lean()`
-/// has been called on this thread.
+/// Returns `true` if `ensure_lean_thread()` has initialized the current thread.
+/// `prepare_freethreaded_lean()` initializes Leo3's dedicated runtime worker,
+/// not the caller thread.
 pub fn thread_is_lean_initialized() -> bool {
-    thread_local! {
-        static INITIALIZED: Cell<bool> = const { Cell::new(false) };
-    }
-
-    // Note: This is a separate thread-local from ensure_lean_thread()
-    // In practice, we rely on the runtime's internal state
-    // This is a simplified check
-    INITIALIZED.with(|init| init.get())
+    LEAN_THREAD_INITIALIZED.with(|init| init.get())
 }
-
-// State constants for LeanOnceCell
-const EMPTY: u8 = 0;
-const INITIALIZING: u8 = 1;
-const INITIALIZED: u8 = 2;
 
 /// A thread-safe cell that can be written to once.
 ///
-/// This is similar to `std::sync::OnceLock`, but specifically designed for
-/// Lean objects. It ensures proper thread initialization and MT marking.
+/// This is a thin wrapper around `std::sync::OnceLock` with Leo3-oriented
+/// naming. Waiters block on the shared once primitive instead of open-coding
+/// their own spin loop.
 ///
 /// # Example
 ///
@@ -95,31 +82,20 @@ const INITIALIZED: u8 = 2;
 /// }
 /// ```
 pub struct LeanOnceCell<T> {
-    state: AtomicU8,
-    value: UnsafeCell<MaybeUninit<T>>,
+    inner: OnceLock<T>,
 }
-
-// SAFETY: LeanOnceCell uses atomic state and internal synchronization
-unsafe impl<T: Send + Sync> Send for LeanOnceCell<T> {}
-unsafe impl<T: Send + Sync> Sync for LeanOnceCell<T> {}
 
 impl<T> LeanOnceCell<T> {
     /// Create a new empty `LeanOnceCell`.
     pub const fn new() -> Self {
         Self {
-            state: AtomicU8::new(EMPTY),
-            value: UnsafeCell::new(MaybeUninit::uninit()),
+            inner: OnceLock::new(),
         }
     }
 
     /// Get the value if initialized, or `None` if not.
     pub fn get(&self) -> Option<&T> {
-        if self.state.load(Ordering::Acquire) == INITIALIZED {
-            // SAFETY: State is INITIALIZED, so value is valid
-            Some(unsafe { (*self.value.get()).assume_init_ref() })
-        } else {
-            None
-        }
+        self.inner.get()
     }
 
     /// Get the value, initializing it with `f` if necessary.
@@ -130,96 +106,27 @@ impl<T> LeanOnceCell<T> {
     where
         F: FnOnce() -> T,
     {
-        // Fast path: already initialized
-        if self.state.load(Ordering::Acquire) == INITIALIZED {
-            return unsafe { (*self.value.get()).assume_init_ref() };
-        }
-
-        // Slow path: try to initialize
-        self.initialize(f)
-    }
-
-    #[cold]
-    fn initialize<F>(&self, f: F) -> &T
-    where
-        F: FnOnce() -> T,
-    {
-        // Try to claim the initialization
-        match self
-            .state
-            .compare_exchange(EMPTY, INITIALIZING, Ordering::Acquire, Ordering::Acquire)
-        {
-            Ok(_) => {
-                // We claimed it, initialize the value
-                let value = f();
-                unsafe {
-                    (*self.value.get()).write(value);
-                }
-                self.state.store(INITIALIZED, Ordering::Release);
-                unsafe { (*self.value.get()).assume_init_ref() }
-            }
-            Err(INITIALIZING) => {
-                // Someone else is initializing, spin-wait
-                while self.state.load(Ordering::Acquire) == INITIALIZING {
-                    std::hint::spin_loop();
-                }
-                // Now it should be initialized
-                unsafe { (*self.value.get()).assume_init_ref() }
-            }
-            Err(INITIALIZED) => {
-                // Already initialized by another thread
-                unsafe { (*self.value.get()).assume_init_ref() }
-            }
-            Err(_) => unreachable!(),
-        }
+        self.inner.get_or_init(f)
     }
 
     /// Set the value if not already initialized.
     ///
     /// Returns `Ok(())` if the value was set, or `Err(value)` if already initialized.
     pub fn set(&self, value: T) -> Result<(), T> {
-        match self
-            .state
-            .compare_exchange(EMPTY, INITIALIZING, Ordering::Acquire, Ordering::Acquire)
-        {
-            Ok(_) => {
-                unsafe {
-                    (*self.value.get()).write(value);
-                }
-                self.state.store(INITIALIZED, Ordering::Release);
-                Ok(())
-            }
-            Err(_) => Err(value),
-        }
+        self.inner.set(value)
     }
 
     /// Take the value if initialized, leaving the cell empty.
     ///
     /// This is only safe if you have exclusive access (e.g., via `&mut self`).
     pub fn take(&mut self) -> Option<T> {
-        if *self.state.get_mut() == INITIALIZED {
-            *self.state.get_mut() = EMPTY;
-            // SAFETY: Was initialized, now we're taking ownership
-            Some(unsafe { (*self.value.get()).assume_init_read() })
-        } else {
-            None
-        }
+        self.inner.take()
     }
 }
 
 impl<T> Default for LeanOnceCell<T> {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl<T> Drop for LeanOnceCell<T> {
-    fn drop(&mut self) {
-        if *self.state.get_mut() == INITIALIZED {
-            unsafe {
-                (*self.value.get()).assume_init_drop();
-            }
-        }
     }
 }
 

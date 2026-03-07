@@ -31,11 +31,15 @@
 //! ```
 
 use crate::instance::{LeanAny, LeanBound};
-use crate::task::{LeanTask, LeanTaskFuture};
+use crate::task::{
+    wait_for_task_completion_until, wait_with_task_backoff, LeanTask, LeanTaskFuture,
+};
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
 use std::time::{Duration, Instant};
 
 // ============================================================================
@@ -68,6 +72,49 @@ pub enum Either<A, B> {
     Left(A),
     /// The second (right) task completed first.
     Right(B),
+}
+
+fn cancel_all_except<'l, T>(tasks: &[LeanTask<'l, T>], winner: usize) {
+    for (index, task) in tasks.iter().enumerate() {
+        if index != winner {
+            task.cancel();
+        }
+    }
+}
+
+fn update_waker_slot(slot: &Mutex<Option<Waker>>, new_waker: &Waker) {
+    let mut guard = slot.lock().unwrap();
+    match guard.as_ref() {
+        Some(existing) if existing.will_wake(new_waker) => {}
+        _ => *guard = Some(new_waker.clone()),
+    }
+}
+
+struct DeadlineWakerState {
+    deadline: Instant,
+    waker: Mutex<Option<Waker>>,
+    thread_spawned: AtomicBool,
+}
+
+fn register_deadline_waker(state: &Arc<DeadlineWakerState>, cx: &Context<'_>) {
+    update_waker_slot(&state.waker, cx.waker());
+
+    if !state.thread_spawned.swap(true, Ordering::Relaxed) {
+        let state = Arc::clone(state);
+        std::thread::Builder::new()
+            .name("lean-task-timeout".into())
+            .spawn(move || {
+                let now = Instant::now();
+                if now < state.deadline {
+                    std::thread::sleep(state.deadline.saturating_duration_since(now));
+                }
+
+                if let Some(waker) = state.waker.lock().unwrap().take() {
+                    waker.wake();
+                }
+            })
+            .expect("failed to spawn lean-task-timeout thread");
+    }
 }
 // ============================================================================
 // join — Await two tasks, return both results
@@ -160,18 +207,25 @@ pub fn select<'l, A, B>(
     task_a: LeanTask<'l, A>,
     task_b: LeanTask<'l, B>,
 ) -> Either<LeanBound<'l, A>, LeanBound<'l, B>> {
-    // Poll states until one finishes
-    loop {
-        if task_a.is_finished() {
-            task_b.cancel();
-            return Either::Left(task_a.get_owned());
+    let mut left = Some(task_a);
+    let mut right = Some(task_b);
+
+    wait_with_task_backoff(move || {
+        let left_task = left.as_ref().unwrap();
+        let right_task = right.as_ref().unwrap();
+
+        if left_task.is_finished() {
+            right_task.cancel();
+            return Some(Either::Left(left.take().unwrap().get_owned()));
         }
-        if task_b.is_finished() {
-            task_a.cancel();
-            return Either::Right(task_b.get_owned());
+
+        if right_task.is_finished() {
+            left_task.cancel();
+            return Some(Either::Right(right.take().unwrap().get_owned()));
         }
-        std::thread::sleep(Duration::from_micros(100));
-    }
+
+        None
+    })
 }
 
 /// A `Future` that resolves when either task completes, cancelling the other.
@@ -254,21 +308,17 @@ impl<'l, A, B> Future for SelectFuture<'l, A, B> {
 pub fn race<'l, T>(tasks: Vec<LeanTask<'l, T>>) -> LeanBound<'l, T> {
     assert!(!tasks.is_empty(), "race requires at least one task");
 
-    loop {
+    let mut tasks = tasks;
+    wait_with_task_backoff(move || {
         for (i, task) in tasks.iter().enumerate() {
             if task.is_finished() {
-                // Cancel all other tasks
-                for (j, other) in tasks.iter().enumerate() {
-                    if j != i {
-                        other.cancel();
-                    }
-                }
-                // We need to get the result — get_cloned since we can't move out of the vec
-                return task.get_cloned();
+                cancel_all_except(&tasks, i);
+                return Some(tasks.swap_remove(i).get_owned());
             }
         }
-        std::thread::sleep(Duration::from_micros(100));
-    }
+
+        None
+    })
 }
 
 /// A `Future` that resolves when any task in the vec completes, cancelling the rest.
@@ -306,12 +356,7 @@ impl<'l, T> Future for RaceFuture<'l, T> {
             if let Some(fut) = this.futures[i].as_mut() {
                 match unsafe { Pin::new_unchecked(fut) }.poll(cx) {
                     Poll::Ready(val) => {
-                        // Cancel all other tasks
-                        for (j, task) in this.tasks.iter().enumerate() {
-                            if j != i {
-                                task.cancel();
-                            }
-                        }
+                        cancel_all_except(&this.tasks, i);
                         // Clear all futures
                         for f in this.futures.iter_mut() {
                             *f = None;
@@ -340,18 +385,13 @@ pub fn timeout<'l, T>(
     duration: Duration,
 ) -> Result<LeanBound<'l, T>, TimeoutError> {
     let deadline = Instant::now() + duration;
+    let task_ptr = task.as_ptr();
 
-    loop {
-        if task.is_finished() {
-            return Ok(task.get_owned());
-        }
-        if Instant::now() >= deadline {
-            task.cancel();
-            return Err(TimeoutError { duration });
-        }
-        // Sleep a short interval to avoid busy-spinning
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        std::thread::sleep(remaining.min(Duration::from_millis(1)));
+    if wait_for_task_completion_until(task_ptr, deadline) {
+        Ok(task.get_owned())
+    } else {
+        task.cancel();
+        Err(TimeoutError { duration })
     }
 }
 
@@ -361,16 +401,23 @@ pub struct TimeoutFuture<'l, T = LeanAny> {
     inner: Option<LeanTaskFuture<'l, T>>,
     deadline: Instant,
     duration: Duration,
+    deadline_waker: Arc<DeadlineWakerState>,
 }
 
 /// Create a [`TimeoutFuture`] wrapping a task with a deadline.
 pub fn timeout_future<'l, T>(task: LeanTask<'l, T>, duration: Duration) -> TimeoutFuture<'l, T> {
+    let deadline = Instant::now() + duration;
     let cancel_ref = task.clone();
     TimeoutFuture {
         task: Some(cancel_ref),
         inner: Some(task.into_future()),
-        deadline: Instant::now() + duration,
+        deadline,
         duration,
+        deadline_waker: Arc::new(DeadlineWakerState {
+            deadline,
+            waker: Mutex::new(None),
+            thread_spawned: AtomicBool::new(false),
+        }),
     }
 }
 
@@ -379,6 +426,8 @@ impl<'l, T> Future for TimeoutFuture<'l, T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = unsafe { self.get_unchecked_mut() };
+
+        register_deadline_waker(&this.deadline_waker, cx);
 
         // Check deadline first
         if Instant::now() >= this.deadline {
@@ -397,13 +446,10 @@ impl<'l, T> Future for TimeoutFuture<'l, T> {
                 Poll::Ready(val) => {
                     this.inner = None;
                     this.task = None;
+                    let _ = this.deadline_waker.waker.lock().unwrap().take();
                     return Poll::Ready(Ok(val));
                 }
-                Poll::Pending => {
-                    // Schedule a wake-up near the deadline so we can check again.
-                    // The inner future's waker thread will also wake us on completion.
-                    cx.waker().wake_by_ref();
-                }
+                Poll::Pending => {}
             }
         }
 

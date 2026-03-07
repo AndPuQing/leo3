@@ -43,6 +43,22 @@
 //!
 //! Use `LeanUnbound<T>` or `unbind_mt()` for objects that need to cross thread boundaries.
 //!
+//! ### Runtime Model
+//!
+//! Leo3 keeps Lean concurrency in three clearly separated lanes:
+//!
+//! - **Runtime worker**: `prepare_freethreaded_lean()` boots one long-lived
+//!   worker thread that performs runtime/module initialization and serialized
+//!   environment/meta operations.
+//! - **Lean tasks**: `leo3::task` builds on Lean's native task manager for
+//!   asynchronous computation after that worker has initialized the runtime.
+//! - **User threads**: threads you create yourself may access MT-marked Lean
+//!   objects after calling `leo3::sync::ensure_lean_thread()`.
+//!
+//! Blocking waits and polling-based waits are intentionally kept separate:
+//! blocking APIs use Lean's native task waits, while combinators and futures
+//! reuse one shared backoff-based polling helper for completion checks.
+//!
 //! ## Feature Flags
 //!
 //! Default features: **none**. The ungated core surface includes the runtime

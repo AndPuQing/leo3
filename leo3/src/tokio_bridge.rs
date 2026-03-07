@@ -2,6 +2,8 @@
 //!
 //! This module provides bridges between Lean's task system and Tokio,
 //! allowing Lean tasks to be awaited in Tokio runtimes without busy-polling.
+//! Blocking Lean waits are delegated to Tokio's blocking pool so the bridge
+//! shares Tokio's scheduler instead of creating dedicated helper threads.
 //!
 //! Enable with the `tokio` feature flag.
 //!
@@ -30,9 +32,8 @@ impl<'l> LeanTask<'l, LeanAny> {
     /// Spawn a Lean task and return a `tokio::task::JoinHandle` that resolves
     /// when the Lean task completes.
     ///
-    /// Internally, a background thread waits for the Lean task to finish and
-    /// sends the result through a `tokio::sync::oneshot` channel, so the Tokio
-    /// runtime is never blocked.
+    /// Internally, Tokio's blocking pool waits for the Lean task to finish, so
+    /// the async scheduler is never blocked.
     ///
     /// # Example
     ///
@@ -44,26 +45,16 @@ impl<'l> LeanTask<'l, LeanAny> {
         closure: LeanClosure<'l>,
     ) -> ::tokio::task::JoinHandle<LeanUnbound<LeanAny>> {
         let handle = LeanTask::spawn(closure).into_handle();
-        let (tx, rx) = ::tokio::sync::oneshot::channel();
 
-        std::thread::Builder::new()
-            .name("lean-tokio-bridge".into())
-            .spawn(move || {
-                let result = handle.get_unbound();
-                let _ = tx.send(result);
-            })
-            .expect("failed to spawn lean-tokio-bridge thread");
-
-        ::tokio::task::spawn(async move { rx.await.expect("lean-tokio-bridge sender dropped") })
+        ::tokio::task::spawn_blocking(move || handle.get_unbound())
     }
 }
 
 impl<T: Send + 'static> TaskHandle<T> {
     /// Convert this handle into a future compatible with Tokio runtimes.
     ///
-    /// A background thread waits for the Lean task to complete and sends the
-    /// result through a `tokio::sync::oneshot` channel, avoiding busy-polling
-    /// on the Tokio executor.
+    /// Tokio's blocking pool waits for the Lean task to complete, avoiding
+    /// busy-polling and avoiding blocking the async executor.
     ///
     /// # Example
     ///
@@ -71,20 +62,10 @@ impl<T: Send + 'static> TaskHandle<T> {
     /// let handle: TaskHandle<LeanAny> = task.into_handle();
     /// let result: LeanUnbound<LeanAny> = handle.into_tokio_future().await;
     /// ```
-    pub fn into_tokio_future(
-        self,
-    ) -> impl std::future::Future<Output = LeanUnbound<T>> + Send + 'static {
-        let (tx, rx) = ::tokio::sync::oneshot::channel();
-
-        std::thread::Builder::new()
-            .name("lean-tokio-bridge".into())
-            .spawn(move || {
-                let result = self.get_unbound();
-                let _ = tx.send(result);
-            })
-            .expect("failed to spawn lean-tokio-bridge thread");
-
-        async move { rx.await.expect("lean-tokio-bridge sender dropped") }
+    pub async fn into_tokio_future(self) -> LeanUnbound<T> {
+        ::tokio::task::spawn_blocking(move || self.get_unbound())
+            .await
+            .expect("lean-tokio-bridge blocking task panicked")
     }
 }
 
