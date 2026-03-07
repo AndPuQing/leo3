@@ -4,114 +4,13 @@
 //! constants, inductive types, and type class instances. Environments are immutable -
 //! all modifications return a new environment.
 
-use std::sync::Mutex;
-
 use crate::err::LeanError;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
+use crate::runtime::with_worker;
 use crate::types::LeanList;
 use crate::LeanResult;
 use leo3_ffi as ffi;
-
-/// Wrapper to force `Send` on types that cross the worker-thread channel.
-///
-/// SAFETY: The calling thread blocks until the worker finishes, so the
-/// wrapped value's captures are guaranteed to outlive the worker's use of them.
-struct SendBox<T>(T);
-unsafe impl<T> Send for SendBox<T> {}
-
-use std::sync::mpsc;
-
-/// Global worker thread state.
-#[allow(clippy::type_complexity)]
-static WORKER: Mutex<Option<mpsc::SyncSender<Box<dyn FnOnce() + Send>>>> = Mutex::new(None);
-
-/// Ensure the worker thread is spawned and fully initialized.
-///
-/// This is called from `prepare_freethreaded_lean()` to eagerly spawn the
-/// worker thread. All Lean module initialization (`ensure_*_initialized`)
-/// happens on the worker thread, ensuring the `Once` guards are triggered
-/// there before any short-lived thread can trigger them.
-///
-/// The worker thread never exits, so its mimalloc heap is never reclaimed,
-/// avoiding the SIGSEGV in `_mi_thread_done` that occurs when Lean's event
-/// loop references objects on a dead thread's heap.
-pub(crate) fn ensure_worker_initialized() {
-    use std::sync::Once;
-    static WORKER_INIT: Once = Once::new();
-
-    WORKER_INIT.call_once(|| {
-        let (tx, rx) = mpsc::sync_channel::<Box<dyn FnOnce() + Send>>(0);
-        let (init_tx, init_rx) = mpsc::sync_channel::<()>(0);
-
-        std::thread::Builder::new()
-            .name("leo3-env-worker".into())
-            .spawn(move || {
-                // All Lean runtime and module initialization happens here
-                // on the worker thread, which never exits.
-                unsafe {
-                    ffi::lean_initialize_runtime_module();
-                    ffi::lean_initialize_thread();
-                    ffi::closure::lean_init_task_manager();
-                }
-                crate::meta::ensure_environment_initialized();
-
-                // Signal that initialization is complete
-                let _ = init_tx.send(());
-
-                for task in rx {
-                    task();
-                }
-                // The channel is closed (process is exiting). Park this
-                // thread forever so its mimalloc heap is never reclaimed.
-                loop {
-                    std::thread::park();
-                }
-            })
-            .expect("failed to spawn leo3-env-worker thread");
-
-        // Wait for the worker thread to finish initialization
-        init_rx.recv().expect("worker thread initialization failed");
-
-        // Store the sender for task dispatch
-        let mut guard = WORKER.lock().unwrap();
-        *guard = Some(tx);
-    });
-}
-
-/// Dispatch a closure to the worker thread and block until it completes.
-///
-/// # Safety
-///
-/// The closure `f` and its return value cross a thread boundary via channels.
-/// Callers must ensure that any captured pointers remain valid and that
-/// reference counts are properly managed before and after the call.
-pub(crate) fn with_env_worker<F, R>(f: F) -> R
-where
-    F: FnOnce() -> R,
-{
-    ensure_worker_initialized();
-
-    let sender = {
-        let guard = WORKER.lock().unwrap();
-        guard.as_ref().unwrap().clone()
-    };
-
-    let (done_tx, done_rx) = mpsc::sync_channel::<SendBox<R>>(0);
-    let task = move || {
-        let result = f();
-        let _ = done_tx.send(SendBox(result));
-    };
-    // SAFETY: The calling thread blocks on done_rx.recv() below, so all
-    // captures (including raw pointers) remain valid for the closure's
-    // entire execution on the worker thread. This justifies both the
-    // Send marker and the 'static lifetime erasure.
-    let task: Box<dyn FnOnce() + Send> = unsafe {
-        std::mem::transmute::<Box<dyn FnOnce() + '_>, Box<dyn FnOnce() + Send>>(Box::new(task))
-    };
-    sender.send(task).expect("env worker thread died");
-    done_rx.recv().expect("env worker thread died").0
-}
 
 use super::declaration::LeanDeclaration;
 use super::name::LeanName;
@@ -170,7 +69,7 @@ impl LeanEnvironment {
     /// let env = LeanEnvironment::empty(lean, 0)?;
     /// ```
     pub fn empty<'l>(lean: Lean<'l>, trust_level: u32) -> LeanResult<LeanBound<'l, Self>> {
-        let env_ptr = with_env_worker(move || unsafe {
+        let env_ptr = with_worker(move || unsafe {
             let world = ffi::io::lean_io_mk_world();
             let io_result = ffi::environment::lean_mk_empty_environment(trust_level, world);
 
@@ -212,7 +111,7 @@ impl LeanEnvironment {
         let env_ptr = env.as_ptr();
         let name_ptr = name.as_ptr();
 
-        let result_ptr = with_env_worker(move || unsafe {
+        let result_ptr = with_worker(move || unsafe {
             // lean_elab_environment_to_kernel_env consumes its argument,
             // so inc the borrowed env_ptr before the call.
             ffi::lean_inc(env_ptr);
@@ -257,7 +156,7 @@ impl LeanEnvironment {
     /// `true` if Quot is initialized, `false` otherwise
     pub fn is_quot_init<'l>(env: &LeanBound<'l, Self>) -> bool {
         let env_ptr = env.as_ptr();
-        with_env_worker(move || unsafe {
+        with_worker(move || unsafe {
             // lean_elab_environment_to_kernel_env consumes its argument,
             // so inc the borrowed env_ptr.
             ffi::lean_inc(env_ptr);
@@ -279,7 +178,7 @@ impl LeanEnvironment {
     pub fn mark_quot_init<'l>(env: LeanBound<'l, Self>) -> LeanBound<'l, Self> {
         let lean = env.lean_token();
         let env_ptr = env.into_ptr();
-        let result_ptr = with_env_worker(move || unsafe {
+        let result_ptr = with_worker(move || unsafe {
             ffi::environment::lean_environment_mark_quot_init(env_ptr)
         });
         unsafe { LeanBound::from_owned_ptr(lean, result_ptr) }
@@ -314,7 +213,7 @@ impl LeanEnvironment {
         let decl_ptr = decl.as_ptr();
         unsafe { ffi::lean_inc(decl_ptr) };
 
-        let result_ptr = with_env_worker(move || unsafe {
+        let result_ptr = with_worker(move || unsafe {
             let cancel_token = ffi::inline::lean_box(0);
             let result = ffi::environment::lean_elab_add_decl(env_ptr, 0, decl_ptr, cancel_token);
             Self::handle_except_result_raw(result)
@@ -360,7 +259,7 @@ impl LeanEnvironment {
         let decl_ptr = decl.as_ptr();
         unsafe { ffi::lean_inc(decl_ptr) };
 
-        let result_ptr = with_env_worker(move || unsafe {
+        let result_ptr = with_worker(move || unsafe {
             let result = ffi::environment::lean_elab_add_decl_without_checking(env_ptr, decl_ptr);
             Self::handle_except_result_raw(result)
         })?;

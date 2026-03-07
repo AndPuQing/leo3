@@ -45,25 +45,29 @@
 //!
 //! ## Feature Flags
 //!
-//! - **`macros`** (default): Enable procedural macros (`#[leanfn]`, etc.)
+//! Default features: **none**. The ungated core surface includes the runtime
+//! token, smart pointers, type wrappers/conversions, closures, thunks, and
+//! synchronization helpers. Optional subsystems are enabled explicitly:
+//!
+//! - **`macros`**: Procedural macros (`#[leanfn]`, `#[leanclass]`, `#[leanmodule]`)
+//! - **`meta`**: `leo3::meta` metaprogramming APIs
+//! - **`io`**: `leo3::io` helpers for Lean IO / filesystem / process utilities
+//! - **`task`**: `leo3::task`, `leo3::task_combinators`, and `leo3::promise`
+//! - **`module-loading`**: `leo3::module` dynamic shared-library loading
+//! - **`tokio`**: Tokio bridge for Lean tasks (implies `task`)
+//! - **`runtime-tests`**: Enables runtime-dependent integration tests
 //!
 //! ## Example
 //!
 //! ```rust,ignore
 //! use leo3::prelude::*;
 //!
-//! #[leanfn]
-//! fn add(a: u64, b: u64) -> u64 {
-//!     a + b
-//! }
-//!
 //! fn main() -> LeanResult<()> {
 //!     leo3::prepare_freethreaded_lean();
 //!
 //!     leo3::with_lean(|lean| {
-//!         // Use Lean objects here
-//!         let result = add(2, 3);
-//!         println!("Result: {}", result);
+//!         let n = LeanNat::from_usize(lean, 5)?;
+//!         assert_eq!(LeanNat::to_usize(&n)?, 5);
 //!         Ok(())
 //!     })
 //! }
@@ -73,24 +77,39 @@
 
 pub use leo3_ffi as ffi;
 
+mod runtime;
+
 pub mod closure;
 pub mod conversion;
 pub mod err;
 pub mod external;
 pub mod instance;
+#[cfg(feature = "io")]
+#[cfg_attr(docsrs, doc(cfg(feature = "io")))]
 pub mod io;
 pub mod marker;
+#[cfg(feature = "meta")]
+#[cfg_attr(docsrs, doc(cfg(feature = "meta")))]
 pub mod meta;
+#[cfg(feature = "module-loading")]
+#[cfg_attr(docsrs, doc(cfg(feature = "module-loading")))]
 pub mod module;
+#[cfg(feature = "task")]
+#[cfg_attr(docsrs, doc(cfg(feature = "task")))]
 pub mod promise;
 pub mod sync;
+#[cfg(feature = "task")]
+#[cfg_attr(docsrs, doc(cfg(feature = "task")))]
 pub mod task;
+#[cfg(feature = "task")]
+#[cfg_attr(docsrs, doc(cfg(feature = "task")))]
 pub mod task_combinators;
 pub mod thunk;
 pub mod types;
 pub mod unbound;
 
 #[cfg(feature = "tokio")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
 pub mod tokio_bridge;
 
 // Re-export key types
@@ -121,6 +140,7 @@ pub mod prelude {
     pub use leo3_macros::{leanclass, leanfn, leanmodule, FromLean, IntoLean};
 
     // Re-export task combinators
+    #[cfg(feature = "task")]
     pub use crate::task_combinators::{
         join, join_future, race, race_future, select, select_future, timeout, timeout_future,
         Either, JoinFuture, RaceFuture, SelectFuture, TimeoutError, TimeoutFuture,
@@ -164,7 +184,7 @@ pub fn prepare_freethreaded_lean() {
     //    worker thread before any short-lived thread can trigger them
     // 3. lean_initialize_thread() is only called on the worker thread,
     //    which never exits, avoiding mimalloc's _mi_thread_done crash
-    meta::environment::ensure_worker_initialized();
+    runtime::ensure_worker_initialized();
 }
 
 /// Execute a closure with access to the Lean runtime.

@@ -34,9 +34,36 @@ fn main() -> LeanResult<()> {
 }
 ```
 
-## Features
+## Cargo Features
 
-### Type Conversions
+Default features: **none**. The default build keeps the public surface intentionally
+minimal: runtime initialization, smart pointers, core type wrappers/conversions,
+closures, thunks, and synchronization helpers are always available.
+
+| Feature | Enables |
+|---------|---------|
+| _default (none)_ | Core runtime/token APIs, conversions, closures, thunks, sync helpers, Lean type wrappers |
+| `macros` | `#[leanfn]`, `#[leanclass]`, `#[leanmodule]`, `#[derive(IntoLean, FromLean)]` |
+| `meta` | `leo3::meta::*` metaprogramming APIs |
+| `io` | `leo3::io::*` IO / filesystem / process / environment helpers |
+| `task` | `leo3::task`, `leo3::task_combinators`, `leo3::promise` |
+| `module-loading` | `leo3::module::*` dynamic shared-library loading |
+| `tokio` | `leo3::tokio_bridge::*` (implies `task`) |
+| `runtime-tests` | Runtime-dependent integration tests (for development/CI) |
+
+Example dependency declarations:
+
+```toml
+# Minimal core surface
+leo3 = "0.2.1"
+
+# Opt into specific subsystems
+leo3 = { version = "0.2.1", features = ["macros", "meta", "task"] }
+```
+
+## Capability Overview
+
+### Core Type Conversions
 
 Bidirectional conversions between Rust and Lean types via `IntoLean` / `FromLean` traits:
 
@@ -58,7 +85,7 @@ Bidirectional conversions between Rust and Lean types via `IntoLean` / `FromLean
 | — | `Nat` / `Int` | `LeanNat` / `LeanInt` |
 | — | `Sum`, `Fin`, `Subtype`, `BitVec`, `Range` | corresponding wrappers |
 
-### Procedural Macros
+### Procedural Macros (`macros`)
 
 `#[leanfn]` — Export Rust functions to Lean:
 
@@ -85,7 +112,7 @@ impl Counter {
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
 
-### Meta-Programming
+### Meta-Programming (`meta`)
 
 Full access to Lean's kernel and elaborator:
 
@@ -95,14 +122,13 @@ Full access to Lean's kernel and elaborator:
 - `MetaMContext` — Type inference, type checking, definitional equality, proof validation
 - Tactic support
 
-### IO & Runtime
+### IO, Tasks, and Dynamic Loading
 
-- IO operations: console, filesystem, environment variables, process, time
-- `LeanClosure` — Create and apply Lean closures from Rust
-- `LeanTask` / `LeanPromise` — Parallel computation with combinators (`join`, `race`, `select`, `timeout`)
-- `LeanModule` — Dynamic loading of compiled Lean shared libraries
-- Tokio bridge for async integration
-- `LeanThunk` — Lazy evaluation
+- `io`: console, filesystem, environment variables, process, and time helpers
+- `task`: `LeanTask` / `LeanPromise` plus combinators (`join`, `race`, `select`, `timeout`)
+- `module-loading`: `LeanModule` for loading compiled Lean shared libraries
+- `tokio`: async bridge for Lean tasks
+- Core (always available): `LeanClosure` and `LeanThunk`
 
 ## Architecture
 
@@ -138,9 +164,10 @@ leo3/
 ## Development
 
 ```bash
-cargo test                        # Full test suite (requires Lean 4.25.2)
-cargo test --test meta_basic      # Specific test
-LEO3_NO_LEAN=1 cargo test --lib   # Compile-only, no Lean runtime
+cargo test --all-features                           # Full test suite (requires Lean 4.25.2)
+cargo test --no-default-features --test test_features # Minimal default surface
+cargo test --no-default-features --features meta --test meta_basic
+LEO3_NO_LEAN=1 cargo check --all-features              # Compile-only, no Lean runtime
 ```
 
 ## License

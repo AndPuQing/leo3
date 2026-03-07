@@ -2,6 +2,8 @@
 //!
 //! This macro generates FFI functions that implement Lean type classes for Rust types.
 
+#![cfg(feature = "macros")]
+
 use leo3::external::LeanExternal;
 use leo3::prelude::*;
 use std::cmp::Ordering;

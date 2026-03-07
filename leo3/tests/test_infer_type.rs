@@ -5,6 +5,8 @@
 //! environment (Sort-based) since `LeanEnvironment::empty()` doesn't include
 //! the Lean prelude (no `Nat`, `Nat.succ`, etc.).
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

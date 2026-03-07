@@ -130,7 +130,17 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       - uses: taiki-e/install-action@cargo-hack
       - name: Check all feature combinations
-        run: LEO3_NO_LEAN=1 cargo hack check --feature-powerset --workspace
+        run: LEO3_NO_LEAN=1 cargo hack check --feature-powerset --exclude-features runtime-tests --workspace --tests
+
+  test-minimal:
+    name: Minimal Feature Set
+    uses: ./.github/workflows/test.yml
+    with:
+      os: ubuntu-latest
+      lean: stable
+      save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      label: minimal
+      cargo-args: --no-default-features -p leo3 --test test_features
 
   test-pr:
     if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'CI-build-full')
@@ -144,6 +154,7 @@ jobs:
       os: ${{ matrix.os }}
       lean: ${{ matrix.lean }}
       save-cache: ${{ contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      label: all-features
 
   test-full:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
@@ -157,6 +168,7 @@ jobs:
       os: ${{ matrix.os }}
       lean: ${{ matrix.lean }}
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
+      label: all-features
 
 
   ffi-check:

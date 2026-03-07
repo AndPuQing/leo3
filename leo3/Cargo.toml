@@ -14,7 +14,7 @@ readme = "../README.md"
 [dependencies]
 leo3-ffi = { workspace = true }
 libc.workspace = true
-libloading.workspace = true
+libloading = { workspace = true, optional = true }
 paste = "1.0"
 
 # Optional macro support
@@ -44,18 +44,29 @@ harness = false
 name = "int_ops_big"
 harness = false
 
+[[example]]
+name = "io_monad"
+required-features = ["io"]
+
+[[example]]
+name = "proof_construction"
+required-features = ["meta"]
+
 [features]
-default = ["macros"]
-macros = ["leo3-macros"]
-tokio = ["dep:tokio"]
+# Keep the default public surface intentionally minimal.
+default = []
 
-# Runtime testing feature - enables tests that require Lean4 to be linked
-# When disabled, only compile-time tests run
+# Optional public subsystems.
+macros = ["dep:leo3-macros"]
+meta = []
+io = []
+task = []
+module-loading = ["dep:libloading"]
+tokio = ["dep:tokio", "task"]
+
+# Runtime testing feature - enables tests that require Lean4 to be linked.
+# When disabled, runtime-dependent tests are typically ignored.
 runtime-tests = []
-
-# Future features
-# auto-initialize = []
-# extension-module = []
 
 [package.metadata.docs.rs]
 all-features = true

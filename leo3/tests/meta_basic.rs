@@ -1,5 +1,7 @@
 //! Basic integration tests for meta-programming features
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

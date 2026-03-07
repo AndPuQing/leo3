@@ -29,7 +29,7 @@ use crate::err::{LeanError, LeanResult};
 use crate::ffi;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
-use crate::meta::environment::with_env_worker;
+use crate::runtime::with_worker;
 use crate::task::LeanTask;
 use std::marker::PhantomData;
 
@@ -105,7 +105,7 @@ impl<'l, T> LeanPromise<'l, T> {
     /// Returns `LeanError` if the Lean task manager is not initialized or
     /// the IO operation fails.
     pub fn new(lean: Lean<'l>) -> LeanResult<Self> {
-        let result_ptr = with_env_worker(move || unsafe {
+        let result_ptr = with_worker(move || unsafe {
             // In Lean < 4.27, lean_io_promise_new returns IO (Except IO.Error (Promise α)),
             // i.e. an IO result wrapper. In Lean >= 4.27, it returns the raw promise directly
             // (the function is just a jmp to lean_promise_new).
@@ -152,7 +152,7 @@ impl<'l, T> LeanPromise<'l, T> {
     pub fn resolve(self, value: LeanBound<'l, T>) -> LeanResult<()> {
         let value_ptr = value.into_ptr();
         let promise_ptr = self.as_ptr();
-        with_env_worker(move || unsafe {
+        with_worker(move || unsafe {
             // In Lean < 4.27, lean_io_promise_resolve returns IO (Except IO.Error Unit).
             // In Lean >= 4.27, it calls lean_promise_resolve and returns lean_box(0).
             let world = ffi::io::lean_io_mk_world();

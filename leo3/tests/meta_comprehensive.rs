@@ -2,6 +2,8 @@
 //!
 //! This test suite covers advanced metaprogramming APIs that aren't tested in meta_basic.rs
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 use leo3::types::LeanArray;

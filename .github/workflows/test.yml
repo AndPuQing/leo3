@@ -13,6 +13,14 @@ on:
         required: false
         type: boolean
         default: false
+      label:
+        required: false
+        type: string
+        default: all-features
+      cargo-args:
+        required: false
+        type: string
+        default: --all-features --workspace
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,7 +28,7 @@ env:
 
 jobs:
   test:
-    name: Test (${{ inputs.os }}, Lean ${{ inputs.lean }})
+    name: Test (${{ inputs.os }}, Lean ${{ inputs.lean }}, ${{ inputs.label }})
     runs-on: ${{ inputs.os }}
     steps:
       - uses: actions/checkout@v6
@@ -74,4 +82,4 @@ jobs:
           echo "LEAN_HOME=$LEAN_HOME" >> $GITHUB_ENV
 
       - name: Run tests
-        run: cargo test --locked --all-features --workspace
+        run: cargo test --locked ${{ inputs.cargo-args }}

@@ -167,7 +167,7 @@ impl<'l> MetaMContext<'l> {
         // Dispatch to the worker thread. MetaM operations must run on the
         // same thread where Lean was initialized to avoid cross-thread
         // object access violations (SIGSEGV from mimalloc thread-local heaps).
-        let result = super::environment::with_env_worker(move || unsafe {
+        let result = crate::runtime::with_worker(move || unsafe {
             // Wrap core_state in an ST.Ref as required by the CoreM monad stack.
             // lean_meta_metam_run creates the ST.Ref for Meta.State internally,
             // but expects Core.State to already be wrapped in an ST.Ref.
@@ -253,7 +253,7 @@ impl<'l> MetaMContext<'l> {
         &mut self,
         expr: &LeanBound<'l, LeanExpr>,
     ) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             // Create a MetaM closure: partially apply lean_infer_type with expr.
             // lean_infer_type has arity 6 (@[extern 6]): (expr, meta_ctx, meta_state_ref,
@@ -281,7 +281,7 @@ impl<'l> MetaMContext<'l> {
     ///
     /// Returns [`LeanError::Exception`] if the reduction fails.
     pub fn whnf(&mut self, expr: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'l, LeanExpr>> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             // lean_whnf has arity 6 (same as lean_infer_type):
             // (expr, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world)
@@ -312,7 +312,7 @@ impl<'l> MetaMContext<'l> {
         a: &LeanBound<'l, LeanExpr>,
         b: &LeanBound<'l, LeanExpr>,
     ) -> LeanResult<bool> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             // lean_is_expr_def_eq has arity 7 (@[extern 7]):
             // (expr_a, expr_b, meta_ctx, meta_state_ref, core_ctx, core_state_ref, world)
@@ -361,7 +361,7 @@ impl<'l> MetaMContext<'l> {
     /// })?;
     /// ```
     pub fn check(&mut self, expr: &LeanBound<'l, LeanExpr>) -> LeanResult<()> {
-        crate::meta::ensure_meta_initialized();
+        crate::runtime::ensure_meta_initialized();
         unsafe {
             // Create a MetaM closure: partially apply l_Lean_Meta_check with expr.
             // check : Expr → MetaM Unit compiles to arity 6:

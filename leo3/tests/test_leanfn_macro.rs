@@ -1,5 +1,7 @@
 //! Integration tests for the `#[leanfn]` macro.
 
+#![cfg(feature = "macros")]
+
 use leo3::prelude::*;
 
 // Test basic u64 function

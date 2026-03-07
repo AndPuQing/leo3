@@ -167,7 +167,7 @@ fn checked_assign<'l>(
     mvar_id: &LeanBound<'l, LeanName>,
     val: &LeanBound<'l, LeanExpr>,
 ) -> LeanResult<bool> {
-    crate::meta::ensure_meta_initialized();
+    crate::runtime::ensure_meta_initialized();
     unsafe {
         // lean_checked_assign has arity 7:
         // (mvarId, val, meta_ctx, meta_state, core_ctx, core_state, world)

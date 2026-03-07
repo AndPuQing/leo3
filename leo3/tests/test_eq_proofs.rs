@@ -1,5 +1,7 @@
 //! Tests for equality proof constructors (mk_eq, mk_eq_refl, mk_eq_symm, mk_eq_trans)
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

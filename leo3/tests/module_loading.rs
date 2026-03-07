@@ -3,6 +3,8 @@
 //! These tests verify that environments can be created, populated with declarations,
 //! and queried for constant information including kinds, types, and values.
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 
@@ -443,6 +445,7 @@ fn test_environment_different_trust_levels() {
 
 // ============ Module Loading Infrastructure ============
 
+#[cfg(feature = "module-loading")]
 #[test]
 fn test_module_struct_exists() {
     use leo3::module::LeanModule;
@@ -452,6 +455,7 @@ fn test_module_struct_exists() {
         |path: &str, name: &str| -> Result<LeanModule, String> { LeanModule::load(path, name) };
 }
 
+#[cfg(feature = "module-loading")]
 #[test]
 fn test_module_load_nonexistent_file_fails() {
     use leo3::module::LeanModule;

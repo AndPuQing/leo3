@@ -9,14 +9,14 @@ Quick reference for testing Leo3, inspired by PyO3's testing infrastructure.
 ```bash
 # Run all tests (requires Lean4 runtime linked)
 export LD_LIBRARY_PATH=~/.elan/toolchains/leanprover--lean4---v4.25.2/lib/lean:$LD_LIBRARY_PATH
-cargo test
+cargo test --all-features
 
-# Run only library tests (compile-time checks, no runtime needed)
+# Run only library checks without Lean4
 LEO3_NO_LEAN=1 cargo test --lib
 
-# Run specific test suite
-cargo test --test nat_ops
-cargo test --test string_ops
+# Run specific feature-scoped suites
+cargo test --no-default-features --test test_features
+cargo test --no-default-features --features meta --test meta_basic
 ```
 
 ### Testing Without Lean4

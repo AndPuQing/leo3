@@ -2,6 +2,8 @@
 //!
 //! Issue #44 — Phase 4.3: Proof utility helpers
 
+#![cfg(feature = "meta")]
+
 use leo3::meta::*;
 use leo3::prelude::*;
 

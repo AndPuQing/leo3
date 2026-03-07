@@ -1,5 +1,7 @@
 //! Minimal test for #[leanclass] macro expansion
 
+#![cfg(feature = "macros")]
+
 use leo3::prelude::*;
 
 #[derive(Clone)]
