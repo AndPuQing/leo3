@@ -404,6 +404,9 @@ pub use array::{lean_byte_array_push, lean_mk_empty_byte_array};
 
 /// Allocate a constructor object (inline from lean.h)
 ///
+/// Mirrors Lean's `lean_alloc_ctor` helper, including the constructor-memory
+/// allocation path used to zero any trailing alignment padding.
+///
 /// # Safety
 /// - `tag` must be <= LEAN_MAX_CTOR_TAG
 /// - `num_objs` must be < LEAN_MAX_CTOR_FIELDS
@@ -414,17 +417,14 @@ pub unsafe fn lean_alloc_ctor(
     num_objs: c_uint,
     scalar_sz: c_uint,
 ) -> *mut lean_object {
-    // Calculate total size: header + object pointers + scalar bytes
-    let sz = std::mem::size_of::<lean_object>()
+    debug_assert!(tag <= LEAN_MAX_CTOR_TAG as c_uint);
+    debug_assert!(num_objs < LEAN_MAX_CTOR_FIELDS);
+    debug_assert!(scalar_sz < LEAN_MAX_CTOR_SCALARS_SIZE);
+
+    let sz = std::mem::size_of::<inline::lean_ctor_object>()
         + (num_objs as usize) * std::mem::size_of::<*mut lean_object>()
         + (scalar_sz as usize);
-    let obj = object::lean_alloc_object(sz);
-    // SAFETY: `lean_alloc_object` returned an allocation of the requested size,
-    // and constructor headers occupy the leading `lean_object` bytes exactly as
-    // in `lean.h`, so writing the header fields here is layout-correct.
-    (*obj).m_rc = 1;
-    (*obj).m_tag = tag as u8;
-    (*obj).m_other = num_objs as u8; // Stores number of object fields
-    (*obj).m_cs_sz = 0; // Will be set by allocator or left as 0
+    let obj = inline::lean_alloc_ctor_memory(sz as c_uint);
+    inline::lean_set_st_header(obj, tag as u8, num_objs as u8);
     obj
 }

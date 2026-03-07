@@ -12,7 +12,7 @@ use errors::cargo_warn;
 use std::env;
 use std::sync::OnceLock;
 
-pub use impl_::{LeanConfig, LeanVersion};
+pub use impl_::{LeanAllocator, LeanConfig, LeanVersion};
 
 static LEAN_CONFIG: OnceLock<LeanConfig> = OnceLock::new();
 
@@ -41,6 +41,7 @@ pub fn use_leo3_cfgs() {
         Ok(config) => {
             impl_::emit_link_config(&config);
             impl_::emit_version_cfgs(&config);
+            impl_::emit_allocator_cfgs(&config);
             println!("cargo:rerun-if-changed={}", config.lean_home.display());
         }
         Err(e) => {

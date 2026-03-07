@@ -122,7 +122,9 @@ impl From<u8> for TaskState {
 /// Task priority level.
 ///
 /// # Lean4 Reference
-/// Corresponds to `Task.Priority` in Lean4.
+/// Corresponds to Lean's boxed `Task.Priority`/`Nat` ABI.
+/// Leo3 keeps this as a small Rust wrapper and boxes it only at the
+/// FFI boundary when calling Lean's inline task helpers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TaskPriority(pub u32);
 
@@ -153,6 +155,11 @@ impl TaskPriority {
     /// Tasks spawned with this priority get their own dedicated thread
     /// and don't contend with other tasks for threads in the thread pool.
     pub const DEDICATED: Self = Self(9);
+
+    #[inline]
+    fn as_lean_obj(self) -> *mut ffi::lean_object {
+        unsafe { ffi::lean_box(self.0 as usize) }
+    }
 }
 
 impl Default for TaskPriority {
@@ -234,7 +241,7 @@ impl<'l, T> LeanTask<'l, T> {
     pub fn spawn_with_priority(closure: LeanClosure<'l>, priority: TaskPriority) -> Self {
         let lean = closure.lean_token();
         unsafe {
-            let ptr = ffi::inline::lean_task_spawn(closure.into_ptr(), priority.0);
+            let ptr = ffi::inline::lean_task_spawn(closure.into_ptr(), priority.as_lean_obj());
             LeanBound::from_owned_ptr(lean, ptr)
         }
     }
@@ -362,7 +369,12 @@ impl<'l, T> LeanTask<'l, T> {
     ) -> LeanTask<'l, LeanAny> {
         let lean = self.lean_token();
         unsafe {
-            let ptr = ffi::inline::lean_task_map(f.into_ptr(), self.into_ptr(), priority.0, false);
+            let ptr = ffi::inline::lean_task_map(
+                f.into_ptr(),
+                self.into_ptr(),
+                priority.as_lean_obj(),
+                false,
+            );
             LeanBound::from_owned_ptr(lean, ptr)
         }
     }
@@ -389,7 +401,12 @@ impl<'l, T> LeanTask<'l, T> {
     ) -> LeanTask<'l, LeanAny> {
         let lean = self.lean_token();
         unsafe {
-            let ptr = ffi::inline::lean_task_bind(self.into_ptr(), f.into_ptr(), priority.0, sync);
+            let ptr = ffi::inline::lean_task_bind(
+                self.into_ptr(),
+                f.into_ptr(),
+                priority.as_lean_obj(),
+                sync,
+            );
             LeanBound::from_owned_ptr(lean, ptr)
         }
     }

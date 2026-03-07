@@ -19,6 +19,45 @@ use std::str::FromStr;
 pub const CFG_MAX_MINOR: u32 = 40;
 
 // ---------------------------------------------------------------------------
+// LeanAllocator
+// ---------------------------------------------------------------------------
+
+/// Build-time allocator backend configured by `lean/config.h`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeanAllocator {
+    /// Lean's page-based small-object allocator is enabled.
+    Small,
+    /// Lean routes small-object allocation through mimalloc.
+    Mimalloc,
+    /// Lean falls back to the generic malloc-based small-object path.
+    System,
+}
+
+impl fmt::Display for LeanAllocator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            LeanAllocator::Small => "small",
+            LeanAllocator::Mimalloc => "mimalloc",
+            LeanAllocator::System => "system",
+        };
+        f.write_str(name)
+    }
+}
+
+impl FromStr for LeanAllocator {
+    type Err = errors::Error;
+
+    fn from_str(s: &str) -> errors::Result<Self> {
+        match s {
+            "small" => Ok(LeanAllocator::Small),
+            "mimalloc" => Ok(LeanAllocator::Mimalloc),
+            "system" => Ok(LeanAllocator::System),
+            _ => Err(errors::Error::new(format!("invalid allocator '{}'", s))),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // LeanVersion
 // ---------------------------------------------------------------------------
 
@@ -92,6 +131,7 @@ pub struct LeanConfig {
     pub lean_include_dir: PathBuf,
     pub version: LeanVersion,
     pub shared: bool,
+    pub allocator: LeanAllocator,
     pub pointer_width: Option<u32>,
 }
 
@@ -137,12 +177,14 @@ impl CrossCompileConfig {
             .to_path_buf();
         let lean_include_dir = lean_home.join("include");
         let shared = has_shared_libs(lib_dir);
+        let allocator = detect_allocator_from_include_dir_best_effort(&lean_include_dir);
         Ok(LeanConfig {
             lean_home,
             lean_lib_dir: self.lib_dir,
             lean_include_dir,
             version: self.version,
             shared,
+            allocator,
             pointer_width: None,
         })
     }
@@ -284,6 +326,7 @@ fn validate_lean_installation(lean_home: &Path) -> errors::Result<LeanConfig> {
     let lean_bin = lean_home.join("bin").join("lean");
     let version = get_lean_version(&lean_bin)?;
     let shared = has_shared_libs(&lean_lib_dir);
+    let allocator = detect_allocator_from_include_dir(&lean_include_dir)?;
 
     Ok(LeanConfig {
         lean_home: lean_home.to_path_buf(),
@@ -291,8 +334,43 @@ fn validate_lean_installation(lean_home: &Path) -> errors::Result<LeanConfig> {
         lean_include_dir,
         version,
         shared,
+        allocator,
         pointer_width: None,
     })
+}
+
+fn detect_allocator_from_include_dir(include_dir: &Path) -> errors::Result<LeanAllocator> {
+    let config_h = include_dir.join("lean").join("config.h");
+    let config = std::fs::read_to_string(&config_h)
+        .context(format!("failed to read {}", config_h.display()))?;
+    Ok(parse_allocator_from_config_h(&config))
+}
+
+fn detect_allocator_from_include_dir_best_effort(include_dir: &Path) -> LeanAllocator {
+    detect_allocator_from_include_dir(include_dir).unwrap_or(LeanAllocator::System)
+}
+
+fn parse_allocator_from_config_h(config: &str) -> LeanAllocator {
+    let mut small = false;
+    let mut mimalloc = false;
+
+    for line in config.lines() {
+        let line = line.trim_start();
+        if line.starts_with("#define LEAN_SMALL_ALLOCATOR") {
+            small = true;
+        }
+        if line.starts_with("#define LEAN_MIMALLOC") {
+            mimalloc = true;
+        }
+    }
+
+    if small {
+        LeanAllocator::Small
+    } else if mimalloc {
+        LeanAllocator::Mimalloc
+    } else {
+        LeanAllocator::System
+    }
 }
 
 /// Run `lean --version` and parse the output into a `LeanVersion`.
@@ -344,6 +422,7 @@ impl LeanConfig {
         )?;
         writeln!(writer, "version={}", self.version)?;
         writeln!(writer, "shared={}", self.shared)?;
+        writeln!(writer, "allocator={}", self.allocator)?;
         match self.pointer_width {
             Some(w) => writeln!(writer, "pointer_width={}", w)?,
             None => writeln!(writer, "pointer_width=")?,
@@ -358,6 +437,7 @@ impl LeanConfig {
         let mut lean_include_dir = None;
         let mut version = None;
         let mut shared = None;
+        let mut allocator = None;
         let mut pointer_width: Option<Option<u32>> = None;
 
         for line in reader.lines() {
@@ -375,6 +455,7 @@ impl LeanConfig {
                 "lean_include_dir" => lean_include_dir = Some(PathBuf::from(value)),
                 "version" => version = Some(value.parse::<LeanVersion>()?),
                 "shared" => shared = Some(value == "true"),
+                "allocator" => allocator = Some(value.parse::<LeanAllocator>()?),
                 "pointer_width" => {
                     pointer_width = Some(if value.is_empty() {
                         None
@@ -388,12 +469,17 @@ impl LeanConfig {
             }
         }
 
+        let lean_include_dir = lean_include_dir.context("missing lean_include_dir")?;
+        let allocator = allocator
+            .unwrap_or_else(|| detect_allocator_from_include_dir_best_effort(&lean_include_dir));
+
         Ok(LeanConfig {
             lean_home: lean_home.context("missing lean_home")?,
             lean_lib_dir: lean_lib_dir.context("missing lean_lib_dir")?,
-            lean_include_dir: lean_include_dir.context("missing lean_include_dir")?,
+            lean_include_dir,
             version: version.context("missing version")?,
             shared: shared.context("missing shared")?,
+            allocator,
             pointer_width: pointer_width.context("missing pointer_width")?,
         })
     }
@@ -463,6 +549,8 @@ pub fn print_expected_cfgs() {
     for minor in 0..=CFG_MAX_MINOR {
         println!("cargo:rustc-check-cfg=cfg(lean_4_{})", minor);
     }
+    println!("cargo:rustc-check-cfg=cfg(lean_small_allocator)");
+    println!("cargo:rustc-check-cfg=cfg(lean_mimalloc)");
 }
 
 /// Print `cargo:rerun-if-env-changed` for every env var we inspect.
@@ -567,6 +655,15 @@ pub fn emit_version_cfgs(config: &LeanConfig) {
     }
 }
 
+/// Emit allocator cfgs derived from `lean/config.h`.
+pub fn emit_allocator_cfgs(config: &LeanConfig) {
+    match config.allocator {
+        LeanAllocator::Small => println!("cargo:rustc-cfg=lean_small_allocator"),
+        LeanAllocator::Mimalloc => println!("cargo:rustc-cfg=lean_mimalloc"),
+        LeanAllocator::System => {}
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -612,6 +709,7 @@ mod tests {
             lean_include_dir: PathBuf::from("/opt/lean/include"),
             version: "4.25.2".parse().unwrap(),
             shared: true,
+            allocator: LeanAllocator::Mimalloc,
             pointer_width: Some(64),
         };
         let mut buf = Vec::new();
@@ -638,6 +736,7 @@ mod tests {
             ),
             version: "4.25.2".parse().unwrap(),
             shared: false,
+            allocator: LeanAllocator::System,
             pointer_width: None,
         };
         let hex = config.to_cargo_dep_env();
@@ -645,7 +744,24 @@ mod tests {
         assert_eq!(restored.lean_home, config.lean_home);
         assert_eq!(restored.version, config.version);
         assert_eq!(restored.shared, config.shared);
+        assert_eq!(restored.allocator, config.allocator);
         assert_eq!(restored.pointer_width, config.pointer_width);
+    }
+
+    #[test]
+    fn test_parse_allocator_from_config_h() {
+        assert_eq!(
+            parse_allocator_from_config_h("#define LEAN_MIMALLOC\n"),
+            LeanAllocator::Mimalloc
+        );
+        assert_eq!(
+            parse_allocator_from_config_h("#define LEAN_SMALL_ALLOCATOR\n"),
+            LeanAllocator::Small
+        );
+        assert_eq!(
+            parse_allocator_from_config_h("/* none */\n"),
+            LeanAllocator::System
+        );
     }
 
     #[test]

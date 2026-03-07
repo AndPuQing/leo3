@@ -2,7 +2,9 @@
 
 use super::{
     layout::lean_thunk_object,
-    object::{lean_alloc_small_object, lean_dec, lean_inc, lean_set_st_header, lean_to_thunk},
+    object::{
+        lean_alloc_small_object, lean_dec, lean_inc, lean_set_st_header, lean_to_thunk, lean_unbox,
+    },
 };
 use crate::object::{b_lean_obj_arg, b_lean_obj_res, lean_obj_arg, lean_obj_res, lean_object};
 use libc::c_uint;
@@ -15,10 +17,10 @@ use std::sync::atomic::Ordering;
 ///
 /// # Safety
 /// - `c` must be a valid closure object (consumed)
-/// - `prio` is the task priority (as a raw u32, not a Lean Nat object)
+/// - `prio` must be a boxed Lean `Task.Priority` scalar (`Nat`)
 #[inline(always)]
-pub unsafe fn lean_task_spawn(c: lean_obj_arg, prio: c_uint) -> lean_obj_res {
-    crate::closure::lean_task_spawn_core(c, prio, false)
+pub unsafe fn lean_task_spawn(c: lean_obj_arg, prio: lean_obj_arg) -> lean_obj_res {
+    crate::closure::lean_task_spawn_core(c, lean_unbox(prio) as c_uint, false)
 }
 
 /// Get owned task result (inline from lean.h)
@@ -40,16 +42,16 @@ pub unsafe fn lean_task_get_own(t: lean_obj_arg) -> lean_obj_res {
 /// # Safety
 /// - `f` must be a valid closure object (consumed)
 /// - `t` must be a valid task object (consumed)
-/// - `prio` is the priority for the new task
+/// - `prio` must be a boxed Lean `Task.Priority` scalar (`Nat`)
 /// - `sync` indicates if the task should be forced synchronously
 #[inline(always)]
 pub unsafe fn lean_task_map(
     f: lean_obj_arg,
     t: lean_obj_arg,
-    prio: c_uint,
+    prio: lean_obj_arg,
     sync: bool,
 ) -> lean_obj_res {
-    crate::closure::lean_task_map_core(f, t, prio, sync, false)
+    crate::closure::lean_task_map_core(f, t, lean_unbox(prio) as c_uint, sync, false)
 }
 
 /// Bind a function over a task (inline wrapper around lean_task_bind_core)
@@ -57,16 +59,16 @@ pub unsafe fn lean_task_map(
 /// # Safety
 /// - `x` must be a valid task object (consumed)
 /// - `f` must be a valid closure object (consumed)
-/// - `prio` is the priority for the new task
+/// - `prio` must be a boxed Lean `Task.Priority` scalar (`Nat`)
 /// - `sync` indicates if the task should be forced synchronously
 #[inline(always)]
 pub unsafe fn lean_task_bind(
     x: lean_obj_arg,
     f: lean_obj_arg,
-    prio: c_uint,
+    prio: lean_obj_arg,
     sync: bool,
 ) -> lean_obj_res {
-    crate::closure::lean_task_bind_core(x, f, prio, sync, false)
+    crate::closure::lean_task_bind_core(x, f, lean_unbox(prio) as c_uint, sync, false)
 }
 
 // ============================================================================

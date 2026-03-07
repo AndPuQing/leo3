@@ -11,6 +11,7 @@ fn main() {
             Ok(config) => {
                 leo3_build_config::impl_::emit_link_config(&config);
                 leo3_build_config::impl_::emit_version_cfgs(&config);
+                leo3_build_config::impl_::emit_allocator_cfgs(&config);
             }
             Err(e) => {
                 println!(

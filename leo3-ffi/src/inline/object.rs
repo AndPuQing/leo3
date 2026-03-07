@@ -13,8 +13,25 @@ use crate::{
     LEAN_ARRAY, LEAN_CLOSURE, LEAN_EXTERNAL, LEAN_MAX_CTOR_TAG, LEAN_MPZ, LEAN_PROMISE, LEAN_REF,
     LEAN_SCALAR_ARRAY, LEAN_STRING, LEAN_TASK, LEAN_THUNK,
 };
-use libc::{c_uint, size_t};
+use libc::{c_uint, c_void, size_t};
 use std::sync::atomic::{AtomicI32, Ordering};
+
+const LEAN_OBJECT_SIZE_DELTA: size_t = 8;
+
+#[cfg(lean_mimalloc)]
+extern "C" {
+    fn mi_malloc_small(size: size_t) -> *mut c_void;
+}
+
+#[cfg(lean_mimalloc)]
+#[inline(always)]
+unsafe fn lean_init_st_cs_sz(_o: *mut lean_object) {}
+
+#[cfg(not(lean_mimalloc))]
+#[inline(always)]
+unsafe fn lean_init_st_cs_sz(o: *mut lean_object) {
+    (*o).m_cs_sz = 0;
+}
 
 // Core Object Functions
 // ============================================================================
@@ -42,6 +59,19 @@ pub unsafe fn lean_ptr_tag(o: *const lean_object) -> u8 {
 #[inline(always)]
 pub unsafe fn lean_ptr_other(o: *const lean_object) -> u8 {
     (*o).m_other
+}
+
+#[inline(always)]
+unsafe fn lean_align(v: size_t, a: size_t) -> size_t {
+    (v / a) * a + a * usize::from(!v.is_multiple_of(a))
+}
+
+#[cfg(lean_small_allocator)]
+#[inline(always)]
+unsafe fn lean_get_slot_idx(sz: c_uint) -> c_uint {
+    debug_assert!(sz > 0);
+    debug_assert!(lean_align(sz as size_t, LEAN_OBJECT_SIZE_DELTA) == sz as size_t);
+    sz / LEAN_OBJECT_SIZE_DELTA as c_uint - 1
 }
 
 // ============================================================================
@@ -213,11 +243,11 @@ pub unsafe fn lean_is_ref(o: lean_obj_arg) -> bool {
 }
 
 #[inline]
-pub unsafe fn lean_obj_tag(o: lean_obj_arg) -> u8 {
+pub unsafe fn lean_obj_tag(o: lean_obj_arg) -> c_uint {
     if lean_is_scalar(o) {
-        lean_unbox(o) as u8
+        lean_unbox(o) as c_uint
     } else {
-        lean_ptr_tag(o)
+        lean_ptr_tag(o) as c_uint
     }
 }
 
@@ -496,18 +526,130 @@ pub unsafe fn lean_set_st_header(o: *mut lean_object, tag: u8, other: u8) {
     (*o).m_rc = 1;
     (*o).m_tag = tag;
     (*o).m_other = other;
-    // Note: m_cs_sz is already initialized by lean_alloc_object when using mimalloc
-    // For non-mimalloc builds, we set it to 0 here
-    (*o).m_cs_sz = 0;
+    lean_init_st_cs_sz(o);
 }
 
 // ============================================================================
 
+#[cfg(lean_small_allocator)]
+#[inline(always)]
+unsafe fn lean_zero_ctor_padding(r: *mut lean_object, aligned_sz: size_t) {
+    let end = (r as *mut u8).add(aligned_sz) as *mut size_t;
+    end.sub(1).write(0);
+}
+
+#[cfg(not(lean_small_allocator))]
+#[inline(always)]
+unsafe fn lean_zero_ctor_padding(r: *mut lean_object, aligned_sz: size_t) {
+    let end = (r as *mut u8).add(aligned_sz) as *mut size_t;
+    end.sub(1).write(0);
+}
+
+#[cfg(lean_small_allocator)]
+#[inline(always)]
+pub(crate) unsafe fn lean_alloc_ctor_memory(sz: c_uint) -> *mut lean_object {
+    let aligned_sz = lean_align(sz as size_t, LEAN_OBJECT_SIZE_DELTA) as c_uint;
+    debug_assert!(aligned_sz as size_t <= crate::LEAN_MAX_SMALL_OBJECT_SIZE);
+
+    let slot_idx = lean_get_slot_idx(aligned_sz);
+    let r = crate::object::lean_alloc_small(aligned_sz, slot_idx) as *mut lean_object;
+    if aligned_sz > sz {
+        lean_zero_ctor_padding(r, aligned_sz as size_t);
+    }
+    r
+}
+
+#[cfg(lean_mimalloc)]
+#[inline(always)]
+pub(crate) unsafe fn lean_alloc_ctor_memory(sz: c_uint) -> *mut lean_object {
+    let aligned_sz = lean_align(sz as size_t, LEAN_OBJECT_SIZE_DELTA);
+    let r = lean_alloc_small_object(sz);
+    if aligned_sz > sz as size_t {
+        lean_zero_ctor_padding(r, aligned_sz);
+    }
+    r
+}
+
+#[cfg(not(any(lean_small_allocator, lean_mimalloc)))]
+#[inline(always)]
+pub(crate) unsafe fn lean_alloc_ctor_memory(sz: c_uint) -> *mut lean_object {
+    lean_alloc_small_object(sz)
+}
+
 /// Allocate a small object (inline helper)
-///
-/// This is a simplified version that uses lean_alloc_object
 #[inline(always)]
 pub unsafe fn lean_alloc_small_object(sz: c_uint) -> *mut lean_object {
-    use crate::object::lean_alloc_object;
-    lean_alloc_object(sz as size_t)
+    #[cfg(lean_small_allocator)]
+    {
+        let aligned_sz = lean_align(sz as size_t, LEAN_OBJECT_SIZE_DELTA) as c_uint;
+        debug_assert!(aligned_sz as size_t <= crate::LEAN_MAX_SMALL_OBJECT_SIZE);
+        let slot_idx = lean_get_slot_idx(aligned_sz);
+        return crate::object::lean_alloc_small(aligned_sz, slot_idx) as *mut lean_object;
+    }
+
+    #[cfg(lean_mimalloc)]
+    {
+        crate::lean_inc_heartbeat();
+        let aligned_sz = lean_align(sz as size_t, LEAN_OBJECT_SIZE_DELTA);
+        debug_assert!(aligned_sz <= crate::LEAN_MAX_SMALL_OBJECT_SIZE);
+
+        let mem = mi_malloc_small(aligned_sz);
+        if mem.is_null() {
+            crate::object::lean_internal_panic_out_of_memory();
+        }
+
+        let o = mem as *mut lean_object;
+        (*o).m_cs_sz = aligned_sz as u16;
+        o
+    }
+
+    #[cfg(not(any(lean_small_allocator, lean_mimalloc)))]
+    {
+        crate::lean_inc_heartbeat();
+        let total = std::mem::size_of::<size_t>() + sz as usize;
+        let mem = libc::malloc(total);
+        if mem.is_null() {
+            crate::object::lean_internal_panic_out_of_memory();
+        }
+
+        *(mem as *mut size_t) = sz as size_t;
+        return (mem as *mut size_t).add(1) as *mut lean_object;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lean_obj_tag_preserves_scalar_value_width() {
+        unsafe {
+            assert_eq!(lean_obj_tag(lean_box(0)), 0);
+            assert_eq!(lean_obj_tag(lean_box(300)), 300);
+        }
+    }
+
+    #[test]
+    fn test_lean_set_st_header_matches_mimalloc_contract() {
+        let mut obj = lean_object {
+            m_rc: 0,
+            m_cs_sz: 64,
+            m_other: 0,
+            m_tag: 0,
+        };
+
+        unsafe {
+            lean_set_st_header(&mut obj, 7, 3);
+        }
+
+        assert_eq!(obj.m_rc, 1);
+        assert_eq!(obj.m_tag, 7);
+        assert_eq!(obj.m_other, 3);
+
+        #[cfg(lean_mimalloc)]
+        assert_eq!(obj.m_cs_sz, 64);
+
+        #[cfg(not(lean_mimalloc))]
+        assert_eq!(obj.m_cs_sz, 0);
+    }
 }

@@ -6,6 +6,8 @@
 //! `leo3_ffi::inline::*` paths to preserve public behavior.
 //!
 //! These implementations are based on Lean4 v4.25.2 headers.
+//! Where Lean's ABI depends on `lean/config.h` allocator settings, the Rust
+//! helpers follow build-time cfg flags emitted by `leo3-build-config`.
 
 mod array;
 mod closure;
@@ -24,6 +26,7 @@ pub use external::*;
 pub use layout::*;
 pub use nat::*;
 pub use numeric::*;
+pub(crate) use object::lean_alloc_ctor_memory;
 pub use object::*;
 pub use string::*;
 pub use task::*;
