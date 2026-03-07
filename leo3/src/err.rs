@@ -1,7 +1,7 @@
 //! Error types for Leo3.
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Result type for Leo3 operations.
 pub type LeanResult<T> = Result<T, LeanError>;
@@ -11,27 +11,6 @@ pub type LeanResult<T> = Result<T, LeanError>;
 pub enum LeanError {
     /// Error during type conversion
     Conversion(String),
-    /// Failed to load a dynamic Lean module library
-    ModuleLoad {
-        /// Path to the shared library we attempted to load
-        path: PathBuf,
-        /// Loader-provided context
-        message: String,
-    },
-    /// Failed to resolve an exported symbol from a Lean module
-    SymbolLookup {
-        /// Symbol name we attempted to resolve
-        symbol: String,
-        /// Loader-provided context
-        message: String,
-    },
-    /// Lean module initialization returned an error result
-    ModuleInitialization {
-        /// Logical Lean module name
-        module: String,
-        /// Best-effort diagnostic extracted from the Lean error payload
-        message: String,
-    },
     /// FFI function returned a null pointer
     NullPointer {
         /// The operation that returned null
@@ -50,15 +29,6 @@ pub enum LeanError {
         kind: &'static str,
         /// The invalid tag value
         tag: u8,
-    },
-    /// Called a Lean function with the wrong arity
-    ArityMismatch {
-        /// Function name
-        function: String,
-        /// Arity recorded for the exported function
-        expected: usize,
-        /// Arity requested by the caller
-        provided: usize,
     },
     /// Kernel type-checking exception with a structured code
     KernelException {
@@ -183,26 +153,29 @@ impl LeanError {
 
     /// Create a dynamic library loading error.
     pub fn module_load(path: impl AsRef<Path>, msg: impl Into<String>) -> Self {
-        LeanError::ModuleLoad {
-            path: path.as_ref().to_path_buf(),
-            message: msg.into(),
-        }
+        LeanError::Other(format!(
+            "failed to load Lean module library `{}`: {}",
+            path.as_ref().display(),
+            msg.into()
+        ))
     }
 
     /// Create an exported symbol lookup error.
     pub fn symbol_lookup(symbol: impl Into<String>, msg: impl Into<String>) -> Self {
-        LeanError::SymbolLookup {
-            symbol: symbol.into(),
-            message: msg.into(),
-        }
+        LeanError::Other(format!(
+            "failed to resolve Lean symbol `{}`: {}",
+            symbol.into(),
+            msg.into()
+        ))
     }
 
     /// Create a Lean module initialization error.
     pub fn module_initialization(module: impl Into<String>, msg: impl Into<String>) -> Self {
-        LeanError::ModuleInitialization {
-            module: module.into(),
-            message: msg.into(),
-        }
+        LeanError::Other(format!(
+            "failed to initialize Lean module `{}`: {}",
+            module.into(),
+            msg.into()
+        ))
     }
 
     /// Create a null pointer error.
@@ -222,11 +195,12 @@ impl LeanError {
 
     /// Create an arity mismatch error.
     pub fn arity_mismatch(function: impl Into<String>, expected: usize, provided: usize) -> Self {
-        LeanError::ArityMismatch {
-            function: function.into(),
+        LeanError::Other(format!(
+            "function `{}` expects {} argument(s), but {} provided",
+            function.into(),
             expected,
-            provided,
-        }
+            provided
+        ))
     }
 
     /// Create a kernel exception error.
@@ -268,24 +242,6 @@ impl fmt::Display for LeanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             LeanError::Conversion(msg) => write!(f, "conversion error: {}", msg),
-            LeanError::ModuleLoad { path, message } => {
-                write!(
-                    f,
-                    "failed to load Lean module library `{}`: {}",
-                    path.display(),
-                    message
-                )
-            }
-            LeanError::SymbolLookup { symbol, message } => {
-                write!(f, "failed to resolve Lean symbol `{}`: {}", symbol, message)
-            }
-            LeanError::ModuleInitialization { module, message } => {
-                write!(
-                    f,
-                    "failed to initialize Lean module `{}`: {}",
-                    module, message
-                )
-            }
             LeanError::NullPointer { operation } => {
                 write!(
                     f,
@@ -298,17 +254,6 @@ impl fmt::Display for LeanError {
             }
             LeanError::InvalidKind { kind, tag } => {
                 write!(f, "invalid {} tag: {}", kind, tag)
-            }
-            LeanError::ArityMismatch {
-                function,
-                expected,
-                provided,
-            } => {
-                write!(
-                    f,
-                    "function `{}` expects {} argument(s), but {} provided",
-                    function, expected, provided
-                )
             }
             LeanError::KernelException { code, message } => {
                 write!(f, "kernel exception: {}", message)?;

@@ -807,13 +807,9 @@ fn test_error_pattern_matching() {
     for err in &errors {
         match err {
             LeanError::Conversion(_) => matched.push("conversion"),
-            LeanError::ModuleLoad { .. } => matched.push("module_load"),
-            LeanError::SymbolLookup { .. } => matched.push("symbol_lookup"),
-            LeanError::ModuleInitialization { .. } => matched.push("module_initialization"),
             LeanError::NullPointer { .. } => matched.push("null_pointer"),
             LeanError::OutOfBounds { .. } => matched.push("out_of_bounds"),
             LeanError::InvalidKind { .. } => matched.push("invalid_kind"),
-            LeanError::ArityMismatch { .. } => matched.push("arity_mismatch"),
             LeanError::KernelException { .. } => matched.push("kernel_exception"),
             LeanError::Exception { .. } => matched.push("exception"),
             LeanError::Other(_) => matched.push("other"),
@@ -824,13 +820,13 @@ fn test_error_pattern_matching() {
         matched,
         vec![
             "conversion",
-            "module_load",
-            "symbol_lookup",
-            "module_initialization",
+            "other",
+            "other",
+            "other",
             "null_pointer",
             "out_of_bounds",
             "invalid_kind",
-            "arity_mismatch",
+            "other",
             "kernel_exception",
             "exception",
             "other"

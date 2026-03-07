@@ -459,19 +459,17 @@ fn test_module_struct_exists() {
 #[test]
 fn test_module_load_nonexistent_file_fails() {
     use leo3::{module::LeanModule, LeanError};
-    use std::path::PathBuf;
 
     let err = match LeanModule::load("/nonexistent/path/libFoo.so", "Foo") {
         Ok(_) => panic!("loading nonexistent .so should fail"),
         Err(err) => err,
     };
-    match err {
-        LeanError::ModuleLoad { path, message } => {
-            assert_eq!(path, PathBuf::from("/nonexistent/path/libFoo.so"));
-            assert!(!message.is_empty());
-        }
-        other => panic!("expected ModuleLoad error, got: {:?}", other),
-    }
+    assert!(matches!(err, LeanError::Other(_)));
+    let message = err.to_string();
+    assert!(message.contains("failed to load Lean module library `/nonexistent/path/libFoo.so`"));
+    assert!(
+        message.len() > "failed to load Lean module library `/nonexistent/path/libFoo.so`: ".len()
+    );
 }
 
 #[test]
