@@ -62,14 +62,10 @@ impl<T: Send + 'static> TaskHandle<T> {
     /// let handle: TaskHandle<LeanAny> = task.into_handle();
     /// let result: LeanUnbound<LeanAny> = handle.into_tokio_future().await;
     /// ```
-    pub fn into_tokio_future(
-        self,
-    ) -> impl std::future::Future<Output = LeanUnbound<T>> + Send + 'static {
-        async move {
-            ::tokio::task::spawn_blocking(move || self.get_unbound())
-                .await
-                .expect("lean-tokio-bridge blocking task panicked")
-        }
+    pub async fn into_tokio_future(self) -> LeanUnbound<T> {
+        ::tokio::task::spawn_blocking(move || self.get_unbound())
+            .await
+            .expect("lean-tokio-bridge blocking task panicked")
     }
 }
 
