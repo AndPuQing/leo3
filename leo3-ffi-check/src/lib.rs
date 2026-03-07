@@ -78,3 +78,24 @@ macro_rules! check_struct_full {
         $crate::check_field_offset!($our_type, $bindgen_type, $name, $(($our_field, $bindgen_field)),+);
     }};
 }
+
+/// Macro to ensure a function declaration matches the expected ABI shape.
+///
+/// The 3-argument form checks one declaration against an expected function type.
+/// The 4-argument form checks both our declaration and bindgen's declaration
+/// against that same function type.
+#[macro_export]
+macro_rules! check_function_signature {
+    ($our:path, $sig:ty, $name:expr) => {{
+        let our_fn: $sig = $our;
+        println!("Checking function signature: {}", $name);
+        let _ = our_fn;
+    }};
+    ($our:path, $bindgen:path, $sig:ty, $name:expr) => {{
+        let our_fn: $sig = $our;
+        let bindgen_fn: $sig = $bindgen;
+
+        println!("Checking function signature: {}", $name);
+        let _ = (our_fn, bindgen_fn);
+    }};
+}

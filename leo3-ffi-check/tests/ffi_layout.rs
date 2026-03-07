@@ -1,177 +1,242 @@
-//! FFI Layout Validation Tests
+//! FFI layout and signature validation tests.
 //!
-//! This test validates that our hand-written FFI bindings in `leo3-ffi`
-//! match the actual layout of structures in Lean4's C headers.
-//!
-//! Inspired by PyO3's pyo3-ffi-check.
+//! These tests validate that our hand-written FFI bindings in `leo3-ffi`
+//! still match Lean4's C headers as seen by bindgen.
 
 #![allow(non_camel_case_types, non_snake_case, dead_code)]
 
-// Include bindgen-generated bindings
 mod bindgen {
     #![allow(clippy::all)]
     include!(concat!(env!("OUT_DIR"), "/bindgen.rs"));
 }
 
 use leo3_ffi as ffi;
-use std::mem::{align_of, offset_of, size_of};
-
-/// Validates that a struct in our FFI matches bindgen's version (size + alignment)
-macro_rules! check_struct_layout {
-    ($our_type:ty, $bindgen_type:ty) => {{
-        let our_size = size_of::<$our_type>();
-        let bindgen_size = size_of::<$bindgen_type>();
-        let our_align = align_of::<$our_type>();
-        let bindgen_align = align_of::<$bindgen_type>();
-
-        let name = stringify!($our_type);
-        println!("Checking struct: {}", name);
-        println!("  Our size: {}, bindgen size: {}", our_size, bindgen_size);
-        println!(
-            "  Our align: {}, bindgen align: {}",
-            our_align, bindgen_align
-        );
-
-        assert_eq!(our_size, bindgen_size, "Size mismatch for {}", name);
-        assert_eq!(our_align, bindgen_align, "Alignment mismatch for {}", name);
-    }};
-}
-
-/// Validates field offsets between our FFI type and bindgen's type.
-/// On mismatch, prints the struct name, field name, and expected vs actual offsets.
-macro_rules! check_field_offsets {
-    ($our_type:ty, $bindgen_type:ty, $( ($field:ident) ),+ $(,)?) => {{
-        let name = stringify!($our_type);
-        println!("Checking field offsets for: {}", name);
-        $(
-            let ours = offset_of!($our_type, $field);
-            let theirs = offset_of!($bindgen_type, $field);
-            println!("  {}.{}: ours={}, bindgen={}", name, stringify!($field), ours, theirs);
-            assert_eq!(
-                ours, theirs,
-                "Field offset mismatch for {}.{}: ours={}, bindgen={}",
-                name, stringify!($field), ours, theirs
-            );
-        )+
-    }};
-}
+use leo3_ffi_check::{
+    check_field_offset, check_function_signature, check_pointer_type, check_struct_full,
+    check_struct_layout,
+};
 
 #[test]
 fn check_lean_object_layout() {
-    check_struct_layout!(ffi::lean_object, bindgen::lean_object);
-    // Note: bindgen represents m_cs_sz/m_other/m_tag as a bitfield unit,
-    // so we can only check m_rc offset directly.
-    check_field_offsets!(ffi::lean_object, bindgen::lean_object, (m_rc));
+    check_struct_layout!(ffi::lean_object, bindgen::lean_object, "lean_object");
+    // bindgen packs the remaining header fields into a bitfield helper, so only
+    // the `m_rc` offset can be compared directly.
+    check_field_offset!(ffi::lean_object, bindgen::lean_object, "lean_object", (m_rc, m_rc));
 }
 
 #[test]
-fn check_lean_array_object_layout() {
-    check_struct_layout!(ffi::inline::lean_array_object, bindgen::lean_array_object);
-    check_field_offsets!(
+fn check_inline_layouts() {
+    check_struct_full!(
         ffi::inline::lean_array_object,
         bindgen::lean_array_object,
-        (m_header),
-        (m_size),
-        (m_capacity),
-        (m_data),
+        "lean_array_object",
+        (m_header, m_header),
+        (m_size, m_size),
+        (m_capacity, m_capacity),
+        (m_data, m_data)
     );
-}
-
-#[test]
-fn check_lean_string_object_layout() {
-    check_struct_layout!(ffi::inline::lean_string_object, bindgen::lean_string_object);
-    check_field_offsets!(
+    check_struct_full!(
         ffi::inline::lean_string_object,
         bindgen::lean_string_object,
-        (m_header),
-        (m_size),
-        (m_capacity),
-        (m_length),
-        (m_data),
+        "lean_string_object",
+        (m_header, m_header),
+        (m_size, m_size),
+        (m_capacity, m_capacity),
+        (m_length, m_length),
+        (m_data, m_data)
     );
-}
-
-#[test]
-fn check_lean_closure_object_layout() {
-    check_struct_layout!(
-        ffi::inline::lean_closure_object,
-        bindgen::lean_closure_object
-    );
-    check_field_offsets!(
+    check_struct_full!(
         ffi::inline::lean_closure_object,
         bindgen::lean_closure_object,
-        (m_header),
-        (m_fun),
-        (m_arity),
-        (m_num_fixed),
-        (m_objs),
+        "lean_closure_object",
+        (m_header, m_header),
+        (m_fun, m_fun),
+        (m_arity, m_arity),
+        (m_num_fixed, m_num_fixed),
+        (m_objs, m_objs)
     );
-}
-
-#[test]
-fn check_lean_ctor_object_layout() {
-    check_struct_layout!(ffi::inline::lean_ctor_object, bindgen::lean_ctor_object);
-    check_field_offsets!(
+    check_struct_full!(
         ffi::inline::lean_ctor_object,
         bindgen::lean_ctor_object,
-        (m_header),
-        (m_objs),
+        "lean_ctor_object",
+        (m_header, m_header),
+        (m_objs, m_objs)
     );
-}
-
-#[test]
-fn check_lean_sarray_object_layout() {
-    check_struct_layout!(ffi::inline::lean_sarray_object, bindgen::lean_sarray_object);
-    check_field_offsets!(
+    check_struct_full!(
         ffi::inline::lean_sarray_object,
         bindgen::lean_sarray_object,
-        (m_header),
-        (m_size),
-        (m_capacity),
-        (m_data),
+        "lean_sarray_object",
+        (m_header, m_header),
+        (m_size, m_size),
+        (m_capacity, m_capacity),
+        (m_data, m_data)
     );
-}
-
-#[test]
-fn check_lean_ref_object_layout() {
-    check_struct_layout!(ffi::inline::lean_ref_object, bindgen::lean_ref_object);
-    check_field_offsets!(
+    check_struct_full!(
         ffi::inline::lean_ref_object,
         bindgen::lean_ref_object,
-        (m_header),
-        (m_value),
+        "lean_ref_object",
+        (m_header, m_header),
+        (m_value, m_value)
+    );
+    check_struct_full!(
+        ffi::inline::lean_thunk_object,
+        bindgen::lean_thunk_object,
+        "lean_thunk_object",
+        (m_header, m_header),
+        (m_value, m_value),
+        (m_closure, m_closure)
+    );
+    check_struct_full!(
+        ffi::inline::lean_task_imp,
+        bindgen::lean_task_imp,
+        "lean_task_imp",
+        (m_closure, m_closure),
+        (m_head_dep, m_head_dep),
+        (m_next_dep, m_next_dep),
+        (m_prio, m_prio),
+        (m_canceled, m_canceled),
+        (m_keep_alive, m_keep_alive),
+        (m_deleted, m_deleted)
+    );
+    check_struct_full!(
+        ffi::inline::lean_task_object,
+        bindgen::lean_task_object,
+        "lean_task_object",
+        (m_header, m_header),
+        (m_value, m_value),
+        (m_imp, m_imp)
+    );
+    check_struct_full!(
+        ffi::inline::lean_promise_object,
+        bindgen::lean_promise_object,
+        "lean_promise_object",
+        (m_header, m_header),
+        (m_result, m_result)
+    );
+    check_struct_full!(
+        ffi::inline::lean_external_object,
+        bindgen::lean_external_object,
+        "lean_external_object",
+        (m_header, m_header),
+        (m_class, m_class),
+        (m_data, m_data)
     );
 }
 
 #[test]
 fn check_type_aliases() {
-    // These are pointer types, so just check they're pointer-sized
-    assert_eq!(size_of::<ffi::lean_obj_arg>(), size_of::<*mut ()>());
-    assert_eq!(size_of::<ffi::b_lean_obj_arg>(), size_of::<*const ()>());
-    assert_eq!(size_of::<ffi::lean_obj_res>(), size_of::<*mut ()>());
+    check_pointer_type!(ffi::lean_obj_arg, "lean_obj_arg");
+    check_pointer_type!(ffi::b_lean_obj_arg, "b_lean_obj_arg");
+    check_pointer_type!(ffi::lean_obj_res, "lean_obj_res");
+    check_pointer_type!(ffi::object::b_lean_obj_res, "b_lean_obj_res");
 }
 
 #[test]
 fn check_constants() {
-    // Validate that our constants match Lean's
-    println!("Checking constants:");
-    println!("  LEAN_MAX_CTOR_TAG: {}", ffi::LEAN_MAX_CTOR_TAG);
-    println!("  LEAN_CLOSURE: {}", ffi::LEAN_CLOSURE);
-    println!("  LEAN_ARRAY: {}", ffi::LEAN_ARRAY);
-    println!("  LEAN_STRING: {}", ffi::LEAN_STRING);
-
-    // These should match the values in lean.h
-    // Note: Actual validation would require parsing these from headers
+    assert_eq!(ffi::LEAN_MAX_CTOR_TAG, 243);
+    assert_eq!(ffi::LEAN_CLOSURE, 245);
+    assert_eq!(ffi::LEAN_ARRAY, 246);
+    assert_eq!(ffi::LEAN_STRING, 249);
+    assert_eq!(ffi::LEAN_TASK, 252);
+    assert_eq!(ffi::LEAN_EXTERNAL, 254);
 }
 
-// Note: We can't easily check function signatures with bindgen,
-// but we can at least ensure the functions exist and are callable
 #[test]
-fn check_function_existence() {
-    // Just check that these symbols would link
-    // (They won't actually link without Lean4, but the types should be correct)
-    let _: unsafe extern "C" fn() = ffi::lean_initialize_runtime_module;
-    let _: unsafe extern "C" fn() = ffi::lean_finalize_runtime_module;
-    let _: unsafe extern "C" fn() = ffi::lean_initialize_thread;
-    let _: unsafe extern "C" fn() = ffi::lean_finalize_thread;
+fn check_bindgen_visible_function_signatures() {
+    type HeartbeatFn = unsafe extern "C" fn();
+    type AllocObjectFn = unsafe extern "C" fn(ffi::size_t) -> *mut ffi::lean_object;
+    type FreeObjectFn = unsafe extern "C" fn(*mut ffi::lean_object);
+    type AllocSmallFn = unsafe extern "C" fn(ffi::size_t, ffi::c_uint) -> *mut ffi::c_void;
+    type FreeSmallFn = unsafe extern "C" fn(*mut ffi::c_void);
+    type RegisterExternalClassFn = unsafe extern "C" fn(
+        ffi::object::lean_external_finalize_proc,
+        ffi::object::lean_external_foreach_proc,
+    ) -> *mut ffi::c_void;
+
+    check_function_signature!(
+        ffi::lean_inc_heartbeat,
+        bindgen::lean_inc_heartbeat,
+        HeartbeatFn,
+        "lean_inc_heartbeat"
+    );
+    check_function_signature!(
+        ffi::object::lean_alloc_object,
+        bindgen::lean_alloc_object,
+        AllocObjectFn,
+        "lean_alloc_object"
+    );
+    check_function_signature!(
+        ffi::object::lean_free_object,
+        bindgen::lean_free_object,
+        FreeObjectFn,
+        "lean_free_object"
+    );
+    check_function_signature!(
+        ffi::object::lean_alloc_small,
+        bindgen::lean_alloc_small,
+        AllocSmallFn,
+        "lean_alloc_small"
+    );
+    check_function_signature!(
+        ffi::object::lean_free_small,
+        bindgen::lean_free_small,
+        FreeSmallFn,
+        "lean_free_small"
+    );
+    check_function_signature!(
+        ffi::lean_register_external_class,
+        bindgen::lean_register_external_class,
+        RegisterExternalClassFn,
+        "lean_register_external_class"
+    );
+}
+
+#[test]
+fn check_runtime_and_module_init_signatures() {
+    // These initialization exports are part of Leo3's supported Lean ABI surface,
+    // but they are not declared in the installed `lean.h`, so bindgen cannot
+    // provide a second declaration to compare against.
+    type InitFn = unsafe extern "C" fn();
+    type ModuleInitFn = unsafe extern "C" fn(u8, *mut std::ffi::c_void) -> *mut std::ffi::c_void;
+
+    check_function_signature!(
+        ffi::lean_initialize_runtime_module,
+        InitFn,
+        "lean_initialize_runtime_module"
+    );
+    check_function_signature!(
+        ffi::lean_finalize_runtime_module,
+        InitFn,
+        "lean_finalize_runtime_module"
+    );
+    check_function_signature!(
+        ffi::lean_initialize_thread,
+        InitFn,
+        "lean_initialize_thread"
+    );
+    check_function_signature!(
+        ffi::lean_finalize_thread,
+        InitFn,
+        "lean_finalize_thread"
+    );
+    check_function_signature!(
+        ffi::initialize_Lean_Expr,
+        ModuleInitFn,
+        "initialize_Lean_Expr"
+    );
+    check_function_signature!(
+        ffi::initialize_Init_Prelude,
+        ModuleInitFn,
+        "initialize_Init_Prelude"
+    );
+    check_function_signature!(
+        ffi::initialize_Lean_Environment,
+        ModuleInitFn,
+        "initialize_Lean_Environment"
+    );
+    check_function_signature!(
+        ffi::initialize_Lean_Meta,
+        ModuleInitFn,
+        "initialize_Lean_Meta"
+    );
 }
