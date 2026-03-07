@@ -218,7 +218,7 @@ jobs:
       - name: Run FFI validation checks
         run: |
           LEAN_PREFIX="$("$HOME"/.elan/bin/lean --print-prefix)"
-          LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --locked --manifest-path leo3-ffi-check/Cargo.toml
+          LD_LIBRARY_PATH="$LEAN_PREFIX/lib/lean" cargo test --manifest-path leo3-ffi-check/Cargo.toml
 
   compat-feature-powerset:
     name: Compat / Feature Powerset

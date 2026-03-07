@@ -61,7 +61,7 @@ cargo test --locked -p leo3 --features "macros,runtime-tests" \
   --test test_lean_instance \
   --test test_leanmodule
 
-cargo test --locked --manifest-path leo3-ffi-check/Cargo.toml
+cargo test --manifest-path leo3-ffi-check/Cargo.toml
 ```
 
 ### Compat / Heavy
