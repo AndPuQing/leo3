@@ -231,10 +231,38 @@ pub unsafe fn lean_string_utf8_byte_size(s: b_lean_obj_arg) -> lean_obj_res {
     crate::object::lean_box(crate::inline::lean_string_size(s) - 1)
 }
 
+/// Get UTF-8 character at position using the header fast path.
+#[inline]
+pub unsafe fn lean_string_utf8_get_fast(s: b_lean_obj_arg, i: b_lean_obj_arg) -> u32 {
+    let str_ptr = crate::inline::lean_string_cstr(s);
+    let idx = crate::object::lean_unbox(i);
+    let c = *str_ptr.add(idx) as u8;
+    if (c & 0x80) == 0 {
+        c as u32
+    } else {
+        lean_string_utf8_get_fast_cold(str_ptr, idx, crate::inline::lean_string_size(s), c)
+    }
+}
+
+/// Advance to the next UTF-8 byte position using the header fast path.
+#[inline]
+pub unsafe fn lean_string_utf8_next_fast(s: b_lean_obj_arg, i: b_lean_obj_arg) -> lean_obj_res {
+    let str_ptr = crate::inline::lean_string_cstr(s);
+    let idx = crate::object::lean_unbox(i);
+    let c = *str_ptr.add(idx) as u8;
+    if (c & 0x80) == 0 {
+        crate::object::lean_box(idx + 1)
+    } else {
+        lean_string_utf8_next_fast_cold(idx, c)
+    }
+}
+
 /// Compare two strings for equality (fast path checks pointer equality first)
 #[inline]
 pub unsafe fn lean_string_eq(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> bool {
-    s1 == s2 || lean_string_eq_cold(s1, s2)
+    s1 == s2
+        || (crate::inline::lean_string_size(s1) == crate::inline::lean_string_size(s2)
+            && lean_string_eq_cold(s1, s2))
 }
 
 /// Compare two strings for inequality
@@ -245,8 +273,9 @@ pub unsafe fn lean_string_ne(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> bool {
 
 /// Check if iterator is at end of string
 #[inline]
-pub unsafe fn lean_string_utf8_at_end(s: b_lean_obj_arg, i: b_lean_obj_arg) -> bool {
-    crate::object::lean_unbox(i) >= crate::inline::lean_string_size(s) - 1
+pub unsafe fn lean_string_utf8_at_end(s: b_lean_obj_arg, i: b_lean_obj_arg) -> u8 {
+    (!crate::inline::lean_is_scalar(i as crate::object::lean_obj_arg)
+        || crate::object::lean_unbox(i) >= crate::inline::lean_string_size(s) - 1) as u8
 }
 
 /// Get byte at position (fast path, no bounds check)
@@ -255,4 +284,16 @@ pub unsafe fn lean_string_get_byte_fast(s: b_lean_obj_arg, i: b_lean_obj_arg) ->
     let cstr = crate::inline::lean_string_cstr(s);
     let idx = crate::object::lean_unbox(i);
     *cstr.add(idx) as u8
+}
+
+/// Decidable equality fast path helper.
+#[inline]
+pub unsafe fn lean_string_dec_eq(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> u8 {
+    lean_string_eq(s1, s2) as u8
+}
+
+/// Decidable ordering fast path helper.
+#[inline]
+pub unsafe fn lean_string_dec_lt(s1: b_lean_obj_arg, s2: b_lean_obj_arg) -> u8 {
+    lean_string_lt(s1, s2) as u8
 }

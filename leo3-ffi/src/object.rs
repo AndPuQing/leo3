@@ -42,7 +42,8 @@ pub struct lean_external_object {
 
 // Re-export inline implementations from inline module
 pub use crate::inline::{
-    lean_dec, lean_dec_ref, lean_inc, lean_inc_ref, lean_inc_ref_n, lean_is_exclusive, lean_obj_tag,
+    lean_dec, lean_dec_ref, lean_inc, lean_inc_ref, lean_inc_ref_n, lean_is_exclusive,
+    lean_is_shared, lean_obj_tag,
 };
 
 extern "C" {
@@ -65,12 +66,6 @@ extern "C" {
     /// - `o` must be a valid lean_object pointer
     /// - Object may be deallocated if refcount reaches zero
     pub fn lean_dec_ref_cold(o: *mut lean_object);
-
-    /// Check if object is shared (RC > 1)
-    ///
-    /// # Safety
-    /// - `o` must be a valid lean_object pointer
-    pub fn lean_is_shared(o: *const lean_object) -> bool;
 
     /// Mark object as multi-threaded
     ///
@@ -95,7 +90,7 @@ extern "C" {
     /// # Safety
     /// - Must initialize the object header after allocation
     /// - `sz` must be <= LEAN_MAX_SMALL_OBJECT_SIZE
-    pub fn lean_alloc_small(sz: size_t, slot_idx: c_uint) -> *mut c_void;
+    pub fn lean_alloc_small(sz: c_uint, slot_idx: c_uint) -> *mut c_void;
 
     /// Free a small object
     ///
@@ -141,49 +136,13 @@ extern "C" {
 // ============================================================================
 
 // Re-export inline implementations from inline module
-pub use crate::inline::{lean_ctor_get, lean_ctor_set};
+pub use crate::inline::{
+    lean_ctor_get, lean_ctor_get_float, lean_ctor_get_float32, lean_ctor_get_usize,
+    lean_ctor_release, lean_ctor_set, lean_ctor_set_float, lean_ctor_set_float32,
+    lean_ctor_set_tag, lean_ctor_set_usize,
+};
 
-extern "C" {
-    /// Set constructor tag
-    ///
-    /// # Safety
-    /// - `o` must be a valid, exclusive constructor object
-    /// - `new_tag` must be <= LEAN_MAX_CTOR_TAG
-    pub fn lean_ctor_set_tag(o: lean_obj_arg, new_tag: u8);
-
-    /// Release (dec_ref) a constructor field
-    ///
-    /// # Safety
-    /// - `o` must be a valid constructor object
-    /// - `i` must be within bounds
-    pub fn lean_ctor_release(o: lean_obj_arg, i: c_uint);
-
-    /// Get usize scalar from constructor
-    ///
-    /// # Safety
-    /// - `o` must be a valid constructor object
-    /// - `i` must be in the scalar area (>= num_objs)
-    pub fn lean_ctor_get_usize(o: b_lean_obj_arg, i: c_uint) -> size_t;
-
-    /// Set usize scalar in constructor
-    ///
-    /// # Safety
-    /// - `o` must be a valid, exclusive constructor object
-    /// - `i` must be in the scalar area
-    pub fn lean_ctor_set_usize(o: lean_obj_arg, i: c_uint, v: size_t);
-
-    /// Get float64 scalar
-    pub fn lean_ctor_get_float(o: b_lean_obj_arg, offset: c_uint) -> f64;
-
-    /// Set float64 scalar
-    pub fn lean_ctor_set_float(o: lean_obj_arg, offset: c_uint, v: f64);
-
-    /// Get float32 scalar
-    pub fn lean_ctor_get_float32(o: b_lean_obj_arg, offset: c_uint) -> f32;
-
-    /// Set float32 scalar
-    pub fn lean_ctor_set_float32(o: lean_obj_arg, offset: c_uint, v: f32);
-}
+extern "C" {}
 
 // Re-export inline implementations of uint accessor functions from inline module
 pub use crate::inline::{
@@ -216,27 +175,10 @@ extern "C" {
     pub fn lean_register_external_class(
         finalize: lean_external_finalize_proc,
         foreach: lean_external_foreach_proc,
-    ) -> *mut c_void; // Returns lean_external_class*
-
-    /// Allocate an external object
-    ///
-    /// # Safety
-    /// - `class` must be a valid lean_external_class pointer
-    /// - `data` will be owned by the object
-    pub fn lean_alloc_external(class: *mut c_void, data: *mut c_void) -> lean_obj_res;
-
-    /// Get data from external object
-    ///
-    /// # Safety
-    /// - `o` must be a valid external object
-    pub fn lean_get_external_data(o: b_lean_obj_arg) -> *mut c_void;
-
-    /// Get the external class of an external object
-    ///
-    /// # Safety
-    /// - `o` must be a valid external object
-    pub fn lean_get_external_class(o: b_lean_obj_arg) -> *mut c_void; // Returns lean_external_class*
+    ) -> *mut lean_external_class;
 }
+
+pub use crate::inline::{lean_alloc_external, lean_get_external_class, lean_get_external_data};
 
 // ============================================================================
 // Panic and Error Handling

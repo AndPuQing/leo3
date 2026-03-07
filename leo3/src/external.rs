@@ -75,7 +75,7 @@ struct ExternalRegistry {
 struct ExternalClassInfo {
     #[allow(dead_code)]
     name: &'static str,
-    external_class: *mut std::ffi::c_void,
+    external_class: *mut ffi::object::lean_external_class,
 }
 
 unsafe impl Send for ExternalClassInfo {}
@@ -88,7 +88,7 @@ impl ExternalRegistry {
         }
     }
 
-    fn get_or_register<T: ExternalClass>(&mut self) -> *mut std::ffi::c_void {
+    fn get_or_register<T: ExternalClass>(&mut self) -> *mut ffi::object::lean_external_class {
         let type_id = TypeId::of::<T>();
 
         if let Some(info) = self.classes.get(&type_id) {
@@ -118,7 +118,7 @@ fn get_registry() -> std::sync::MutexGuard<'static, Option<ExternalRegistry>> {
 }
 
 /// Get the external class for a Rust type
-fn get_external_class<T: ExternalClass>() -> *mut std::ffi::c_void {
+fn get_external_class<T: ExternalClass>() -> *mut ffi::object::lean_external_class {
     let mut registry = get_registry();
     registry.as_mut().unwrap().get_or_register::<T>()
 }
@@ -141,7 +141,7 @@ unsafe extern "C" fn foreach_external<T: ExternalClass>(
 }
 
 /// Create a new external class descriptor for type T
-unsafe fn create_external_class<T: ExternalClass>() -> *mut std::ffi::c_void {
+unsafe fn create_external_class<T: ExternalClass>() -> *mut ffi::object::lean_external_class {
     ffi::object::lean_register_external_class(
         Some(finalize_external::<T>),
         Some(foreach_external::<T>),
