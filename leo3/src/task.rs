@@ -8,6 +8,18 @@
 //! For cross-thread task handling, use [`TaskHandle`] which is `Send + Sync`.
 //! This allows spawning tasks in one thread and retrieving results in another.
 //!
+//! # Waiting Model
+//!
+//! Leo3 exposes Lean's native task primitives directly, but keeps the waiting
+//! behavior layered and consistent:
+//!
+//! - blocking APIs such as [`LeanTask::get`] and [`TaskHandle::get_unbound`] use
+//!   Lean's native blocking task wait
+//! - polling-based coordination (`select`, `race`, timeout checks, and future
+//!   watcher threads) reuse one shared exponential-backoff wait helper
+//! - Tokio integration delegates blocking waits to Tokio's blocking pool rather
+//!   than spawning ad hoc OS threads per bridge call
+//!
 //! # Example
 //!
 //! ```rust,ignore
@@ -44,8 +56,10 @@ use crate::unbound::LeanUnbound;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
+use std::time::{Duration, Instant};
 
 // ============================================================================
 // Task Manager Functions
@@ -113,6 +127,56 @@ impl From<u8> for TaskState {
             _ => TaskState::Finished, // Unknown states treated as finished
         }
     }
+}
+
+const TASK_WAIT_INITIAL_BACKOFF: Duration = Duration::from_millis(1);
+const TASK_WAIT_MAX_BACKOFF: Duration = Duration::from_millis(50);
+
+#[inline]
+pub(crate) fn task_state_from_ptr(task_ptr: *mut ffi::lean_object) -> TaskState {
+    unsafe { ffi::closure::lean_io_get_task_state_core(task_ptr).into() }
+}
+
+fn next_task_wait_backoff(backoff: Duration) -> Duration {
+    backoff
+        .checked_mul(2)
+        .unwrap_or(TASK_WAIT_MAX_BACKOFF)
+        .min(TASK_WAIT_MAX_BACKOFF)
+}
+
+pub(crate) fn wait_with_task_backoff<F, R>(mut step: F) -> R
+where
+    F: FnMut() -> Option<R>,
+{
+    let mut backoff = TASK_WAIT_INITIAL_BACKOFF;
+
+    loop {
+        if let Some(result) = step() {
+            return result;
+        }
+
+        std::thread::sleep(backoff);
+        backoff = next_task_wait_backoff(backoff);
+    }
+}
+
+pub(crate) fn wait_for_task_completion(task_ptr: *mut ffi::lean_object) {
+    wait_with_task_backoff(|| (task_state_from_ptr(task_ptr) == TaskState::Finished).then_some(()))
+}
+
+pub(crate) fn wait_for_task_completion_until(
+    task_ptr: *mut ffi::lean_object,
+    deadline: Instant,
+) -> bool {
+    wait_with_task_backoff(|| {
+        if task_state_from_ptr(task_ptr) == TaskState::Finished {
+            Some(true)
+        } else if Instant::now() >= deadline {
+            Some(false)
+        } else {
+            None
+        }
+    })
 }
 
 // ============================================================================
@@ -269,7 +333,7 @@ impl<'l, T> LeanTask<'l, T> {
     /// # Lean4 Reference
     /// Corresponds to `IO.getTaskState` in Lean4.
     pub fn state(&self) -> TaskState {
-        unsafe { ffi::closure::lean_io_get_task_state_core(self.as_ptr()).into() }
+        task_state_from_ptr(self.as_ptr())
     }
 
     /// Check if this task has finished and its result is available.
@@ -430,7 +494,7 @@ impl<'l, T> LeanTask<'l, T> {
             waker_state: Arc::new(WakerState {
                 task_ptr,
                 waker: Mutex::new(None),
-                thread_spawned: std::sync::atomic::AtomicBool::new(false),
+                thread_spawned: AtomicBool::new(false),
             }),
         }
     }
@@ -507,7 +571,7 @@ struct WakerState {
     /// The waker to notify when the task completes.
     waker: Mutex<Option<Waker>>,
     /// Whether the background watcher thread has been spawned.
-    thread_spawned: std::sync::atomic::AtomicBool,
+    thread_spawned: AtomicBool,
 }
 
 // SAFETY: task_ptr points to an MT-marked Lean object whose refcount keeps it alive.
@@ -539,27 +603,16 @@ impl<'l, T> Future for LeanTaskFuture<'l, T> {
         if !self
             .waker_state
             .thread_spawned
-            .swap(true, std::sync::atomic::Ordering::Relaxed)
+            .swap(true, Ordering::Relaxed)
         {
             let state = Arc::clone(&self.waker_state);
             std::thread::Builder::new()
                 .name("lean-task-waker".into())
                 .spawn(move || {
-                    let mut backoff_us: u64 = 1_000; // start at 1ms
-                    const MAX_BACKOFF_US: u64 = 50_000; // cap at 50ms
+                    wait_for_task_completion(state.task_ptr);
 
-                    loop {
-                        let task_state: u8 =
-                            unsafe { ffi::closure::lean_io_get_task_state_core(state.task_ptr) };
-                        // 0 = waiting, 1 = running, 2 = finished
-                        if task_state == 2 {
-                            if let Some(waker) = state.waker.lock().unwrap().take() {
-                                waker.wake();
-                            }
-                            return;
-                        }
-                        std::thread::sleep(std::time::Duration::from_micros(backoff_us));
-                        backoff_us = (backoff_us * 2).min(MAX_BACKOFF_US);
+                    if let Some(waker) = state.waker.lock().unwrap().take() {
+                        waker.wake();
                     }
                 })
                 .expect("failed to spawn lean-task-waker thread");
@@ -639,7 +692,7 @@ impl<T> TaskHandle<T> {
     /// This can be called without a `Lean` token since it only reads
     /// atomic state from the task object.
     pub fn state(&self) -> TaskState {
-        unsafe { ffi::closure::lean_io_get_task_state_core(self.inner.as_ptr()).into() }
+        task_state_from_ptr(self.inner.as_ptr())
     }
 
     /// Check if this task has finished.

@@ -3,6 +3,19 @@
 //! This module is intentionally kept private. Public API exposure is controlled
 //! from `lib.rs` via feature-gated modules, while the shared runtime bootstrap
 //! remains available to the core crate implementation regardless of feature set.
+//!
+//! The runtime model has three layers:
+//!
+//! - a single long-lived worker thread owns one-time Lean runtime/module
+//!   initialization and serialized environment/meta operations
+//! - Lean's own task manager executes `LeanTask` bodies asynchronously once the
+//!   runtime worker has initialized it
+//! - caller-created threads may interact with MT-marked Lean objects after
+//!   calling `crate::sync::ensure_lean_thread()`
+//!
+//! Waiting follows the same split: worker calls use blocking rendezvous
+//! channels, while task-oriented polling paths share the task backoff helpers
+//! in `crate::task`.
 
 use leo3_ffi as ffi;
 use std::sync::mpsc;
@@ -68,6 +81,9 @@ unsafe impl<T> Send for SendBox<T> {}
 static WORKER: Mutex<Option<mpsc::SyncSender<Box<dyn FnOnce() + Send>>>> = Mutex::new(None);
 
 /// Ensure the long-lived Lean worker thread is spawned and fully initialized.
+///
+/// This worker is the canonical serialized path for runtime bootstrap and for
+/// operations that must not hop across short-lived threads.
 pub(crate) fn ensure_worker_initialized() {
     static WORKER_INIT: Once = Once::new();
 
