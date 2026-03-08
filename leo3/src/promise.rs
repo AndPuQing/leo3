@@ -5,22 +5,25 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use leo3::prelude::*;
 //! use leo3::promise::LeanPromise;
-//! use leo3::task::LeanTask;
+//! use leo3::task::{finalize_task_manager, init_task_manager};
 //!
-//! fn example<'l>(lean: Lean<'l>) -> LeanResult<()> {
-//!     // Create a promise
-//!     let promise = LeanPromise::new(lean)?;
+//! fn main() -> LeanResult<()> {
+//!     leo3::prepare_freethreaded_lean();
+//!     init_task_manager();
 //!
-//!     // Get the associated task (can be awaited)
-//!     let task = promise.task();
+//!     leo3::with_lean(|lean| {
+//!         let promise = LeanPromise::<LeanNat>::new(lean)?;
+//!         let task = promise.task();
+//!         let value = LeanNat::from_usize(lean, 42)?;
+//!         promise.resolve(value)?;
+//!         assert_eq!(LeanNat::to_usize(&task.get_cloned())?, 42);
+//!         Ok::<(), LeanError>(())
+//!     })?;
 //!
-//!     // Later, resolve the promise with a value
-//!     promise.resolve(some_value)?;
-//!
-//!     // The task will now complete with the resolved value
+//!     finalize_task_manager();
 //!     Ok(())
 //! }
 //! ```

@@ -14,12 +14,14 @@ use syn::parse_macro_input;
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// mod doctest {
+///     use leo3_macros::leanfn;
 ///
-/// #[leanfn]
-/// fn add(a: u64, b: u64) -> u64 {
-///     a + b
+///     #[leanfn]
+///     fn add(a: u64, b: u64) -> u64 {
+///         a + b
+///     }
 /// }
 /// ```
 ///
@@ -51,8 +53,8 @@ pub fn leanfn(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// use leo3_macros::IntoLean;
 ///
 /// #[derive(IntoLean)]
 /// struct Point {
@@ -99,8 +101,8 @@ pub fn derive_into_lean(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// use leo3_macros::FromLean;
 ///
 /// #[derive(FromLean)]
 /// struct Point {
@@ -145,26 +147,29 @@ pub fn derive_from_lean(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// mod doctest {
+///     use leo3_macros::leanclass;
 ///
-/// #[leanclass]
-/// struct Counter {
-///     value: i32,
-/// }
-///
-/// #[leanclass]
-/// impl Counter {
-///     fn new() -> Self {
-///         Counter { value: 0 }
+///     #[derive(Clone)]
+///     #[leanclass]
+///     struct Counter {
+///         value: i32,
 ///     }
 ///
-///     fn increment(&mut self) {
-///         self.value += 1;
-///     }
+///     #[leanclass]
+///     impl Counter {
+///         fn new() -> Self {
+///             Counter { value: 0 }
+///         }
 ///
-///     fn get(&self) -> i32 {
-///         self.value
+///         fn increment(&mut self) {
+///             self.value += 1;
+///         }
+///
+///         fn get(&self) -> i32 {
+///             self.value
+///         }
 ///     }
 /// }
 /// ```
@@ -203,14 +208,16 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// mod doctest {
+///     use leo3_macros::{leanfn, leanmodule};
 ///
-/// #[leanmodule(name = "MyRustLib")]
-/// mod my_module {
-///     #[leanfn]
-///     pub fn add(a: u64, b: u64) -> u64 {
-///         a + b
+///     #[leanmodule(name = "MyRustLib")]
+///     mod my_module {
+///         #[leo3_macros::leanfn]
+///         pub fn add(a: u64, b: u64) -> u64 {
+///             a + b
+///         }
 ///     }
 /// }
 /// ```
@@ -281,22 +288,26 @@ pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use leo3::prelude::*;
+/// ```rust,no_run
+/// mod doctest {
+///     use leo3_macros::{lean_instance, leanclass};
 ///
-/// struct Point { x: i32, y: i32 }
+///     #[derive(Clone)]
+///     #[leanclass]
+///     struct Point { x: i32, y: i32 }
 ///
-/// #[lean_instance(BEq)]
-/// impl Point {
-///     fn beq(&self, other: &Self) -> bool {
-///         self.x == other.x && self.y == other.y
+///     #[lean_instance(BEq)]
+///     impl Point {
+///         fn beq(&self, other: &Self) -> bool {
+///             self.x == other.x && self.y == other.y
+///         }
 ///     }
-/// }
 ///
-/// #[lean_instance(Hashable)]
-/// impl Point {
-///     fn hash(&self) -> u64 {
-///         (self.x as u64) ^ (self.y as u64).wrapping_shl(32)
+///     #[lean_instance(Hashable)]
+///     impl Point {
+///         fn hash(&self) -> u64 {
+///             (self.x as u64) ^ (self.y as u64).wrapping_shl(32)
+///         }
 ///     }
 /// }
 /// ```

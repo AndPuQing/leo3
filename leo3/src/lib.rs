@@ -75,7 +75,7 @@
 //!
 //! ## Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use leo3::prelude::*;
 //!
 //! fn main() -> LeanResult<()> {
@@ -92,6 +92,10 @@
 #![warn(missing_docs)]
 
 pub use leo3_ffi as ffi;
+
+#[cfg(doctest)]
+#[doc = include_str!("../../README.md")]
+mod readme_doctests {}
 
 mod runtime;
 
@@ -177,7 +181,7 @@ pub mod prelude {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use leo3::prelude::*;
 ///
 /// fn main() -> LeanResult<()> {
@@ -210,12 +214,18 @@ pub fn prepare_freethreaded_lean() {
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// leo3::with_lean(|lean| {
-///     let s = LeanString::mk(lean, "Hello, Lean!");
-///     println!("{}", s.cstr()?);
-///     Ok(())
-/// })
+/// ```rust,no_run
+/// use leo3::prelude::*;
+///
+/// fn main() -> LeanResult<()> {
+///     leo3::prepare_freethreaded_lean();
+///
+///     leo3::with_lean(|lean| {
+///         let s = LeanString::mk(lean, "Hello, Lean!")?;
+///         println!("{}", LeanString::cstr(&s)?);
+///         Ok(())
+///     })
+/// }
 /// ```
 pub fn with_lean<F, R>(f: F) -> R
 where
@@ -232,14 +242,15 @@ where
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// #[test]
-/// fn my_test() {
+/// ```rust,no_run
+/// use leo3::prelude::*;
+///
+/// fn main() -> LeanResult<()> {
 ///     leo3::test_with_lean(|lean| {
-///         let s = LeanString::mk(lean, "Hello!");
-///         assert!(!s.cstr().unwrap().is_empty());
+///         let s = LeanString::mk(lean, "Hello!")?;
+///         assert!(!LeanString::cstr(&s)?.is_empty());
 ///         Ok(())
-///     }).unwrap();
+///     })
 /// }
 /// ```
 pub fn test_with_lean<F, R>(f: F) -> R

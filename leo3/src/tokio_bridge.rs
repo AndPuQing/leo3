@@ -9,18 +9,19 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
+//! use leo3::instance::LeanAny;
 //! use leo3::task::TaskHandle;
 //! use leo3::tokio_bridge::lean_block_in_place;
+//! use leo3::unbound::LeanUnbound;
 //!
-//! // Convert a TaskHandle into a Tokio-compatible future
-//! let handle: TaskHandle = /* ... */;
-//! let result = handle.into_tokio_future().await;
+//! async fn bridge(handle: TaskHandle<LeanAny>) {
+//!     let result: LeanUnbound<LeanAny> = handle.into_tokio_future().await;
+//!     let _ = result;
 //!
-//! // Run synchronous Lean operations without blocking the Tokio runtime
-//! lean_block_in_place(|| {
-//!     // synchronous Lean work here
-//! });
+//!     let value = lean_block_in_place(|| 2 + 2);
+//!     assert_eq!(value, 4);
+//! }
 //! ```
 
 use crate::closure::LeanClosure;
@@ -37,9 +38,17 @@ impl<'l> LeanTask<'l, LeanAny> {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let join_handle = LeanTask::spawn_on_tokio(closure);
-    /// let result: LeanUnbound<LeanAny> = join_handle.await.unwrap();
+    /// ```rust,no_run
+    /// use leo3::closure::LeanClosure;
+    /// use leo3::instance::LeanAny;
+    /// use leo3::task::LeanTask;
+    /// use leo3::unbound::LeanUnbound;
+    ///
+    /// async fn spawn_on_tokio<'l>(closure: LeanClosure<'l>) {
+    ///     let join_handle = LeanTask::spawn_on_tokio(closure);
+    ///     let result: LeanUnbound<LeanAny> = join_handle.await.unwrap();
+    ///     let _ = result;
+    /// }
     /// ```
     pub fn spawn_on_tokio(
         closure: LeanClosure<'l>,
@@ -58,9 +67,15 @@ impl<T: Send + 'static> TaskHandle<T> {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let handle: TaskHandle<LeanAny> = task.into_handle();
-    /// let result: LeanUnbound<LeanAny> = handle.into_tokio_future().await;
+    /// ```rust,no_run
+    /// use leo3::instance::LeanAny;
+    /// use leo3::task::TaskHandle;
+    /// use leo3::unbound::LeanUnbound;
+    ///
+    /// async fn into_tokio_future(handle: TaskHandle<LeanAny>) {
+    ///     let result: LeanUnbound<LeanAny> = handle.into_tokio_future().await;
+    ///     let _ = result;
+    /// }
     /// ```
     pub async fn into_tokio_future(self) -> LeanUnbound<T> {
         ::tokio::task::spawn_blocking(move || self.get_unbound())
@@ -83,12 +98,13 @@ impl<T: Send + 'static> TaskHandle<T> {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// use leo3::tokio_bridge::lean_block_in_place;
 ///
-/// let result = lean_block_in_place(|| {
-///     handle.get_unbound()
-/// });
+/// fn main() {
+///     let result = lean_block_in_place(|| 2 + 2);
+///     assert_eq!(result, 4);
+/// }
 /// ```
 pub fn lean_block_in_place<F, R>(f: F) -> R
 where

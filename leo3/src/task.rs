@@ -22,25 +22,33 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```rust,no_run
 //! use leo3::prelude::*;
-//! use leo3::task::{LeanTask, TaskHandle, init_task_manager, finalize_task_manager};
+//! use leo3::task::{finalize_task_manager, init_task_manager, LeanTask, TaskHandle};
 //! use std::thread;
 //!
-//! fn example<'l>(lean: Lean<'l>, closure: LeanClosure<'l>) -> LeanResult<()> {
+//! fn main() -> LeanResult<()> {
+//!     leo3::prepare_freethreaded_lean();
+//!
 //!     // Initialize task manager (call once at startup)
 //!     init_task_manager();
 //!
-//!     // Spawn a task and get a thread-safe handle
-//!     let handle = LeanTask::spawn(closure).into_handle();
+//!     let handle: TaskHandle<LeanNat> = leo3::with_lean(|lean| {
+//!         let value = LeanNat::from_usize(lean, 42)?;
+//!         Ok::<TaskHandle<LeanNat>, LeanError>(LeanTask::pure(value).into_handle())
+//!     })?;
 //!
 //!     // Can be sent to another thread
-//!     thread::spawn(move || {
+//!     thread::spawn(move || -> LeanResult<()> {
+//!         leo3::prepare_freethreaded_lean();
 //!         leo3::with_lean(|lean| {
 //!             let result = handle.get(lean);
-//!             // use result...
-//!         });
-//!     });
+//!             assert_eq!(LeanNat::to_usize(&result)?, 42);
+//!             Ok(())
+//!         })
+//!     })
+//!     .join()
+//!     .unwrap()?;
 //!
 //!     // Clean up (call once at shutdown)
 //!     finalize_task_manager();
