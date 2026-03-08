@@ -134,7 +134,7 @@ impl LeanExcept {
     ///
     /// ```rust,ignore
     /// let result = LeanExcept::ok(value)?;
-    /// match LeanExcept::toRustResult(&result) {
+    /// match LeanExcept::toRustResult(&result)? {
     ///     Ok(val) => println!("Success: {:?}", val),
     ///     Err(err) => println!("Error: {:?}", err),
     /// }
@@ -142,11 +142,27 @@ impl LeanExcept {
     #[allow(non_snake_case)]
     pub fn toRustResult<'l>(
         obj: &LeanBound<'l, Self>,
-    ) -> Result<LeanBound<'l, LeanAny>, LeanBound<'l, LeanAny>> {
+    ) -> LeanResult<Result<LeanBound<'l, LeanAny>, LeanBound<'l, LeanAny>>> {
+        if unsafe { ffi::inline::lean_is_scalar(obj.as_ptr()) } {
+            return Err(crate::err::LeanError::conversion(
+                "Except value must be a constructor, not a scalar",
+            ));
+        }
+
+        if unsafe { ffi::inline::lean_ctor_num_objs(obj.as_ptr()) } == 0 {
+            return Err(crate::err::LeanError::conversion(
+                "Except constructor payload is missing",
+            ));
+        }
+
         if Self::isError(obj) {
-            Err(Self::get_error(obj).expect("error value must exist"))
+            Self::get_error(obj)
+                .map(Err)
+                .ok_or_else(|| crate::err::LeanError::conversion("Except.error payload must exist"))
         } else {
-            Ok(Self::get_ok(obj).expect("ok value must exist"))
+            Self::get_ok(obj)
+                .map(Ok)
+                .ok_or_else(|| crate::err::LeanError::conversion("Except.ok payload must exist"))
         }
     }
 }

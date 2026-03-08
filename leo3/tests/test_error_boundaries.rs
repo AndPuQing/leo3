@@ -474,6 +474,24 @@ fn test_lean_error_display_variants() {
     let conv = LeanError::conversion("bad nat");
     assert_eq!(format!("{}", conv), "conversion error: bad nat");
 
+    let module_load = LeanError::module_load("/tmp/libFoo.so", "No such file or directory");
+    assert_eq!(
+        format!("{}", module_load),
+        "failed to load Lean module library `/tmp/libFoo.so`: No such file or directory"
+    );
+
+    let symbol = LeanError::symbol_lookup("initialize_Foo", "undefined symbol");
+    assert_eq!(
+        format!("{}", symbol),
+        "failed to resolve Lean symbol `initialize_Foo`: undefined symbol"
+    );
+
+    let module_init = LeanError::module_initialization("Foo", "user error: bad world");
+    assert_eq!(
+        format!("{}", module_init),
+        "failed to initialize Lean module `Foo`: user error: bad world"
+    );
+
     let null = LeanError::null_pointer("lean_expr_mk_sort");
     assert_eq!(
         format!("{}", null),
@@ -485,6 +503,12 @@ fn test_lean_error_display_variants() {
 
     let inv = LeanError::invalid_kind("expression", 99);
     assert_eq!(format!("{}", inv), "invalid expression tag: 99");
+
+    let arity = LeanError::arity_mismatch("Foo.bar", 2, 1);
+    assert_eq!(
+        format!("{}", arity),
+        "function `Foo.bar` expects 2 argument(s), but 1 provided"
+    );
 
     let kern = LeanError::kernel_exception(KernelExceptionCode::ExprTypeMismatch);
     assert_eq!(
@@ -767,9 +791,13 @@ fn test_kernel_exception_hints() {
 fn test_error_pattern_matching() {
     let errors: Vec<LeanError> = vec![
         LeanError::conversion("bad"),
+        LeanError::module_load("/tmp/libFoo.so", "missing"),
+        LeanError::symbol_lookup("initialize_Foo", "missing"),
+        LeanError::module_initialization("Foo", "boom"),
         LeanError::null_pointer("test_op"),
         LeanError::out_of_bounds(0, 0),
         LeanError::invalid_kind("level", 77),
+        LeanError::arity_mismatch("Foo.bar", 2, 1),
         LeanError::kernel_exception(KernelExceptionCode::AlreadyDeclared),
         LeanError::exception(false, "msg"),
         LeanError::other("misc"),
@@ -792,9 +820,13 @@ fn test_error_pattern_matching() {
         matched,
         vec![
             "conversion",
+            "other",
+            "other",
+            "other",
             "null_pointer",
             "out_of_bounds",
             "invalid_kind",
+            "other",
             "kernel_exception",
             "exception",
             "other"

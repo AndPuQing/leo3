@@ -1,6 +1,7 @@
 //! Error types for Leo3.
 
 use std::fmt;
+use std::path::Path;
 
 /// Result type for Leo3 operations.
 pub type LeanResult<T> = Result<T, LeanError>;
@@ -150,6 +151,33 @@ impl LeanError {
         LeanError::Conversion(msg.to_string())
     }
 
+    /// Create a dynamic library loading error.
+    pub fn module_load(path: impl AsRef<Path>, msg: impl Into<String>) -> Self {
+        LeanError::Other(format!(
+            "failed to load Lean module library `{}`: {}",
+            path.as_ref().display(),
+            msg.into()
+        ))
+    }
+
+    /// Create an exported symbol lookup error.
+    pub fn symbol_lookup(symbol: impl Into<String>, msg: impl Into<String>) -> Self {
+        LeanError::Other(format!(
+            "failed to resolve Lean symbol `{}`: {}",
+            symbol.into(),
+            msg.into()
+        ))
+    }
+
+    /// Create a Lean module initialization error.
+    pub fn module_initialization(module: impl Into<String>, msg: impl Into<String>) -> Self {
+        LeanError::Other(format!(
+            "failed to initialize Lean module `{}`: {}",
+            module.into(),
+            msg.into()
+        ))
+    }
+
     /// Create a null pointer error.
     pub fn null_pointer(operation: &'static str) -> Self {
         LeanError::NullPointer { operation }
@@ -163,6 +191,16 @@ impl LeanError {
     /// Create an invalid kind error.
     pub fn invalid_kind(kind: &'static str, tag: u8) -> Self {
         LeanError::InvalidKind { kind, tag }
+    }
+
+    /// Create an arity mismatch error.
+    pub fn arity_mismatch(function: impl Into<String>, expected: usize, provided: usize) -> Self {
+        LeanError::Other(format!(
+            "function `{}` expects {} argument(s), but {} provided",
+            function.into(),
+            expected,
+            provided
+        ))
     }
 
     /// Create a kernel exception error.

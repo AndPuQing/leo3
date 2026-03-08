@@ -74,6 +74,12 @@ fn sum_large_vec(numbers: Vec<u64>) -> u64 {
     numbers.iter().sum()
 }
 
+// Test function with a conversion path that can fail gracefully.
+#[leanfn]
+fn unwrap_result_or_zero(value: Result<u64, String>) -> u64 {
+    value.unwrap_or(0)
+}
+
 #[test]
 #[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_leanfn_double() {
@@ -370,6 +376,31 @@ fn test_leanfn_large_vec() {
             assert_eq!(LeanUInt64::to_u64(&result), expected);
         }
 
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_try_wrapper_reports_conversion_errors() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        let invalid = unsafe { leo3::ffi::inline::lean_box(0) };
+
+        let err =
+            unsafe { __leo3_leanfn_unwrap_result_or_zero::__ffi_try_wrapper(invalid).unwrap_err() };
+
+        match err {
+            LeanError::Conversion(message) => {
+                assert!(message.contains("Failed to convert `value` from Lean to Rust"));
+                assert!(message.contains("Except value must be a constructor"));
+            }
+            other => panic!("expected conversion error, got: {:?}", other),
+        }
+
+        let _ = lean;
         Ok(())
     })
     .unwrap();

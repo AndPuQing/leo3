@@ -8,7 +8,7 @@ fn main() {
     // In `LEO3_NO_LEAN` mode, skip exporting version cfgs so downstream crates
     // do not compile Lean-version-specific paths that this crate is not enabling.
     if std::env::var("LEO3_NO_LEAN").is_err() {
-        if let Ok(config) = leo3_build_config::get_lean_config() {
+        if let Ok(config) = leo3_build_config::resolve_lean_config() {
             println!("cargo:LEO3_CONFIG={}", config.to_cargo_dep_env());
         }
     }

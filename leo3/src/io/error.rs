@@ -80,10 +80,13 @@ impl IOError {
     ///
     /// Creates a new Lean object
     #[allow(dead_code)]
-    pub(crate) unsafe fn to_lean_io_error<'l>(&self, lean: Lean<'l>) -> *mut ffi::lean_object {
+    pub(crate) unsafe fn to_lean_io_error<'l>(
+        &self,
+        lean: Lean<'l>,
+    ) -> crate::err::LeanResult<*mut ffi::lean_object> {
         let msg = self.to_string();
-        let lean_str = LeanString::mk(lean, &msg).expect("Failed to create lean string");
-        ffi::lean_mk_io_user_error(lean_str.into_ptr())
+        let lean_str = LeanString::mk(lean, &msg)?;
+        Ok(ffi::lean_mk_io_user_error(lean_str.into_ptr()))
     }
 }
 

@@ -259,3 +259,35 @@ pub struct LeanFunctionMetadata {
     /// Name of the function in Lean
     pub name: &'static str,
 }
+
+/// Shared helpers used by generated macro code.
+#[doc(hidden)]
+pub mod __private {
+    use std::any::Any;
+
+    use crate::{ffi, types::LeanString, Lean};
+
+    /// Convert a caught Rust panic payload into a readable message.
+    pub fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
+        if let Some(message) = payload.downcast_ref::<&'static str>() {
+            format!("Rust panic in FFI: {}", message)
+        } else if let Some(message) = payload.downcast_ref::<String>() {
+            format!("Rust panic in FFI: {}", message)
+        } else {
+            "Rust panic in FFI".to_string()
+        }
+    }
+
+    /// Build a Lean panic object with a best-effort message payload.
+    pub unsafe fn lean_panic_message<'l>(
+        lean: Lean<'l>,
+        message: &str,
+    ) -> ffi::object::lean_obj_res {
+        let msg = match LeanString::mk(lean, message) {
+            Ok(value) => value.into_ptr(),
+            Err(_) => ffi::inline::lean_box(0),
+        };
+
+        ffi::object::lean_panic_fn(ffi::inline::lean_box(0), msg)
+    }
+}
