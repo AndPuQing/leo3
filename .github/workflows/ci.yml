@@ -133,6 +133,12 @@ jobs:
         run: LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
       - name: Compile all tests without Lean
         run: LEO3_NO_LEAN=1 cargo check --locked --workspace --tests --all-features
+      - name: Compile core leo3 doctests without Lean
+        run: RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --no-default-features
+      - name: Compile feature-gated leo3 doctests without Lean
+        run: RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --features "macros,task,tokio"
+      - name: Compile leo3-macros doctests without Lean
+        run: RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3-macros --doc
 
   smoke-minimal-surface:
     uses: ./.github/workflows/test.yml

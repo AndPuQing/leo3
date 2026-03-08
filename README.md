@@ -17,15 +17,15 @@ Requires Lean 4.25.2 (install via [elan](https://github.com/leanprover/elan)).
 leo3 = "0.2.1"
 ```
 
-```rust
+```rust,no_run
 use leo3::prelude::*;
 
 fn main() -> LeanResult<()> {
     leo3::prepare_freethreaded_lean();
 
     leo3::with_lean(|lean| {
-        let s = LeanString::new(lean, "Hello from Rust!")?;
-        println!("{}", LeanString::to_str(&s)?);
+        let s = LeanString::mk(lean, "Hello from Rust!")?;
+        println!("{}", LeanString::cstr(&s)?);
 
         let n = LeanNat::from_usize(lean, 42)?;
         println!("{}", LeanNat::to_usize(&n)?);
@@ -101,16 +101,26 @@ Bidirectional conversions between Rust and Lean types via `IntoLean` / `FromLean
 
 `#[leanfn]` — Export Rust functions to Lean:
 
-```rust
+```rust,no_run
+# #[cfg(feature = "macros")]
+# mod leanfn_doctest {
+use leo3::prelude::*;
+
 #[leanfn]
 fn add(a: u64, b: u64) -> u64 {
     a + b
 }
+# }
 ```
 
 `#[leanclass]` — Expose Rust structs as Lean external classes with auto-generated FFI wrappers and Lean source declarations:
 
-```rust
+```rust,no_run
+# #[cfg(feature = "macros")]
+# mod leanclass_doctest {
+use leo3::prelude::*;
+
+#[derive(Clone)]
 #[leanclass]
 struct Counter { value: i64 }
 
@@ -120,6 +130,7 @@ impl Counter {
     fn get(&self) -> i64 { self.value }
     fn increment(&mut self) { self.value += 1; }
 }
+# }
 ```
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
@@ -144,7 +155,7 @@ Full access to Lean's kernel and elaborator:
 
 ## Architecture
 
-```
+```text
 leo3/
 ├── leo3/                   # Safe high-level abstractions
 ├── leo3-ffi/               # Raw FFI bindings to Lean4's C API

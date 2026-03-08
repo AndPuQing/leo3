@@ -24,14 +24,18 @@ impl LeanNat {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use leo3::prelude::*;
     ///
-    /// leo3::with_lean(|lean| {
-    ///     let n = LeanNat::from_usize(lean, 42)?;
-    ///     assert_eq!(LeanNat::to_usize(&n)?, 42);
-    ///     Ok(())
-    /// })
+    /// fn main() -> LeanResult<()> {
+    ///     leo3::prepare_freethreaded_lean();
+    ///
+    ///     leo3::with_lean(|lean| {
+    ///         let n = LeanNat::from_usize(lean, 42)?;
+    ///         assert_eq!(LeanNat::to_usize(&n)?, 42);
+    ///         Ok(())
+    ///     })
+    /// }
     /// ```
     pub fn from_usize<'l>(lean: Lean<'l>, n: usize) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
@@ -46,9 +50,18 @@ impl LeanNat {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let n = LeanNat::from_usize(lean, 100)?;
-    /// assert_eq!(LeanNat::to_usize(&n)?, 100);
+    /// ```rust,no_run
+    /// use leo3::prelude::*;
+    ///
+    /// fn main() -> LeanResult<()> {
+    ///     leo3::prepare_freethreaded_lean();
+    ///
+    ///     leo3::with_lean(|lean| {
+    ///         let n = LeanNat::from_usize(lean, 100)?;
+    ///         assert_eq!(LeanNat::to_usize(&n)?, 100);
+    ///         Ok(())
+    ///     })
+    /// }
     /// ```
     pub fn to_usize<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<usize> {
         unsafe {

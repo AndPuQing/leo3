@@ -22,14 +22,18 @@ impl LeanString {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```rust,no_run
     /// use leo3::prelude::*;
     ///
-    /// leo3::with_lean(|lean| {
-    ///     let s = LeanString::mk(lean, "Hello, Lean!")?;
-    ///     println!("{}", LeanString::cstr(&s)?);
-    ///     Ok(())
-    /// })
+    /// fn main() -> LeanResult<()> {
+    ///     leo3::prepare_freethreaded_lean();
+    ///
+    ///     leo3::with_lean(|lean| {
+    ///         let s = LeanString::mk(lean, "Hello, Lean!")?;
+    ///         println!("{}", LeanString::cstr(&s)?);
+    ///         Ok(())
+    ///     })
+    /// }
     /// ```
     pub fn mk<'l>(lean: Lean<'l>, s: &str) -> LeanResult<LeanBound<'l, Self>> {
         let c_str = std::ffi::CString::new(s)
@@ -59,9 +63,18 @@ impl LeanString {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
-    /// let s = LeanString::mk(lean, "Hello")?;
-    /// assert_eq!(LeanString::cstr(&s)?, "Hello");
+    /// ```rust,no_run
+    /// use leo3::prelude::*;
+    ///
+    /// fn main() -> LeanResult<()> {
+    ///     leo3::prepare_freethreaded_lean();
+    ///
+    ///     leo3::with_lean(|lean| {
+    ///         let s = LeanString::mk(lean, "Hello")?;
+    ///         assert_eq!(LeanString::cstr(&s)?, "Hello");
+    ///         Ok(())
+    ///     })
+    /// }
     /// ```
     pub fn cstr<'l>(obj: &LeanBound<'l, Self>) -> LeanResult<&'l str> {
         unsafe {

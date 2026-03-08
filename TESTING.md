@@ -30,6 +30,9 @@ cargo fmt --all --check
 cargo clippy --all-targets --all-features --workspace -- -D warnings
 LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
 LEO3_NO_LEAN=1 cargo check --locked --workspace --tests --all-features
+RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --no-default-features
+RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --features "macros,task,tokio"
+RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3-macros --doc
 cargo test --locked -p leo3 --no-default-features --test test_features
 cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
@@ -99,10 +102,19 @@ Build scripts use the same precedence rules in CI and locally:
 
 Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depend on a Lean installation.
 
+## Documentation Examples
+
+- `leo3/src/lib.rs` includes `README.md` under `#[cfg(doctest)]`, so `cargo test --doc -p leo3 ...` validates the public quick-start examples too.
+- Run the two `leo3` doctest commands in Smoke to cover both the minimal runtime surface and the `macros` / `task` / `tokio` paths.
+- Run `cargo test --doc -p leo3-macros` to compile-check the proc-macro examples against a real downstream crate context.
+- Leave examples as `ignore` only when they require values or Lean-side setup that a standalone doctest cannot construct cleanly (for example: opaque runtime-created handles, downstream Lean modules, or long API tours).
+
 ## Test Coverage Map
 
 - `leo3/tests/test_features.rs`: feature-surface smoke tests.
 - `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage.
+- `leo3` doctests: runtime initialization, README quick start, string/nat conversion, and task/tokio docs.
+- `leo3-macros` doctests: compile-check macro usage snippets such as `#[leanfn]`, `#[leanclass]`, and derives.
 - `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
