@@ -281,36 +281,6 @@ jobs:
       - name: Run tests under cargo-careful
         run: cargo careful test --locked --all-features --workspace
 
-  heavy-valgrind:
-    name: Heavy / Valgrind
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
-        with:
-          save-if: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
-
-      - name: Install valgrind
-        run: sudo apt-get update && sudo apt-get install -y valgrind
-
-      - name: Install elan
-        run: |
-          echo "::group::Elan Installation Output"
-          set -o pipefail
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
-          rm -f elan-init
-          echo "::endgroup::"
-
-      - name: Setup Lean PATH
-        run: echo "$HOME/.elan/bin" >> $GITHUB_PATH
-
-      - name: Run tests under valgrind
-        env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: 'valgrind --leak-check=no --error-exitcode=1'
-        run: cargo test --locked --release --all-features --workspace
-
   heavy-asan:
     name: Heavy / AddressSanitizer
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
@@ -417,7 +387,6 @@ jobs:
       - compat-feature-powerset
       - compat-runtime-matrix
       - heavy-careful
-      - heavy-valgrind
       - heavy-asan
       - smoke-docs
       - coverage

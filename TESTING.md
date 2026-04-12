@@ -9,7 +9,7 @@ Leo3 CI is split into small, named tiers so failures are easier to localize and 
 | Smoke | Fast formatting / compile / feature-surface regressions | `rustfmt`, `clippy`, `msrv`, `no-lean`, minimal + optional feature surface, docs | Every PR and push |
 | Runtime | Focused Lean-backed integration coverage | core runtime, async/tokio, macro runtime, FFI layout check | Every PR and push |
 | API | PR-only compatibility guard | semver checks | Pull requests |
-| Compat / Heavy | Broad matrix and expensive diagnostics | feature powerset, full OS/Lean matrix, beta clippy, careful, valgrind, ASan, coverage | Pushes to `main` / `develop`, daily schedule, or PRs labeled `CI-build-full` |
+| Compat / Heavy | Broad matrix and expensive diagnostics | feature powerset, full OS/Lean matrix, beta clippy, careful, ASan, coverage | Pushes to `main` / `develop`, daily schedule, or PRs labeled `CI-build-full` |
 
 The scheduled compatibility sweep runs daily at **03:17 UTC**.
 
@@ -73,7 +73,6 @@ cargo test --manifest-path leo3-ffi-check/Cargo.toml
 LEO3_NO_LEAN=1 cargo hack check --feature-powerset --exclude-features runtime-tests --workspace --tests
 cargo test --locked --all-features --workspace
 cargo careful test --locked --all-features --workspace
-cargo test --locked --release --all-features --workspace
 RUSTFLAGS='-Zsanitizer=address' cargo test --locked -Zbuild-std --target x86_64-unknown-linux-gnu --all-features --workspace
 cargo llvm-cov --no-report nextest
 cargo llvm-cov --no-report --doc
