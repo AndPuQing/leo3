@@ -35,6 +35,12 @@ const fn ctor_scalar_offset(num_obj_fields: u32, scalar_offset: u32) -> u32 {
     num_obj_fields * std::mem::size_of::<*mut ffi::lean_object>() as u32 + scalar_offset
 }
 
+#[inline(always)]
+unsafe fn empty_rbmap_like() -> *mut ffi::lean_object {
+    // Lean's RBMap/RBTree empty values erase to the nullary `leaf` constructor.
+    ffi::lean_box(0)
+}
+
 /// Core.Context - context for CoreM monad
 ///
 /// Lean < 4.25: 13 object fields + 2 scalar bytes (constructor tag 0)
@@ -181,9 +187,8 @@ impl CoreContext {
                 ffi::lean_inc(filemap);
                 return Ok(LeanBound::from_owned_ptr(lean, filemap));
             }
-            // Manual construction: FileMap { source: "", positions: #[0], endPos: 0 }
-            // Layout: ctor tag 0, 3 object fields, 0 scalar bytes
-            let fm = ffi::lean_alloc_ctor(0, 3, 0);
+            // Lean 4.20 FileMap stores only `source` and `positions`.
+            let fm = ffi::lean_alloc_ctor(0, 2, 0);
             // field 0: source (String) — empty string
             let empty_str = ffi::string::lean_mk_string_from_bytes(b"".as_ptr() as *const _, 0);
             ffi::lean_ctor_set(fm, 0, empty_str);
@@ -191,8 +196,6 @@ impl CoreContext {
             let arr = ffi::array::lean_mk_empty_array();
             let arr = ffi::array::lean_array_push(arr, ffi::lean_box(0));
             ffi::lean_ctor_set(fm, 1, arr);
-            // field 2: endPos (String.Pos = Nat) — 0
-            ffi::lean_ctor_set(fm, 2, ffi::lean_box(0));
             Ok(LeanBound::from_owned_ptr(lean, fm))
         }
     }
@@ -429,12 +432,12 @@ impl CoreState {
                 ffi::lean_inc(trace_state);
                 return Ok(LeanBound::from_owned_ptr(lean, trace_state));
             }
-            // Manual construction: TraceState { traces: PersistentArray.empty }
-            // Layout: ctor tag 0, 1 object field, 0 scalar bytes
-            let ts = ffi::lean_alloc_ctor(0, 1, 0);
+            // Lean 4.20 TraceState = { tid : UInt64 := 0, traces := #[] }.
+            let ts = ffi::lean_alloc_ctor(0, 1, 8);
             let pa_empty = ffi::meta::get_PersistentArrayEmpty();
             ffi::lean_inc(pa_empty);
             ffi::lean_ctor_set(ts, 0, pa_empty);
+            ffi::lean_ctor_set_uint64(ts, ctor_scalar_offset(1, 0), 0);
             Ok(LeanBound::from_owned_ptr(lean, ts))
         }
     }
@@ -443,9 +446,6 @@ impl CoreState {
     ///
     /// Uses the `Inhabited Core.Cache` instance from the Lean runtime.
     /// Falls back to manual construction if the symbol is not available (Windows).
-    ///
-    /// Core.Cache has 5 fields, all `Std.HashMap`. An empty `Std.HashMap` is
-    /// `{ size: 0, buckets: Array(8, AssocList.nil) }` where `AssocList.nil = lean_box(0)`.
     ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
@@ -456,29 +456,15 @@ impl CoreState {
                 ffi::lean_inc(cache);
                 return Ok(LeanBound::from_owned_ptr(lean, cache));
             }
-            // Manual construction: Core.Cache { 5 × empty Std.HashMap }
-            // Layout: ctor tag 0, 5 object fields, 0 scalar bytes
-            let c = ffi::lean_alloc_ctor(0, 5, 0);
-            for i in 0..5u32 {
-                let hm = Self::mk_empty_std_hashmap();
-                ffi::lean_ctor_set(c, i, hm);
+            // Lean 4.20 Core.Cache has two PersistentHashMap fields.
+            let c = ffi::lean_alloc_ctor(0, 2, 0);
+            let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
+            for i in 0..2u32 {
+                ffi::lean_inc(phm_empty);
+                ffi::lean_ctor_set(c, i, phm_empty);
             }
             Ok(LeanBound::from_owned_ptr(lean, c))
         }
-    }
-
-    /// Create an empty `Std.HashMap`.
-    ///
-    /// Layout: ctor tag 0, 2 object fields, 0 scalar bytes
-    /// - field 0: size (Nat) = 0
-    /// - field 1: buckets (Array AssocList) = Array of 8 `AssocList.nil` (lean_box(0))
-    unsafe fn mk_empty_std_hashmap() -> *mut ffi::lean_object {
-        let hm = ffi::lean_alloc_ctor(0, 2, 0);
-        ffi::lean_ctor_set(hm, 0, ffi::lean_box(0)); // size = 0
-                                                     // buckets: Array of 8 AssocList.nil (lean_box(0) is a scalar, no refcount needed)
-        let buckets = ffi::array::lean_mk_array(ffi::lean_box(8), ffi::lean_box(0));
-        ffi::lean_ctor_set(hm, 1, buckets);
-        hm
     }
 
     /// Create an empty MessageLog
@@ -495,13 +481,14 @@ impl CoreState {
                 ffi::lean_inc(msg_log);
                 return Ok(LeanBound::from_owned_ptr(lean, msg_log));
             }
-            // Manual construction: MessageLog { msgs: PersistentArray.empty, hasErrors: false }
-            // Layout: ctor tag 0, 1 object field, 1 scalar byte
-            let ml = ffi::lean_alloc_ctor(0, 1, 1);
+            // Lean 4.20 MessageLog = { reported, unreported, loggedKinds }.
+            let ml = ffi::lean_alloc_ctor(0, 3, 0);
             let pa_empty = ffi::meta::get_PersistentArrayEmpty();
             ffi::lean_inc(pa_empty);
             ffi::lean_ctor_set(ml, 0, pa_empty);
-            ffi::inline::lean_ctor_set_uint8(ml, ctor_scalar_offset(1, 0), 0); // hasErrors = false
+            ffi::lean_inc(pa_empty);
+            ffi::lean_ctor_set(ml, 1, pa_empty);
+            ffi::lean_ctor_set(ml, 2, empty_rbmap_like());
             Ok(LeanBound::from_owned_ptr(lean, ml))
         }
     }
@@ -520,17 +507,17 @@ impl CoreState {
                 ffi::lean_inc(info_state);
                 return Ok(LeanBound::from_owned_ptr(lean, info_state));
             }
-            // Manual construction: Elab.InfoState
-            // { trees: PersistentHashMap.empty, persisted: PersistentArray.empty, enabled: false }
-            // Layout: ctor tag 0, 2 object fields, 1 scalar byte
-            let is = ffi::lean_alloc_ctor(0, 2, 1);
+            // Lean 4.20 InfoState = { enabled := true, assignment, lazyAssignment, trees }.
+            let is = ffi::lean_alloc_ctor(0, 3, 1);
             let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
             ffi::lean_inc(phm_empty);
             ffi::lean_ctor_set(is, 0, phm_empty);
+            ffi::lean_inc(phm_empty);
+            ffi::lean_ctor_set(is, 1, phm_empty);
             let pa_empty = ffi::meta::get_PersistentArrayEmpty();
             ffi::lean_inc(pa_empty);
-            ffi::lean_ctor_set(is, 1, pa_empty);
-            ffi::inline::lean_ctor_set_uint8(is, ctor_scalar_offset(2, 0), 0); // enabled = false
+            ffi::lean_ctor_set(is, 2, pa_empty);
+            ffi::inline::lean_ctor_set_uint8(is, ctor_scalar_offset(3, 0), 1); // enabled = true
             Ok(LeanBound::from_owned_ptr(lean, is))
         }
     }
@@ -829,10 +816,6 @@ impl MetaContext {
     /// Uses the `Inhabited LocalContext` instance from the Lean runtime.
     /// Falls back to manual construction if the symbol is not available (Windows).
     ///
-    /// LocalContext: ctor tag 0, 2 object fields, 0 scalar bytes
-    /// - field 0: fvarIdToDecl (PersistentHashMap) = PersistentHashMap.empty
-    /// - field 1: decls (PersistentArray) = PersistentArray.empty
-    ///
     /// Requires: `ensure_meta_initialized()` must have been called.
     #[cfg(not(lean_4_25))]
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
@@ -851,14 +834,7 @@ impl MetaContext {
     /// Manually construct an empty LocalContext.
     #[cfg(not(lean_4_25))]
     unsafe fn mk_empty_local_context_manual() -> *mut ffi::lean_object {
-        let lctx = ffi::lean_alloc_ctor(0, 2, 0);
-        let phm = ffi::meta::get_PersistentHashMapEmpty();
-        ffi::lean_inc(phm);
-        ffi::lean_ctor_set(lctx, 0, phm);
-        let pa = ffi::meta::get_PersistentArrayEmpty();
-        ffi::lean_inc(pa);
-        ffi::lean_ctor_set(lctx, 1, pa);
-        lctx
+        ffi::meta::lean_mk_empty_local_ctx(ffi::lean_box(0))
     }
 }
 
@@ -917,10 +893,10 @@ impl MetaState {
     ///
     /// Meta.State: 5 object fields, 0 scalar bytes (constructor tag 0)
     /// 0. mctx: MetavarContext
-    /// 1. cache: Meta.Cache (5 × PersistentHashMap.empty)
+    /// 1. cache: Meta.Cache
     /// 2. zetaDeltaFVarIds: FVarIdSet (empty HashSet)
     /// 3. postponed: PersistentArray PostponedEntry (PersistentArray.empty)
-    /// 4. diag: Meta.Diagnostics { counters: PersistentHashMap.empty }
+    /// 4. diag: Meta.Diagnostics
     fn mk_meta_state_manual<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         unsafe {
             let state = ffi::lean_alloc_ctor(0, 5, 0);
@@ -929,7 +905,7 @@ impl MetaState {
             let mctx = Self::mk_empty_metavar_context()?;
             ffi::lean_ctor_set(state, 0, mctx);
 
-            // field 1: cache (Meta.Cache) — 5 × PersistentHashMap.empty
+            // field 1: cache (Meta.Cache)
             let meta_cache = Self::mk_empty_meta_cache()?;
             ffi::lean_ctor_set(state, 1, meta_cache);
 
@@ -942,7 +918,7 @@ impl MetaState {
             ffi::lean_inc(pa_empty);
             ffi::lean_ctor_set(state, 3, pa_empty);
 
-            // field 4: diag (Meta.Diagnostics) — { counters: PersistentHashMap.empty }
+            // field 4: diag (Meta.Diagnostics)
             let diag = Self::mk_empty_diagnostics()?;
             ffi::lean_ctor_set(state, 4, diag);
 
@@ -952,20 +928,19 @@ impl MetaState {
 
     /// Create an empty MetavarContext.
     ///
-    /// MetavarContext: 7 object fields, 0 scalar bytes (constructor tag 0)
-    /// { depth: 0, lAssignment/eAssignment/dAssignment/userNames/lDepth/decls: 6 × PersistentHashMap.empty }
+    /// Lean 4.20 MetavarContext stores three Nat counters followed by six PersistentHashMaps.
     unsafe fn mk_empty_metavar_context() -> LeanResult<*mut ffi::lean_object> {
         let mctx_bss = ffi::meta::get_instInhabitedMetavarContext();
         if !mctx_bss.is_null() {
             ffi::lean_inc(mctx_bss);
             return Ok(mctx_bss);
         }
-        let mctx = ffi::lean_alloc_ctor(0, 7, 0);
-        // field 0: depth (Nat) = 0
+        let mctx = ffi::lean_alloc_ctor(0, 9, 0);
         ffi::lean_ctor_set(mctx, 0, ffi::lean_box(0));
-        // fields 1-6: 6 × PersistentHashMap.empty
+        ffi::lean_ctor_set(mctx, 1, ffi::lean_box(0)); // levelAssignDepth
+        ffi::lean_ctor_set(mctx, 2, ffi::lean_box(0)); // mvarCounter
         let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
-        for i in 1..7u32 {
+        for i in 3..9u32 {
             ffi::lean_inc(phm_empty);
             ffi::lean_ctor_set(mctx, i, phm_empty);
         }
@@ -974,17 +949,16 @@ impl MetaState {
 
     /// Create an empty Meta.Cache.
     ///
-    /// Meta.Cache: 5 object fields, 0 scalar bytes (constructor tag 0)
-    /// All 5 fields are PersistentHashMap.empty.
+    /// Lean 4.20 Meta.Cache has six PersistentHashMap fields.
     unsafe fn mk_empty_meta_cache() -> LeanResult<*mut ffi::lean_object> {
         let cache_bss = ffi::meta::get_instInhabitedCache();
         if !cache_bss.is_null() {
             ffi::lean_inc(cache_bss);
             return Ok(cache_bss);
         }
-        let cache = ffi::lean_alloc_ctor(0, 5, 0);
+        let cache = ffi::lean_alloc_ctor(0, 6, 0);
         let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
-        for i in 0..5u32 {
+        for i in 0..6u32 {
             ffi::lean_inc(phm_empty);
             ffi::lean_ctor_set(cache, i, phm_empty);
         }
@@ -993,18 +967,19 @@ impl MetaState {
 
     /// Create an empty Meta.Diagnostics.
     ///
-    /// Meta.Diagnostics: 1 object field, 0 scalar bytes (constructor tag 0)
-    /// { counters: PersistentHashMap.empty }
+    /// Lean 4.20 Meta.Diagnostics has four PersistentHashMap fields.
     unsafe fn mk_empty_diagnostics() -> LeanResult<*mut ffi::lean_object> {
         let diag_bss = ffi::meta::get_instInhabitedDiagnostics();
         if !diag_bss.is_null() {
             ffi::lean_inc(diag_bss);
             return Ok(diag_bss);
         }
-        let diag = ffi::lean_alloc_ctor(0, 1, 0);
+        let diag = ffi::lean_alloc_ctor(0, 4, 0);
         let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
-        ffi::lean_inc(phm_empty);
-        ffi::lean_ctor_set(diag, 0, phm_empty);
+        for i in 0..4u32 {
+            ffi::lean_inc(phm_empty);
+            ffi::lean_ctor_set(diag, i, phm_empty);
+        }
         Ok(diag)
     }
 }
