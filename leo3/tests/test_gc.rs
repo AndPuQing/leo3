@@ -5,6 +5,8 @@
 //!
 //! Inspired by PyO3's test_gc.rs
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
 

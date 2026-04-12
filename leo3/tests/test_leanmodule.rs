@@ -2,7 +2,7 @@
 //!
 //! This macro generates module initialization functions for Lean4.
 
-#![cfg(feature = "macros")]
+#![cfg(all(feature = "macros", feature = "runtime-tests"))]
 
 use leo3::prelude::*;
 

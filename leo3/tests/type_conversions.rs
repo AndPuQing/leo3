@@ -7,6 +7,8 @@
 //! - Nat type (arbitrary precision natural number)
 //! - Int type (arbitrary precision integer)
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 // =============================================================================

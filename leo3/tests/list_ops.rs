@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanList functionality including creation,
 //! traversal, and list operations.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

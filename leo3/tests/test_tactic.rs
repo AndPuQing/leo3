@@ -10,7 +10,7 @@
 //! - Tactic failure (wrong type, unsolvable goal)
 //! - Tactic composition (chain multiple tactics)
 
-#![cfg(feature = "meta")]
+#![cfg(all(feature = "meta", feature = "runtime-tests"))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

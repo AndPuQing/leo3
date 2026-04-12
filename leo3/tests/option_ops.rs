@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanOption functionality including creation,
 //! checking, and value extraction.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

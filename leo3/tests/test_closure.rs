@@ -18,6 +18,7 @@ fn test_closure_type_size() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_is_closure_check() {
     leo3::prepare_freethreaded_lean();
 
@@ -33,6 +34,7 @@ fn test_closure_is_closure_check() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_try_from_any_fails_for_non_closure() {
     leo3::prepare_freethreaded_lean();
 
@@ -84,6 +86,7 @@ unsafe extern "C" fn add_nat(
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_from_fn1() {
     leo3::prepare_freethreaded_lean();
 
@@ -103,6 +106,7 @@ fn test_closure_from_fn1() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_from_fn2() {
     leo3::prepare_freethreaded_lean();
 
@@ -122,6 +126,7 @@ fn test_closure_from_fn2() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_from_raw_fn() {
     leo3::prepare_freethreaded_lean();
 
@@ -141,6 +146,7 @@ fn test_closure_from_raw_fn() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_from_raw_fn_validation() {
     leo3::prepare_freethreaded_lean();
 
@@ -166,6 +172,7 @@ fn test_closure_from_raw_fn_validation() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_apply_identity() {
     leo3::prepare_freethreaded_lean();
 
@@ -188,6 +195,7 @@ fn test_closure_apply_identity() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_apply_inc() {
     leo3::prepare_freethreaded_lean();
 
@@ -210,6 +218,7 @@ fn test_closure_apply_inc() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_apply_add() {
     leo3::prepare_freethreaded_lean();
 
@@ -235,6 +244,7 @@ fn test_closure_apply_add() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_with_captured_validation() {
     leo3::prepare_freethreaded_lean();
 
@@ -267,6 +277,7 @@ fn test_closure_with_captured_validation() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_is_closure_for_real_closure() {
     leo3::prepare_freethreaded_lean();
 
@@ -282,6 +293,7 @@ fn test_closure_is_closure_for_real_closure() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_closure_try_from_any_success() {
     leo3::prepare_freethreaded_lean();
 

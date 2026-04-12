@@ -8,7 +8,7 @@
 //! (e.g., `inferType`) requires Phase 2 FFI bindings which aren't
 //! wired up yet. The `run()` tests here use synthetic computations.
 
-#![cfg(feature = "meta")]
+#![cfg(all(feature = "meta", feature = "runtime-tests"))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

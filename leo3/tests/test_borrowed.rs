@@ -3,9 +3,11 @@
 //! LeanBorrowed provides zero-copy borrowed references to Lean objects
 //! without reference counting overhead.
 
+#[cfg(feature = "runtime-tests")]
 use leo3::prelude::*;
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_borrowed_from_bound() {
     leo3::prepare_freethreaded_lean();
 
@@ -32,6 +34,7 @@ fn test_borrowed_from_bound() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_borrowed_is_copy() {
     leo3::prepare_freethreaded_lean();
 
@@ -54,6 +57,7 @@ fn test_borrowed_is_copy() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_borrowed_string() {
     leo3::prepare_freethreaded_lean();
 
@@ -73,6 +77,7 @@ fn test_borrowed_string() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_borrowed_lean_token() {
     leo3::prepare_freethreaded_lean();
 
@@ -92,6 +97,7 @@ fn test_borrowed_lean_token() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_borrowed_multiple_borrows() {
     leo3::prepare_freethreaded_lean();
 

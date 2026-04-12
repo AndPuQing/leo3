@@ -1,6 +1,7 @@
 //! Tests for new type conversions: signed integers, floats, Option, Result
 
 #![allow(clippy::approx_constant)]
+#![cfg(feature = "runtime-tests")]
 
 use leo3::conversion::{FromLean, IntoLean};
 use leo3::err::LeanResult;

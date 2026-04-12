@@ -19,10 +19,14 @@
 //! ```
 
 use leo3::prelude::*;
-use leo3::sync::{ensure_lean_thread, LeanMutexExt, LeanOnceCell, LeanProtected, LeanRwLockExt};
+use leo3::sync::LeanOnceCell;
+#[cfg(feature = "runtime-tests")]
+use leo3::sync::{LeanMutexExt, LeanProtected, LeanRwLockExt};
 use leo3::unbound::LeanUnbound;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Barrier, Mutex, RwLock};
+use std::sync::{Arc, Barrier};
+#[cfg(feature = "runtime-tests")]
+use std::sync::{Mutex, RwLock};
 use std::thread;
 
 // ============================================================================
@@ -48,6 +52,7 @@ fn test_lean_unbound_is_sync() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_unbound_send_to_thread() {
     leo3::prepare_freethreaded_lean();
 
@@ -71,6 +76,7 @@ fn test_lean_unbound_send_to_thread() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_unbound_shared_across_threads() {
     leo3::prepare_freethreaded_lean();
 
@@ -101,6 +107,7 @@ fn test_lean_unbound_shared_across_threads() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_unbound_clone_ref_across_threads() {
     leo3::prepare_freethreaded_lean();
 
@@ -193,6 +200,7 @@ fn test_lean_once_cell_concurrent_init() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_once_cell_with_lean_object() {
     leo3::prepare_freethreaded_lean();
 
@@ -230,6 +238,7 @@ fn test_lean_once_cell_with_lean_object() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_protected_basic() {
     let protected = LeanProtected::new(42);
 
@@ -240,6 +249,7 @@ fn test_lean_protected_basic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_protected_concurrent_access() {
     leo3::prepare_freethreaded_lean();
 
@@ -293,6 +303,7 @@ fn test_lean_protected_concurrent_access() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_mutex_ext_lock_lean() {
     let mutex = Mutex::new(42);
 
@@ -305,6 +316,7 @@ fn test_mutex_ext_lock_lean() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_rwlock_ext_read_write_lean() {
     let rwlock = Arc::new(RwLock::new(42));
 
@@ -341,17 +353,19 @@ fn test_rwlock_ext_read_write_lean() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_ensure_lean_thread() {
     // This should not panic even when called multiple times
-    ensure_lean_thread();
-    ensure_lean_thread();
-    ensure_lean_thread();
+    leo3::sync::ensure_lean_thread();
+    leo3::sync::ensure_lean_thread();
+    leo3::sync::ensure_lean_thread();
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_ensure_lean_thread_from_spawned_thread() {
     let handle = thread::spawn(|| {
-        ensure_lean_thread();
+        leo3::sync::ensure_lean_thread();
         // Should be able to use Lean after initialization
         leo3::with_lean(|lean| {
             let n = LeanNat::from_usize(lean, 42).unwrap();
@@ -368,6 +382,7 @@ fn test_ensure_lean_thread_from_spawned_thread() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_heavy_concurrent_lean_unbound_usage() {
     leo3::prepare_freethreaded_lean();
 
@@ -409,6 +424,7 @@ fn test_heavy_concurrent_lean_unbound_usage() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_arc_lean_unbound_stress() {
     leo3::prepare_freethreaded_lean();
 
@@ -465,6 +481,7 @@ fn test_arc_lean_unbound_stress() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_bound_unbind_mt() {
     leo3::prepare_freethreaded_lean();
 
@@ -483,6 +500,7 @@ fn test_lean_bound_unbind_mt() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_ref_into_unbound() {
     leo3::prepare_freethreaded_lean();
 
@@ -501,6 +519,7 @@ fn test_lean_ref_into_unbound() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_unbound_into_bound_consumes() {
     leo3::prepare_freethreaded_lean();
 
@@ -517,6 +536,7 @@ fn test_lean_unbound_into_bound_consumes() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_lean_unbound_cast() {
     leo3::prepare_freethreaded_lean();
 

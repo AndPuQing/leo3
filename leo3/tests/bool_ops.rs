@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanBool functionality including creation,
 //! conversion, and logical operations.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

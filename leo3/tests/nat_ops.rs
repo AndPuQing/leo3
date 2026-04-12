@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanNat functionality including arithmetic operations,
 //! comparisons, and conversions.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

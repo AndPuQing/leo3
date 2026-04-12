@@ -1,5 +1,7 @@
 //! Tests for Lean integer operations
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

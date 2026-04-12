@@ -14,10 +14,11 @@
 //! cargo test --features runtime-tests
 //! ```
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]
-#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_runtime_initialization() {
     // Initialize the Lean runtime
     leo3::prepare_freethreaded_lean();

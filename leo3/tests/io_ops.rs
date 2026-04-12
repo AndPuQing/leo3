@@ -2,7 +2,7 @@
 //!
 //! These tests verify the Phase 1 IO functionality from the Leo3 roadmap.
 
-#![cfg(feature = "io")]
+#![cfg(all(feature = "io", feature = "runtime-tests"))]
 
 use leo3::io::{env, fs};
 use leo3::prelude::*;

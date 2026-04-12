@@ -1,4 +1,5 @@
 #![allow(clippy::approx_constant)]
+#![cfg(feature = "runtime-tests")]
 
 use leo3::prelude::*;
 

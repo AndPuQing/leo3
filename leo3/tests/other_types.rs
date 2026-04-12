@@ -1,5 +1,7 @@
 //! Tests for Float, ByteArray, and UInt types
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 // ============================================================================

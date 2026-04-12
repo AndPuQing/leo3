@@ -61,6 +61,7 @@ fn test_int64_constants() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_comparisons() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let a = LeanUInt8::mk(lean, 42)?;
@@ -84,6 +85,7 @@ fn test_uint8_comparisons() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_comparisons() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let a = LeanInt8::mk(lean, -42)?;
@@ -107,6 +109,7 @@ fn test_int8_comparisons() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_to_char() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // All UInt8 values are valid Unicode scalars
@@ -127,6 +130,7 @@ fn test_uint8_to_char() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint32_to_char() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Valid Unicode scalar
@@ -151,6 +155,7 @@ fn test_uint32_to_char() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_to_char() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Positive values
@@ -170,6 +175,7 @@ fn test_int8_to_char() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int32_abs() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let val = LeanInt32::mk(lean, -42)?;
@@ -191,6 +197,7 @@ fn test_int32_abs() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint16_comparisons() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let a = LeanUInt16::mk(lean, 1000)?;
@@ -212,6 +219,7 @@ fn test_uint16_comparisons() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int64_comparisons() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let a = LeanInt64::mk(lean, -9000000000)?;
@@ -233,6 +241,7 @@ fn test_int64_comparisons() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int_toInt_ofInt() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test Int8
@@ -259,6 +268,7 @@ fn test_int_toInt_ofInt() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int_toNat_ofNat() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test positive values
@@ -283,6 +293,7 @@ fn test_int_toNat_ofNat() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_toFloat() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test unsigned
@@ -309,6 +320,7 @@ fn test_toFloat() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_log2() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test UInt8
@@ -344,6 +356,7 @@ fn test_log2() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_arithmetic_basic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Addition
@@ -382,6 +395,7 @@ fn test_uint8_arithmetic_basic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_arithmetic_overflow() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Addition overflow (wrapping)
@@ -408,6 +422,7 @@ fn test_uint8_arithmetic_overflow() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_division_by_zero() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Division by zero returns 0
@@ -428,6 +443,7 @@ fn test_uint8_division_by_zero() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_negation() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Negation (two's complement)
@@ -449,6 +465,7 @@ fn test_uint8_negation() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_arithmetic_basic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Addition
@@ -493,6 +510,7 @@ fn test_int8_arithmetic_basic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_arithmetic_overflow() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Addition overflow (wrapping)
@@ -519,6 +537,7 @@ fn test_int8_arithmetic_overflow() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_negation() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Negation
@@ -541,6 +560,7 @@ fn test_int8_negation() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint32_arithmetic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Basic operations
@@ -565,6 +585,7 @@ fn test_uint32_arithmetic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int32_arithmetic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Basic operations with negative numbers
@@ -590,6 +611,7 @@ fn test_int32_arithmetic() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_bitwise_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // AND operation
@@ -622,6 +644,7 @@ fn test_uint8_bitwise_operations() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint8_shift_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Left shift
@@ -654,6 +677,7 @@ fn test_uint8_shift_operations() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_bitwise_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // AND operation
@@ -686,6 +710,7 @@ fn test_int8_bitwise_operations() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int8_shift_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Left shift on positive number
@@ -712,6 +737,7 @@ fn test_int8_shift_operations() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint32_bitwise_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test with larger values
@@ -733,6 +759,7 @@ fn test_uint32_bitwise_operations() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int32_bitwise_operations() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Test with negative numbers
@@ -759,6 +786,7 @@ fn test_int32_bitwise_operations() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint_size_conversions() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // UInt8 -> UInt16
@@ -800,6 +828,7 @@ fn test_uint_size_conversions() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int_size_conversions() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Int8 -> Int16
@@ -834,6 +863,7 @@ fn test_int_size_conversions() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_mixed_sign_conversions() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Unsigned to signed via toInt
@@ -865,6 +895,7 @@ fn test_mixed_sign_conversions() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint64_arithmetic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Large number operations
@@ -895,6 +926,7 @@ fn test_uint64_arithmetic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_int64_arithmetic() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         // Large negative number operations
@@ -925,6 +957,7 @@ fn test_int64_arithmetic() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_uint64_bitwise() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let a = LeanUInt64::mk(lean, 0xFFFFFFFF00000000)?;

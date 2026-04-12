@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanProd functionality including creation,
 //! field access, and pair manipulation.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

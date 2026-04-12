@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanArray functionality including creation,
 //! element access, manipulation, and conversions.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

@@ -1,6 +1,8 @@
 //! Comprehensive tests for Lean integer operations
 //! Tests lean_int_sub and other operations with edge cases
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

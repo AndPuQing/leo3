@@ -2,7 +2,7 @@
 //!
 //! This macro generates FFI functions that implement Lean type classes for Rust types.
 
-#![cfg(feature = "macros")]
+#![cfg(all(feature = "macros", feature = "runtime-tests"))]
 
 use leo3::external::LeanExternal;
 use leo3::prelude::*;

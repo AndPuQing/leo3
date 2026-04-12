@@ -2,6 +2,8 @@
 //!
 //! These macros automatically select the most efficient conversion method.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

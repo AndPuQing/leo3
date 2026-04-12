@@ -26,6 +26,7 @@ fn test_thunk_marker_type() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_thunk_is_thunk_check() {
     leo3::prepare_freethreaded_lean();
 
@@ -41,6 +42,7 @@ fn test_thunk_is_thunk_check() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_thunk_try_from_any_fails_for_non_thunk() {
     leo3::prepare_freethreaded_lean();
 

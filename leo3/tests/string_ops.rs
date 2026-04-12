@@ -3,6 +3,8 @@
 //! These tests demonstrate LeanString functionality including creation,
 //! manipulation, and comparison operations.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::prelude::*;
 
 #[test]

@@ -3,7 +3,7 @@
 //! Tests that Lean exceptions are properly caught, converted to Rust errors,
 //! and that the runtime remains usable after errors.
 
-#![cfg(feature = "meta")]
+#![cfg(all(feature = "meta", feature = "runtime-tests"))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

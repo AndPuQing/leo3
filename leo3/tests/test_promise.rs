@@ -29,6 +29,7 @@ fn test_promise_marker_type() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_promise_is_promise_check() {
     leo3::prepare_freethreaded_lean();
 
@@ -44,6 +45,7 @@ fn test_promise_is_promise_check() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_promise_try_from_any_fails_for_non_promise() {
     leo3::prepare_freethreaded_lean();
 
@@ -98,6 +100,7 @@ mod api_tests {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_promise_create_and_resolve() {
     leo3::prepare_freethreaded_lean();
 
@@ -129,6 +132,7 @@ fn test_promise_create_and_resolve() {
 }
 
 #[test]
+#[cfg(feature = "runtime-tests")]
 fn test_promise_task_multiple_refs() {
     leo3::prepare_freethreaded_lean();
 

@@ -3,6 +3,8 @@
 //! These tests verify that data can be correctly converted between
 //! Rust and Lean types.
 
+#![cfg(feature = "runtime-tests")]
+
 use leo3::instance::LeanAny;
 use leo3::prelude::*;
 use leo3::types::LeanExcept;
@@ -43,7 +45,6 @@ fn test_nat_from_usize() {
 }
 
 #[test]
-#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
 fn test_except_to_rust_result_rejects_scalar_values() {
     leo3::prepare_freethreaded_lean();
 
