@@ -259,13 +259,23 @@ mod win_bss {
     use std::sync::Mutex;
 
     // Windows API types and functions
+    type HANDLE = *mut std::ffi::c_void;
     type HMODULE = *mut std::ffi::c_void;
     type FARPROC = *mut std::ffi::c_void;
     type LPCSTR = *const i8;
+    type DWORD = u32;
+    type BOOL = i32;
 
     extern "system" {
+        fn GetCurrentProcess() -> HANDLE;
         fn GetModuleHandleA(lpModuleName: LPCSTR) -> HMODULE;
         fn GetProcAddress(hModule: HMODULE, lpProcName: LPCSTR) -> FARPROC;
+        fn K32EnumProcessModules(
+            hProcess: HANDLE,
+            lphModule: *mut HMODULE,
+            cb: DWORD,
+            lpcbNeeded: *mut DWORD,
+        ) -> BOOL;
     }
 
     /// DLL names to search for BSS globals. Lean splits its library across multiple DLLs.
@@ -281,6 +291,44 @@ mod win_bss {
     ];
 
     static CACHE: Mutex<Option<HashMap<&'static str, usize>>> = Mutex::new(None);
+
+    unsafe fn resolve_exported_global(
+        cache: &mut HashMap<&'static str, usize>,
+        sym_name: &'static str,
+        c_name: &CString,
+        handle: HMODULE,
+    ) -> Option<*mut lean_object> {
+        let addr = GetProcAddress(handle, c_name.as_ptr());
+        if addr.is_null() {
+            return None;
+        }
+
+        // addr points to the global variable itself (lean_object**).
+        // Dereference to get the lean_object* value.
+        let global_ptr = addr as *const *mut lean_object;
+        let value = *global_ptr;
+        cache.insert(sym_name, value as usize);
+        Some(value)
+    }
+
+    unsafe fn enum_process_modules() -> Vec<HMODULE> {
+        let process = GetCurrentProcess();
+        let mut needed = 0;
+        let ok = K32EnumProcessModules(process, std::ptr::null_mut(), 0, &mut needed);
+        if ok == 0 || needed == 0 {
+            return Vec::new();
+        }
+
+        let module_count = needed as usize / std::mem::size_of::<HMODULE>();
+        let mut modules = vec![std::ptr::null_mut(); module_count];
+        let ok = K32EnumProcessModules(process, modules.as_mut_ptr(), needed, &mut needed);
+        if ok == 0 {
+            return Vec::new();
+        }
+
+        modules.truncate(needed as usize / std::mem::size_of::<HMODULE>());
+        modules
+    }
 
     /// Look up a BSS global variable by symbol name across all loaded Lean DLLs.
     ///
@@ -313,13 +361,18 @@ mod win_bss {
             if handle.is_null() {
                 continue;
             }
-            let addr = GetProcAddress(handle, c_name.as_ptr());
-            if !addr.is_null() {
-                // addr points to the global variable itself (lean_object**).
-                // Dereference to get the lean_object* value.
-                let global_ptr = addr as *const *mut lean_object;
-                let value = *global_ptr;
-                cache.insert(sym_name, value as usize);
+            if let Some(value) = resolve_exported_global(cache, sym_name, &c_name, handle) {
+                return value;
+            }
+        }
+
+        // Older Lean Windows packages do not always use the same DLL names.
+        // Fall back to scanning all currently loaded modules before giving up.
+        for handle in enum_process_modules() {
+            if handle.is_null() {
+                continue;
+            }
+            if let Some(value) = resolve_exported_global(cache, sym_name, &c_name, handle) {
                 return value;
             }
         }
