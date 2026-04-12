@@ -430,6 +430,11 @@ bss_accessor!(/// Get the default `Syntax` (`Syntax.missing`).
 bss_accessor!(/// Get the default `FileMap`.
     pub fn get_instInhabitedFileMap() -> l_Lean_instInhabitedFileMap);
 
+#[inline]
+fn force_manual_meta_defaults() -> bool {
+    std::env::var_os("LEO3_FORCE_MANUAL_META_DEFAULTS").is_some()
+}
+
 /// Get the default `Options` / `KVMap` (empty), dispatching to the correct
 /// symbol for the Lean version.
 ///
@@ -437,6 +442,9 @@ bss_accessor!(/// Get the default `FileMap`.
 /// In Lean >= 4.28 it was renamed to `l_Lean_Options_instInhabited`.
 #[inline]
 pub unsafe fn lean_inhabited_options() -> *mut lean_object {
+    if force_manual_meta_defaults() {
+        return std::ptr::null_mut();
+    }
     #[cfg(not(target_os = "windows"))]
     {
         #[cfg(not(lean_4_28))]
@@ -466,6 +474,14 @@ pub unsafe fn lean_inhabited_options() -> *mut lean_object {
 /// `PersistentHashMap` is a single-field structure wrapping `Node`, so the compiler
 /// represents it as just the `Node`. Layout: `Node.entries (mkArray 32 Entry.null)`.
 pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
+    if force_manual_meta_defaults() {
+        // Entry.null = lean_box(2) (tag 2, 0 fields → scalar)
+        let entries = crate::array::lean_mk_array(lean_box(32), lean_box(2));
+        let phm = crate::lean_alloc_ctor(0, 1, 0);
+        lean_ctor_set(phm, 0, entries);
+        crate::object::lean_mark_persistent(phm);
+        return phm;
+    }
     #[cfg(not(target_os = "windows"))]
     {
         l_Lean_PersistentHashMap_empty
@@ -501,6 +517,19 @@ pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
 /// Layout: `PersistentArray.mk (Node.node #[]) #[] 0 initShift 0`
 /// Fields: root (Node), tail (Array), size (Nat), tailOff (Nat) + shift (USize scalar)
 pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
+    if force_manual_meta_defaults() {
+        let root_node = crate::lean_alloc_ctor(0, 1, 0);
+        lean_ctor_set(root_node, 0, crate::array::lean_mk_empty_array());
+        let scalar_sz = std::mem::size_of::<usize>() as u32;
+        let pa = crate::lean_alloc_ctor(0, 4, scalar_sz);
+        lean_ctor_set(pa, 0, root_node);
+        lean_ctor_set(pa, 1, crate::array::lean_mk_empty_array());
+        lean_ctor_set(pa, 2, lean_box(0));
+        lean_ctor_set(pa, 3, lean_box(0));
+        crate::inline::lean_ctor_set_usize(pa, 4, 5);
+        crate::object::lean_mark_persistent(pa);
+        return pa;
+    }
     #[cfg(not(target_os = "windows"))]
     {
         l_Lean_PersistentArray_empty
@@ -542,6 +571,9 @@ pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
 /// KVMap.empty is a zero-field enum (tag 0).
 #[inline]
 pub unsafe fn get_KVMapEmpty() -> *mut lean_object {
+    if force_manual_meta_defaults() {
+        return lean_box(0);
+    }
     #[cfg(not(target_os = "windows"))]
     {
         l_Lean_KVMap_empty

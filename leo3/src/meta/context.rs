@@ -35,6 +35,11 @@ const fn ctor_scalar_offset(num_obj_fields: u32, scalar_offset: u32) -> u32 {
     num_obj_fields * std::mem::size_of::<*mut ffi::lean_object>() as u32 + scalar_offset
 }
 
+#[inline]
+fn force_manual_meta_defaults() -> bool {
+    std::env::var_os("LEO3_FORCE_MANUAL_META_DEFAULTS").is_some()
+}
+
 #[inline(always)]
 unsafe fn empty_rbmap_like() -> *mut ffi::lean_object {
     // Lean's RBMap/RBTree empty values erase to the nullary `leaf` constructor.
@@ -151,8 +156,8 @@ impl CoreContext {
             #[cfg(not(lean_4_25))]
             let field_offset = 10;
 
-            // currMacroScope (MacroScope = Nat) - use 0
-            ffi::lean_ctor_set(ctx, field_offset, ffi::lean_box(0));
+            // currMacroScope (MacroScope = Nat) - Lean's first frontend scope is 1.
+            ffi::lean_ctor_set(ctx, field_offset, ffi::lean_box(1));
 
             // cancelTk? (Option IO.CancelToken) - use none
             let cancel_token = LeanOption::none(lean)?;
@@ -182,10 +187,12 @@ impl CoreContext {
     fn mk_empty_filemap<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let filemap = ffi::meta::get_instInhabitedFileMap();
-            if !filemap.is_null() {
-                ffi::lean_inc(filemap);
-                return Ok(LeanBound::from_owned_ptr(lean, filemap));
+            if !force_manual_meta_defaults() {
+                let filemap = ffi::meta::get_instInhabitedFileMap();
+                if !filemap.is_null() {
+                    ffi::lean_inc(filemap);
+                    return Ok(LeanBound::from_owned_ptr(lean, filemap));
+                }
             }
             // Lean 4.20 FileMap stores only `source` and `positions`.
             let fm = ffi::lean_alloc_ctor(0, 2, 0);
@@ -209,10 +216,12 @@ impl CoreContext {
     fn mk_empty_options<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let options = ffi::meta::lean_inhabited_options();
-            if !options.is_null() {
-                ffi::lean_inc(options);
-                return Ok(LeanBound::from_owned_ptr(lean, options));
+            if !force_manual_meta_defaults() {
+                let options = ffi::meta::lean_inhabited_options();
+                if !options.is_null() {
+                    ffi::lean_inc(options);
+                    return Ok(LeanBound::from_owned_ptr(lean, options));
+                }
             }
             // Fallback: KVMap.empty (always exported on Windows)
             let kvmap = ffi::meta::get_KVMapEmpty();
@@ -235,10 +244,12 @@ impl CoreContext {
     fn mk_syntax_missing<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let syntax = ffi::meta::get_instInhabitedSyntax();
-            if !syntax.is_null() {
-                ffi::lean_inc(syntax);
-                return Ok(LeanBound::from_owned_ptr(lean, syntax));
+            if !force_manual_meta_defaults() {
+                let syntax = ffi::meta::get_instInhabitedSyntax();
+                if !syntax.is_null() {
+                    ffi::lean_inc(syntax);
+                    return Ok(LeanBound::from_owned_ptr(lean, syntax));
+                }
             }
             // Syntax.missing is constructor tag 0 with 0 fields → lean_box(0)
             Ok(LeanBound::from_owned_ptr(lean, ffi::lean_box(0)))
@@ -373,10 +384,12 @@ impl CoreState {
     fn mk_name_generator<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let ngen = ffi::meta::get_instInhabitedNameGenerator();
-            if !ngen.is_null() {
-                ffi::lean_inc(ngen);
-                return Ok(LeanBound::from_owned_ptr(lean, ngen));
+            if !force_manual_meta_defaults() {
+                let ngen = ffi::meta::get_instInhabitedNameGenerator();
+                if !ngen.is_null() {
+                    ffi::lean_inc(ngen);
+                    return Ok(LeanBound::from_owned_ptr(lean, ngen));
+                }
             }
             // Manual construction: NameGenerator { namePrefix: `_uniq, idx: 1 }
             // Layout: ctor tag 0, 2 object fields, 0 scalar bytes
@@ -427,10 +440,12 @@ impl CoreState {
     fn mk_empty_trace_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let trace_state = ffi::meta::get_instInhabitedTraceState();
-            if !trace_state.is_null() {
-                ffi::lean_inc(trace_state);
-                return Ok(LeanBound::from_owned_ptr(lean, trace_state));
+            if !force_manual_meta_defaults() {
+                let trace_state = ffi::meta::get_instInhabitedTraceState();
+                if !trace_state.is_null() {
+                    ffi::lean_inc(trace_state);
+                    return Ok(LeanBound::from_owned_ptr(lean, trace_state));
+                }
             }
             // Lean 4.20 TraceState = { tid : UInt64 := 0, traces := #[] }.
             let ts = ffi::lean_alloc_ctor(0, 1, 8);
@@ -451,10 +466,12 @@ impl CoreState {
     fn mk_empty_cache<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let cache = ffi::meta::get_CoreInstInhabitedCache();
-            if !cache.is_null() {
-                ffi::lean_inc(cache);
-                return Ok(LeanBound::from_owned_ptr(lean, cache));
+            if !force_manual_meta_defaults() {
+                let cache = ffi::meta::get_CoreInstInhabitedCache();
+                if !cache.is_null() {
+                    ffi::lean_inc(cache);
+                    return Ok(LeanBound::from_owned_ptr(lean, cache));
+                }
             }
             // Lean 4.20 Core.Cache has two PersistentHashMap fields.
             let c = ffi::lean_alloc_ctor(0, 2, 0);
@@ -476,10 +493,12 @@ impl CoreState {
     fn mk_empty_message_log<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let msg_log = ffi::meta::get_instInhabitedMessageLog();
-            if !msg_log.is_null() {
-                ffi::lean_inc(msg_log);
-                return Ok(LeanBound::from_owned_ptr(lean, msg_log));
+            if !force_manual_meta_defaults() {
+                let msg_log = ffi::meta::get_instInhabitedMessageLog();
+                if !msg_log.is_null() {
+                    ffi::lean_inc(msg_log);
+                    return Ok(LeanBound::from_owned_ptr(lean, msg_log));
+                }
             }
             // Lean 4.20 MessageLog = { reported, unreported, loggedKinds }.
             let ml = ffi::lean_alloc_ctor(0, 3, 0);
@@ -502,10 +521,12 @@ impl CoreState {
     fn mk_empty_info_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let info_state = ffi::meta::get_ElabInstInhabitedInfoState();
-            if !info_state.is_null() {
-                ffi::lean_inc(info_state);
-                return Ok(LeanBound::from_owned_ptr(lean, info_state));
+            if !force_manual_meta_defaults() {
+                let info_state = ffi::meta::get_ElabInstInhabitedInfoState();
+                if !info_state.is_null() {
+                    ffi::lean_inc(info_state);
+                    return Ok(LeanBound::from_owned_ptr(lean, info_state));
+                }
             }
             // Lean 4.20 InfoState = { enabled := true, assignment, lazyAssignment, trees }.
             let is = ffi::lean_alloc_ctor(0, 3, 1);
@@ -577,10 +598,12 @@ impl MetaContext {
         {
             crate::runtime::ensure_meta_initialized();
             unsafe {
-                let ctx = ffi::meta::get_instInhabitedContext();
-                if !ctx.is_null() {
-                    ffi::lean_inc(ctx);
-                    return Ok(LeanBound::from_owned_ptr(lean, ctx));
+                if !force_manual_meta_defaults() {
+                    let ctx = ffi::meta::get_instInhabitedContext();
+                    if !ctx.is_null() {
+                        ffi::lean_inc(ctx);
+                        return Ok(LeanBound::from_owned_ptr(lean, ctx));
+                    }
                 }
             }
             // Fallback: manually construct Meta.Context for >= 4.25
@@ -820,10 +843,12 @@ impl MetaContext {
     fn mk_empty_local_context<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let lctx = ffi::meta::get_instInhabitedLocalContext();
-            if !lctx.is_null() {
-                ffi::lean_inc(lctx);
-                return Ok(LeanBound::from_owned_ptr(lean, lctx));
+            if !force_manual_meta_defaults() {
+                let lctx = ffi::meta::get_instInhabitedLocalContext();
+                if !lctx.is_null() {
+                    ffi::lean_inc(lctx);
+                    return Ok(LeanBound::from_owned_ptr(lean, lctx));
+                }
             }
             let obj = Self::mk_empty_local_context_manual();
             Ok(LeanBound::from_owned_ptr(lean, obj))
@@ -878,10 +903,12 @@ impl MetaState {
     pub fn mk_meta_state<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self>> {
         crate::runtime::ensure_meta_initialized();
         unsafe {
-            let state = ffi::meta::get_instInhabitedState();
-            if !state.is_null() {
-                ffi::lean_inc(state);
-                return Ok(LeanBound::from_owned_ptr(lean, state));
+            if !force_manual_meta_defaults() {
+                let state = ffi::meta::get_instInhabitedState();
+                if !state.is_null() {
+                    ffi::lean_inc(state);
+                    return Ok(LeanBound::from_owned_ptr(lean, state));
+                }
             }
         }
         // Fallback: manually construct Meta.State
@@ -929,10 +956,12 @@ impl MetaState {
     ///
     /// Lean 4.20 MetavarContext stores three Nat counters followed by six PersistentHashMaps.
     unsafe fn mk_empty_metavar_context() -> LeanResult<*mut ffi::lean_object> {
-        let mctx_bss = ffi::meta::get_instInhabitedMetavarContext();
-        if !mctx_bss.is_null() {
-            ffi::lean_inc(mctx_bss);
-            return Ok(mctx_bss);
+        if !force_manual_meta_defaults() {
+            let mctx_bss = ffi::meta::get_instInhabitedMetavarContext();
+            if !mctx_bss.is_null() {
+                ffi::lean_inc(mctx_bss);
+                return Ok(mctx_bss);
+            }
         }
         let mctx = ffi::lean_alloc_ctor(0, 9, 0);
         ffi::lean_ctor_set(mctx, 0, ffi::lean_box(0));
@@ -950,10 +979,12 @@ impl MetaState {
     ///
     /// Lean 4.20 Meta.Cache has six PersistentHashMap fields.
     unsafe fn mk_empty_meta_cache() -> LeanResult<*mut ffi::lean_object> {
-        let cache_bss = ffi::meta::get_instInhabitedCache();
-        if !cache_bss.is_null() {
-            ffi::lean_inc(cache_bss);
-            return Ok(cache_bss);
+        if !force_manual_meta_defaults() {
+            let cache_bss = ffi::meta::get_instInhabitedCache();
+            if !cache_bss.is_null() {
+                ffi::lean_inc(cache_bss);
+                return Ok(cache_bss);
+            }
         }
         let cache = ffi::lean_alloc_ctor(0, 6, 0);
         let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
@@ -968,10 +999,12 @@ impl MetaState {
     ///
     /// Lean 4.20 Meta.Diagnostics has four PersistentHashMap fields.
     unsafe fn mk_empty_diagnostics() -> LeanResult<*mut ffi::lean_object> {
-        let diag_bss = ffi::meta::get_instInhabitedDiagnostics();
-        if !diag_bss.is_null() {
-            ffi::lean_inc(diag_bss);
-            return Ok(diag_bss);
+        if !force_manual_meta_defaults() {
+            let diag_bss = ffi::meta::get_instInhabitedDiagnostics();
+            if !diag_bss.is_null() {
+                ffi::lean_inc(diag_bss);
+                return Ok(diag_bss);
+            }
         }
         let diag = ffi::lean_alloc_ctor(0, 4, 0);
         let phm_empty = ffi::meta::get_PersistentHashMapEmpty();
