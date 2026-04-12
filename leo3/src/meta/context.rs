@@ -801,12 +801,11 @@ impl MetaContext {
 
     /// Create an empty FVarIdSet (`Std.HashSet FVarId`).
     ///
-    /// Uses `lean_hashset_empty` with default capacity, matching
-    /// the pattern used for other HashSet fields (e.g., `inheritedTraceOptions`).
+    /// In Lean 4.20 this is an `RBTree`, so the empty value erases to `leaf`.
     #[cfg(not(lean_4_25))]
     fn mk_empty_fvar_id_set<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanExpr>> {
         unsafe {
-            let fvar_set = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
+            let fvar_set = empty_rbmap_like();
             Ok(LeanBound::from_owned_ptr(lean, fvar_set))
         }
     }
@@ -909,8 +908,8 @@ impl MetaState {
             let meta_cache = Self::mk_empty_meta_cache()?;
             ffi::lean_ctor_set(state, 1, meta_cache);
 
-            // field 2: zetaDeltaFVarIds (FVarIdSet) — empty HashSet
-            let fvar_set = ffi::hashset::lean_hashset_empty(ffi::lean_box(8));
+            // field 2: zetaDeltaFVarIds (FVarIdSet) — empty RBTree
+            let fvar_set = empty_rbmap_like();
             ffi::lean_ctor_set(state, 2, fvar_set);
 
             // field 3: postponed (PersistentArray PostponedEntry) — empty
