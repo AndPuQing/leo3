@@ -421,6 +421,10 @@ pub unsafe fn get_PersistentHashMapEmpty() -> *mut lean_object {
     {
         use std::sync::OnceLock;
         static CACHED: OnceLock<usize> = OnceLock::new();
+        let exported = win_bss::lookup_bss_global("l_Lean_PersistentHashMap_empty");
+        if !exported.is_null() {
+            return exported;
+        }
         let ptr = *CACHED.get_or_init(|| {
             // Entry.null = lean_box(2) (tag 2, 0 fields → scalar)
             let entries = crate::array::lean_mk_array(lean_box(32), lean_box(2));
@@ -452,6 +456,10 @@ pub unsafe fn get_PersistentArrayEmpty() -> *mut lean_object {
     {
         use std::sync::OnceLock;
         static CACHED: OnceLock<usize> = OnceLock::new();
+        let exported = win_bss::lookup_bss_global("l_Lean_PersistentArray_empty");
+        if !exported.is_null() {
+            return exported;
+        }
         let ptr = *CACHED.get_or_init(|| {
             // PersistentArrayNode.node: ctor tag 0, 1 obj field (children: Array)
             let root_node = crate::lean_alloc_ctor(0, 1, 0);
