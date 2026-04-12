@@ -1,28 +1,30 @@
 //! Feature flag testing.
 //!
-//! These tests verify that the crate's minimal default surface remains usable
-//! while optional subsystems become available behind named features.
+//! These tests are intentionally compile-only.
+//!
+//! They verify that the crate's minimal default surface remains usable while
+//! optional subsystems become available behind named features, without calling
+//! into the Lean runtime. That keeps the smoke suite valid under
+//! `LEO3_NO_LEAN=1`.
 
 use leo3::prelude::*;
 
+fn assert_into_lean<T: for<'l> IntoLean<'l>>() {}
+fn assert_from_lean<T: for<'l> FromLean<'l>>() {}
+fn assert_send_sync<T: Send + Sync>() {}
+
 #[test]
 fn test_core_surface_always_available() {
-    leo3::prepare_freethreaded_lean();
+    fn _bound_nat<'l>(_: LeanBound<'l, LeanNat>) {}
+    fn _ref_string(_: LeanRef<LeanString>) {}
+    fn _borrowed_array<'a, 'l>(_: LeanBorrowed<'a, 'l, LeanArray>) {}
+    fn _result(_: LeanResult<()>) {}
 
-    let result: LeanResult<()> = leo3::with_lean(|lean| {
-        let n = LeanNat::from_usize(lean, 42)?;
-        assert_eq!(LeanNat::to_usize(&n)?, 42);
-
-        let s = LeanString::mk(lean, "test")?;
-        assert_eq!(LeanString::cstr(&s)?, "test");
-
-        let arr = LeanArray::empty(lean)?;
-        assert_eq!(LeanArray::size(&arr), 0);
-
-        Ok(())
-    });
-
-    assert!(result.is_ok());
+    assert_into_lean::<usize>();
+    assert_from_lean::<usize>();
+    assert_into_lean::<String>();
+    assert_from_lean::<String>();
+    assert_send_sync::<LeanUnbound<LeanNat>>();
 }
 
 #[cfg(feature = "macros")]
@@ -34,69 +36,49 @@ mod macros_feature {
 
     #[test]
     fn test_macros_feature_surface() {
-        leo3::prepare_freethreaded_lean();
-
-        let result: LeanResult<()> = leo3::with_lean(|lean| {
-            let pair = FeaturePair(1, 2);
-            let lean_pair = pair.into_lean(lean)?;
-            let roundtrip = FeaturePair::from_lean(&lean_pair)?;
-            assert_eq!(roundtrip, FeaturePair(1, 2));
-            Ok(())
-        });
-
-        assert!(result.is_ok());
+        assert_into_lean::<FeaturePair>();
+        assert_from_lean::<FeaturePair>();
     }
 }
 
 #[cfg(feature = "meta")]
 #[test]
 fn test_meta_feature_surface() {
-    fn _check<'l>(lean: Lean<'l>) -> LeanResult<LeanBound<'l, leo3::meta::LeanEnvironment>> {
-        leo3::meta::LeanEnvironment::empty(lean, 0)
-    }
+    fn _env<'l>(_: LeanBound<'l, leo3::meta::LeanEnvironment>) {}
+    fn _expr<'l>(_: LeanBound<'l, leo3::meta::LeanExpr>) {}
+    fn _ctx<'l>(_: leo3::meta::MetaMContext<'l>) {}
 }
 
 #[cfg(feature = "io")]
 #[test]
 fn test_io_feature_surface() {
-    fn _check<'l>(lean: Lean<'l>) -> LeanResult<Option<String>> {
-        leo3::io::env::get_env(lean, "PATH")
-    }
+    fn _io<'l>(_: leo3::io::LeanIO<'l, String>) {}
+    fn _io_result(_: leo3::io::IOResult<String>) {}
+    fn _io_error(_: leo3::io::IOError) {}
 }
 
 #[cfg(feature = "task")]
 #[test]
 fn test_task_feature_surface() {
-    fn _check<'l>(value: LeanBound<'l, LeanNat>) -> leo3::task::LeanTask<'l, LeanNat> {
-        leo3::task::LeanTask::pure(value)
-    }
+    fn _task<'l>(_: leo3::task::LeanTask<'l, LeanNat>) {}
+    fn _handle(_: leo3::task::TaskHandle<leo3::instance::LeanAny>) {}
 }
 
 #[cfg(feature = "task")]
 #[test]
 fn test_promise_feature_surface() {
-    fn _check<'l>(
-        promise: &leo3::promise::LeanPromise<'l, leo3::instance::LeanAny>,
-    ) -> leo3::task::LeanTask<'l, leo3::instance::LeanAny> {
-        promise.task()
-    }
+    fn _promise<'l>(_: leo3::promise::LeanPromise<'l, leo3::instance::LeanAny>) {}
 }
 
 #[cfg(feature = "module-loading")]
 #[test]
 fn test_module_loading_feature_surface() {
-    fn _check(path: &str, name: &str) -> leo3::LeanResult<leo3::module::LeanModule> {
-        leo3::module::LeanModule::load(path, name)
-    }
+    fn _module(_: leo3::module::LeanModule) {}
+    fn _function(_: leo3::module::LeanFunction<'_>) {}
 }
 
 #[cfg(feature = "tokio")]
 #[test]
 fn test_tokio_feature_surface() {
-    fn _check<F, R>(f: F) -> R
-    where
-        F: FnOnce() -> R,
-    {
-        leo3::tokio_bridge::lean_block_in_place(f)
-    }
+    let _block_in_place = leo3::tokio_bridge::lean_block_in_place::<fn() -> usize, usize>;
 }

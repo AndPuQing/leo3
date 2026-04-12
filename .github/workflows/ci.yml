@@ -147,7 +147,7 @@ jobs:
       lean: stable
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       suite: Smoke / Minimal Surface
-      command: cargo test --locked -p leo3 --no-default-features --test test_features
+      command: LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_features
 
   smoke-optional-surface:
     uses: ./.github/workflows/test.yml
@@ -156,7 +156,7 @@ jobs:
       lean: stable
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       suite: Smoke / Optional Feature Surface
-      command: 'cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features'
+      command: 'LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features'
 
   macro-ui:
     name: Macro / UI

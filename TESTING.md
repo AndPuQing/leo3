@@ -33,8 +33,8 @@ LEO3_NO_LEAN=1 cargo check --locked --workspace --tests --all-features
 RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --no-default-features
 RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --features "macros,task,tokio"
 RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3-macros --doc
-cargo test --locked -p leo3 --no-default-features --test test_features
-cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
 LEO3_NO_LEAN=1 RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo +nightly doc --locked --workspace --no-deps --all-features
 ```

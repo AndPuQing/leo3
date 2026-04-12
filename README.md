@@ -190,7 +190,7 @@ See `TESTING.md` for the full tiered CI map and exact contributor workflows. Com
 
 ```bash
 LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
-cargo test --locked -p leo3 --no-default-features --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
 cargo test --locked --all-features --workspace
 ```
