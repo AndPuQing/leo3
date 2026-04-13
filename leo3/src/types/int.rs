@@ -100,9 +100,14 @@ impl LeanInt {
             if ffi::lean_is_scalar(obj.as_ptr()) {
                 // Small integer stored as scalar
                 Some(ffi::inline::lean_scalar_to_int64(obj.as_ptr()))
+            } else if ffi::lean_is_mpz(obj.as_ptr()) {
+                // Big integers may still fit in i64. Extract the candidate value
+                // and round-trip it back into Lean to distinguish exact fits from
+                // truncated overflow cases.
+                let value = ffi::int::lean_int64_of_big_int(obj.as_ptr());
+                let roundtrip = Self::from_i64(obj.lean_token(), value).ok()?;
+                Self::eq(obj, &roundtrip).then_some(value)
             } else {
-                // Large integer - for now we only handle small integers
-                // TODO: Add support for converting large integers
                 None
             }
         }
@@ -130,6 +135,8 @@ impl LeanInt {
         unsafe {
             if ffi::lean_is_scalar(obj.as_ptr()) {
                 ffi::inline::lean_scalar_to_int64(obj.as_ptr()) >= 0
+            } else if ffi::lean_is_mpz(obj.as_ptr()) {
+                ffi::int::lean_int_big_nonneg(obj.as_ptr())
             } else {
                 // Check if it's an ofNat constructor (tag 0)
                 ffi::lean_obj_tag(obj.as_ptr()) == 0
@@ -326,25 +333,29 @@ impl LeanInt {
         let lean = obj.lean_token();
         match Self::to_i64(obj) {
             Some(v) => {
-                let abs_val = v.unsigned_abs() as usize;
-                LeanNat::from_usize(lean, abs_val)
+                let abs_val = v.unsigned_abs();
+                unsafe {
+                    let ptr = if abs_val <= usize::MAX as u64 {
+                        ffi::inline::lean_usize_to_nat(abs_val as usize)
+                    } else {
+                        ffi::nat::lean_big_uint64_to_nat(abs_val)
+                    };
+                    Ok(LeanBound::from_owned_ptr(lean, ptr))
+                }
             }
             None => {
-                // For large integers, we would need to implement this with Lean FFI
-                // For now, this is a limitation
                 unsafe {
                     if Self::isNonNeg(obj) {
-                        // It's ofNat, so we can get the nat directly
-                        let ptr = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
+                        // Positive big integers share the same runtime representation
+                        // as natural numbers, so we can reuse the object directly.
+                        let ptr = obj.as_ptr();
                         ffi::lean_inc(ptr);
                         Ok(LeanBound::from_owned_ptr(lean, ptr))
                     } else {
-                        // It's negSucc n, need to compute n + 1
-                        let n = ffi::lean_ctor_get(obj.as_ptr(), 0) as *mut ffi::lean_object;
-                        ffi::lean_inc(n);
-                        let one = ffi::inline::lean_box(1);
-                        let result = ffi::inline::lean_nat_add(n, one);
-                        Ok(LeanBound::from_owned_ptr(lean, result))
+                        // Negating a big negative Int yields a positive Int, which can
+                        // be viewed as a Nat with the same runtime representation.
+                        let ptr = ffi::inline::lean_int_neg(obj.as_ptr());
+                        Ok(LeanBound::from_owned_ptr(lean, ptr))
                     }
                 }
             }

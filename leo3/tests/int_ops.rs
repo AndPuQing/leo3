@@ -3,6 +3,7 @@
 #![cfg(feature = "runtime-tests")]
 
 use leo3::prelude::*;
+use std::ffi::CString;
 
 #[test]
 fn test_int_creation() {
@@ -39,6 +40,79 @@ fn test_int_is_non_neg() {
 
         let neg = LeanInt::from_i64(lean, -10)?;
         assert!(!LeanInt::isNonNeg(&neg));
+
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
+fn test_int_big_i64_conversion() {
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let big_pos = LeanInt::from_i64(lean, i32::MAX as i64 + 1)?;
+        assert_eq!(LeanInt::to_i64(&big_pos), Some(i32::MAX as i64 + 1));
+        assert!(LeanInt::isNonNeg(&big_pos));
+
+        let big_neg = LeanInt::from_i64(lean, i32::MIN as i64 - 1)?;
+        assert_eq!(LeanInt::to_i64(&big_neg), Some(i32::MIN as i64 - 1));
+        assert!(!LeanInt::isNonNeg(&big_neg));
+
+        let huge_pos = CString::new("9223372036854775808").unwrap();
+        let huge_pos = unsafe {
+            let ptr = leo3::ffi::int::lean_cstr_to_int(huge_pos.as_ptr());
+            LeanBound::<LeanInt>::from_owned_ptr(lean, ptr)
+        };
+        assert_eq!(LeanInt::to_i64(&huge_pos), None);
+        assert!(LeanInt::isNonNeg(&huge_pos));
+
+        let huge_neg = CString::new("-9223372036854775809").unwrap();
+        let huge_neg = unsafe {
+            let ptr = leo3::ffi::int::lean_cstr_to_int(huge_neg.as_ptr());
+            LeanBound::<LeanInt>::from_owned_ptr(lean, ptr)
+        };
+        assert_eq!(LeanInt::to_i64(&huge_neg), None);
+        assert!(!LeanInt::isNonNeg(&huge_neg));
+
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
+fn test_int_big_nat_conversions() {
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let huge_pos_src = "9223372036854775808";
+        let huge_pos = unsafe {
+            let src = CString::new(huge_pos_src).unwrap();
+            let ptr = leo3::ffi::int::lean_cstr_to_int(src.as_ptr());
+            LeanBound::<LeanInt>::from_owned_ptr(lean, ptr)
+        };
+        let huge_pos_nat = LeanInt::natAbs(&huge_pos)?;
+        let expected_pos_nat = LeanNat::from_str(lean, huge_pos_src)?;
+        assert!(LeanNat::decEq(&huge_pos_nat, &expected_pos_nat));
+        let huge_pos_to_nat = LeanInt::toNat(&huge_pos)?;
+        assert!(LeanNat::decEq(&huge_pos_to_nat, &expected_pos_nat));
+        let huge_pos_to_nat_opt = LeanInt::toNatOption(&huge_pos).unwrap()?;
+        assert!(LeanNat::beq(&huge_pos_to_nat_opt, &expected_pos_nat));
+
+        let huge_neg_src = "-9223372036854775809";
+        let huge_neg = unsafe {
+            let src = CString::new(huge_neg_src).unwrap();
+            let ptr = leo3::ffi::int::lean_cstr_to_int(src.as_ptr());
+            LeanBound::<LeanInt>::from_owned_ptr(lean, ptr)
+        };
+        let huge_neg_nat_abs = LeanInt::natAbs(&huge_neg)?;
+        let expected_neg_nat = LeanNat::from_str(lean, "9223372036854775809")?;
+        assert!(LeanNat::decEq(&huge_neg_nat_abs, &expected_neg_nat));
+        let zero_nat = LeanNat::from_usize(lean, 0)?;
+        let huge_neg_to_nat = LeanInt::toNat(&huge_neg)?;
+        assert!(LeanNat::decEq(&huge_neg_to_nat, &zero_nat));
+        assert!(LeanInt::toNatOption(&huge_neg).is_none());
+
+        let min_i64 = LeanInt::from_i64(lean, i64::MIN)?;
+        let min_i64_nat_abs = LeanInt::natAbs(&min_i64)?;
+        let expected_min_nat = LeanNat::from_str(lean, "9223372036854775808")?;
+        assert!(LeanNat::decEq(&min_i64_nat_abs, &expected_min_nat));
 
         Ok(())
     })
