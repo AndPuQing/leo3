@@ -195,7 +195,7 @@ jobs:
       lean: stable
       save-cache: ${{ github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'CI-save-pr-cache') }}
       suite: Macro / Runtime
-      command: 'cargo test --locked -p leo3 --features "macros,runtime-tests" --test test_conversion_macros --test test_derive_macros --test test_leanclass --test test_leanclass_codegen --test test_leanclass_minimal --test test_leanfn_macro --test test_lean_instance --test test_leanmodule'
+      command: 'cargo test --locked -p leo3 --features "macros,runtime-tests" --test test_conversion_macros --test test_derive_macros --test test_leanclass --test test_leanclass_codegen --test test_leanclass_minimal --test test_leanfn_macro --test test_lean_instance --test test_leanmodule --test test_macro_pipeline --example macro_pipeline'
 
   ffi-check:
     name: Runtime / FFI Check (Linux, Lean stable)

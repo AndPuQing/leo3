@@ -62,7 +62,9 @@ cargo test --locked -p leo3 --features "macros,runtime-tests" \
   --test test_leanclass_minimal \
   --test test_leanfn_macro \
   --test test_lean_instance \
-  --test test_leanmodule
+  --test test_leanmodule \
+  --test test_macro_pipeline \
+  --example macro_pipeline
 
 cargo test --manifest-path leo3-ffi-check/Cargo.toml
 ```
@@ -117,6 +119,7 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 - `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
+- `leo3/tests/test_macro_pipeline.rs` + `leo3/examples/macro_pipeline.rs`: end-to-end macro golden path covering `#[leanmodule]`, `#[leanfn]`, and `#[leanclass]`.
 - `leo3-ffi-check/`: bindgen-backed FFI layout validation.
 
 ## Troubleshooting

@@ -280,7 +280,7 @@ pub fn build_lean_function(
     let ffi_reexport = if *rust_name != info.lean_name {
         quote! {
             // Re-export FFI function with its Lean name (for FFI calls)
-            #[allow(non_snake_case)]
+            #[allow(non_snake_case, unused_imports)]
             pub use #wrapper_module::#internal_ffi_name as #lean_name_ident;
         }
     } else {
@@ -296,7 +296,7 @@ pub fn build_lean_function(
         #func
 
         // Hidden module to hold FFI wrappers and metadata (PyO3 pattern)
-        #[allow(non_snake_case)]
+        #[allow(non_snake_case, unused_imports)]
         mod #wrapper_module {
             use super::*;
 

@@ -135,6 +135,16 @@ impl Counter {
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
 
+For a single runnable example that combines module initialization, exported
+functions, and an external class, run:
+
+```bash
+cargo run --example macro_pipeline --features macros
+```
+
+That example exercises a generated `initialize_*` module entry point, `#[leanfn]`
+FFI wrappers, and the Lean declaration strings emitted for `#[leanclass]`.
+
 ### Meta-Programming (`meta`)
 
 Full access to Lean's kernel and elaborator:
