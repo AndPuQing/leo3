@@ -160,10 +160,16 @@ impl LeanFloat {
         n: &LeanBound<'l, crate::types::LeanInt>,
         lean: Lean<'l>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        // Convert LeanInt to f64 via i64 approximation for now
-        // In a full implementation, this would handle arbitrary precision
-        let val = crate::types::LeanInt::to_i64(n).unwrap_or(0);
-        Self::from_f64(lean, val as f64)
+        let magnitude = crate::types::LeanInt::natAbs(n)?;
+        let value = crate::types::LeanNat::toFloat(&magnitude);
+        Self::from_f64(
+            lean,
+            if crate::types::LeanInt::isNonNeg(n) {
+                value
+            } else {
+                -value
+            },
+        )
     }
 
     /// Create a Float from a Nat (LeanNat).
@@ -175,10 +181,7 @@ impl LeanFloat {
         n: &LeanBound<'l, crate::types::LeanNat>,
         lean: Lean<'l>,
     ) -> LeanResult<LeanBound<'l, Self>> {
-        // Convert LeanNat to f64 via usize approximation for now
-        // In a full implementation, this would handle arbitrary precision
-        let val = crate::types::LeanNat::to_usize(n).unwrap_or(0);
-        Self::from_f64(lean, val as f64)
+        Self::from_f64(lean, crate::types::LeanNat::toFloat(n))
     }
 
     /// Convert float to string.

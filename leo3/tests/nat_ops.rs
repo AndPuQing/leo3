@@ -335,6 +335,44 @@ fn test_nat_log2() {
 }
 
 #[test]
+fn test_nat_repr_big_exact() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let big = LeanNat::from_str(lean, "340282366920938463463374607431768211456")?;
+        assert_eq!(
+            LeanNat::repr(&big),
+            "340282366920938463463374607431768211456"
+        );
+        assert_eq!(
+            format!("{:?}", big),
+            "LeanNat(340282366920938463463374607431768211456)"
+        );
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_nat_to_float_big_no_truncation() {
+    leo3::prepare_freethreaded_lean();
+
+    let result: LeanResult<()> = leo3::with_lean(|lean| {
+        let big = LeanNat::from_str(lean, "340282366920938463463374607431768211456")?;
+        assert_eq!(LeanNat::toFloat(&big), 2f64.powi(128));
+
+        let huge = LeanNat::from_str(lean, "1".repeat(400).as_str())?;
+        assert!(LeanNat::toFloat(&huge).is_infinite());
+
+        Ok(())
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
 fn test_nat_bitwise_and() {
     leo3::prepare_freethreaded_lean();
 

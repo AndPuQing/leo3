@@ -20,6 +20,9 @@ pub struct LeanNat {
 }
 
 impl LeanNat {
+    const DECIMAL_CHUNK_BASE: usize = 1_000_000_000;
+    const DECIMAL_CHUNK_WIDTH: usize = 9;
+
     /// Create a Lean natural number from a Rust usize.
     ///
     /// # Example
@@ -755,17 +758,15 @@ impl LeanNat {
     /// ```
     #[allow(non_snake_case)]
     pub fn toFloat<'l>(obj: &LeanBound<'l, Self>) -> f64 {
-        // For now, this only works for small nats
-        // A proper implementation would need to handle big nats
         unsafe {
             if ffi::nat::leo3_nat_is_small(obj.as_ptr()) {
-                lean_unbox(obj.as_ptr()) as f64
-            } else {
-                // For big nats, convert via u64 if possible
-                // This may lose precision for very large numbers
-                leo3_ffi::nat::lean_uint64_of_big_nat(obj.as_ptr()) as f64
+                return lean_unbox(obj.as_ptr()) as f64;
             }
         }
+
+        Self::to_decimal_string(obj)
+            .parse::<f64>()
+            .unwrap_or(f64::INFINITY)
     }
 
     /// Convert to string representation (base 10).
@@ -780,17 +781,7 @@ impl LeanNat {
     /// assert_eq!(LeanNat::repr(&n), "42");
     /// ```
     pub fn repr<'l>(obj: &LeanBound<'l, Self>) -> String {
-        // Use to_usize if possible, otherwise use a fallback
-        match Self::to_usize(obj) {
-            Ok(n) => n.to_string(),
-            Err(_) => {
-                // For big nats, convert via u64 if possible (may truncate)
-                unsafe {
-                    let val = leo3_ffi::nat::lean_uint64_of_big_nat(obj.as_ptr());
-                    format!("{}...", val)
-                }
-            }
-        }
+        Self::to_decimal_string(obj)
     }
 
     /// Create a nat from a string representation.
@@ -931,14 +922,53 @@ impl LeanNat {
             Err(_) => false, // For very large numbers
         }
     }
+
+    fn to_decimal_string<'l>(obj: &LeanBound<'l, Self>) -> String {
+        if let Ok(n) = Self::to_usize(obj) {
+            return n.to_string();
+        }
+
+        let lean = obj.lean_token();
+        let zero = Self::from_usize(lean, 0).expect("creating zero nat should not fail");
+        let chunk_base = Self::from_usize(lean, Self::DECIMAL_CHUNK_BASE)
+            .expect("creating decimal chunk base should not fail");
+        let mut current = obj.clone();
+        let mut chunks = Vec::new();
+
+        while !Self::decEq(&current, &zero) {
+            let quotient = Self::div(current.clone(), chunk_base.clone())
+                .expect("dividing nat by decimal chunk base should not fail");
+            let remainder = Self::mod_(current, chunk_base.clone())
+                .expect("taking nat modulo decimal chunk base should not fail");
+            let chunk = Self::to_usize(&remainder)
+                .expect("remainder should always fit inside the decimal chunk base");
+            chunks.push(chunk);
+            current = quotient;
+        }
+
+        let mut iter = chunks.into_iter().rev();
+        let mut repr = iter
+            .next()
+            .expect("non-zero nat should produce at least one decimal chunk")
+            .to_string();
+        for chunk in iter {
+            use std::fmt::Write as _;
+
+            write!(
+                &mut repr,
+                "{chunk:0width$}",
+                width = Self::DECIMAL_CHUNK_WIDTH
+            )
+            .expect("writing to a String should not fail");
+        }
+
+        repr
+    }
 }
 
 // Implement Debug for convenient printing
 impl<'l> std::fmt::Debug for LeanBound<'l, LeanNat> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match LeanNat::to_usize(self) {
-            Ok(n) => write!(f, "LeanNat({})", n),
-            Err(_) => write!(f, "LeanNat(<large>)"),
-        }
+        write!(f, "LeanNat({})", LeanNat::repr(self))
     }
 }

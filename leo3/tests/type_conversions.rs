@@ -736,6 +736,10 @@ fn test_nat_to_float_conversions() {
         let float_large = LeanFloat::ofNat(&nat_large, lean)?;
         assert_eq!(LeanFloat::to_f64(&float_large), 1000000.0);
 
+        let nat_huge = LeanNat::from_str(lean, "340282366920938463463374607431768211456")?;
+        let float_huge = LeanFloat::ofNat(&nat_huge, lean)?;
+        assert_eq!(LeanFloat::to_f64(&float_huge), 2f64.powi(128));
+
         // Zero
         let nat_zero = LeanNat::from_usize(lean, 0)?;
         let float_zero = LeanFloat::ofNat(&nat_zero, lean)?;
@@ -1184,6 +1188,26 @@ fn test_leanint_float_conversions() {
         let int_large = LeanInt::from_i64(lean, 1000000)?;
         let float_large = LeanFloat::ofInt(&int_large, lean)?;
         assert_eq!(LeanFloat::to_f64(&float_large), 1000000.0);
+
+        let nat_huge = LeanNat::from_str(lean, "340282366920938463463374607431768211456")?;
+        let int_huge_pos = LeanInt::ofNat(lean, nat_huge)?;
+        let float_huge_pos = LeanFloat::ofInt(&int_huge_pos, lean)?;
+        assert_eq!(LeanFloat::to_f64(&float_huge_pos), 2f64.powi(128));
+
+        let int_huge_neg = LeanInt::neg(int_huge_pos.clone())?;
+        let float_huge_neg = LeanFloat::ofInt(&int_huge_neg, lean)?;
+        assert_eq!(LeanFloat::to_f64(&float_huge_neg), -2f64.powi(128));
+
+        let nat_overflow = LeanNat::from_str(lean, "1".repeat(400).as_str())?;
+        let int_overflow_pos = LeanInt::ofNat(lean, nat_overflow)?;
+        let float_overflow_pos = LeanFloat::ofInt(&int_overflow_pos, lean)?;
+        assert!(LeanFloat::to_f64(&float_overflow_pos).is_infinite());
+        assert!(LeanFloat::to_f64(&float_overflow_pos).is_sign_positive());
+
+        let int_overflow_neg = LeanInt::neg(int_overflow_pos.clone())?;
+        let float_overflow_neg = LeanFloat::ofInt(&int_overflow_neg, lean)?;
+        assert!(LeanFloat::to_f64(&float_overflow_neg).is_infinite());
+        assert!(LeanFloat::to_f64(&float_overflow_neg).is_sign_negative());
 
         // Zero
         let int_zero = LeanInt::from_i64(lean, 0)?;
