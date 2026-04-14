@@ -152,7 +152,11 @@ pub fn goal_type<'l>(
     metam: &mut MetaMContext<'l>,
     goal: &LeanBound<'l, LeanExpr>,
 ) -> LeanResult<LeanBound<'l, LeanExpr>> {
-    metam.infer_type(goal)
+    if LeanExpr::is_mvar(goal) {
+        Ok(metam.get_mvar_decl(goal)?.type_)
+    } else {
+        metam.infer_type(goal)
+    }
 }
 
 // ============================================================================
@@ -183,7 +187,7 @@ fn checked_assign<'l>(
         ffi::inline::lean_closure_set(closure, 1, val.as_ptr());
 
         let computation = LeanBound::from_owned_ptr(metam.lean(), closure);
-        let result = metam.run(computation)?;
+        let result = metam.run_persistent(computation)?;
 
         // Result is a Lean Bool: lean_box(0) = false, lean_box(1) = true
         let bool_val = ffi::lean_unbox(result.as_ptr());
@@ -217,20 +221,23 @@ pub fn exact<'l>(
         None => return TacticResult::Failure(LeanError::other("exact: no goals")),
     };
 
-    // Get the goal type
-    let goal_ty = match goal_type(metam, goal) {
-        Ok(ty) => ty,
+    let goal_decl = match metam.get_mvar_decl(goal) {
+        Ok(decl) => decl,
         Err(e) => return TacticResult::Failure(e),
     };
+    let goal_ty = goal_decl.type_;
 
-    // Infer the type of the provided expression
-    let expr_ty = match metam.infer_type(expr) {
+    let expr_ty = match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        m.infer_type(expr)
+    }) {
         Ok(ty) => ty,
         Err(e) => return TacticResult::Failure(e),
     };
 
     // Check definitional equality
-    match metam.is_def_eq(&expr_ty, &goal_ty) {
+    match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        m.is_def_eq(&expr_ty, &goal_ty)
+    }) {
         Ok(true) => {}
         Ok(false) => {
             return TacticResult::Failure(LeanError::other(
@@ -246,7 +253,9 @@ pub fn exact<'l>(
         Err(e) => return TacticResult::Failure(e),
     };
 
-    match checked_assign(metam, &mvar_id, expr) {
+    match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        checked_assign(m, &mvar_id, expr)
+    }) {
         Ok(true) => {}
         Ok(false) => {
             return TacticResult::Failure(LeanError::other("exact: checked assignment failed"));
@@ -278,11 +287,11 @@ pub fn rfl<'l>(metam: &mut MetaMContext<'l>, state: TacticState<'l>) -> TacticRe
         None => return TacticResult::Failure(LeanError::other("rfl: no goals")),
     };
 
-    // Get the goal type and WHNF it
-    let goal_ty = match goal_type(metam, goal) {
-        Ok(ty) => ty,
+    let goal_decl = match metam.get_mvar_decl(goal) {
+        Ok(decl) => decl,
         Err(e) => return TacticResult::Failure(e),
     };
+    let goal_ty = goal_decl.type_;
 
     // The goal type should be `@Eq α lhs rhs` which is `App (App (App (Const Eq [u]) α) lhs) rhs`
     // We need to extract α and lhs, then build @Eq.refl α lhs
@@ -339,7 +348,9 @@ pub fn rfl<'l>(metam: &mut MetaMContext<'l>, state: TacticState<'l>) -> TacticRe
     };
 
     // Check that lhs and rhs are definitionally equal
-    match metam.is_def_eq(&lhs, &rhs) {
+    match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        m.is_def_eq(&lhs, &rhs)
+    }) {
         Ok(true) => {}
         Ok(false) => {
             return TacticResult::Failure(LeanError::other(
@@ -361,7 +372,9 @@ pub fn rfl<'l>(metam: &mut MetaMContext<'l>, state: TacticState<'l>) -> TacticRe
         Err(e) => return TacticResult::Failure(e),
     };
 
-    match checked_assign(metam, &mvar_id, &refl_proof) {
+    match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        checked_assign(m, &mvar_id, &refl_proof)
+    }) {
         Ok(true) => {}
         Ok(false) => {
             return TacticResult::Failure(LeanError::other("rfl: checked assignment failed"));
@@ -392,10 +405,8 @@ pub fn rfl<'l>(metam: &mut MetaMContext<'l>, state: TacticState<'l>) -> TacticRe
 ///
 /// # Limitations
 ///
-/// This is a simplified intro that doesn't update the MetaM local context.
-/// It creates the lambda term directly and assigns it. For full tactic
-/// support with local context management, a more complete implementation
-/// would be needed.
+/// Instance-implicit binders are added to the local context, but local instance
+/// search metadata is not populated yet.
 pub fn intro<'l>(
     metam: &mut MetaMContext<'l>,
     state: TacticState<'l>,
@@ -406,66 +417,34 @@ pub fn intro<'l>(
         None => return TacticResult::Failure(LeanError::other("intro: no goals")),
     };
 
-    let lean = metam.lean();
-
-    // Get the goal type and WHNF it to expose forall structure
-    let goal_ty = match goal_type(metam, goal) {
-        Ok(ty) => ty,
-        Err(e) => return TacticResult::Failure(e),
-    };
-    let goal_ty = match metam.whnf(&goal_ty) {
-        Ok(ty) => ty,
-        Err(e) => return TacticResult::Failure(e),
-    };
-
-    if !LeanExpr::is_forall(&goal_ty) {
-        return TacticResult::Failure(LeanError::other("intro: goal type is not a forall/pi type"));
-    }
-
-    // Extract forall components
-    let domain = match LeanExpr::forall_domain(&goal_ty) {
-        Ok(d) => d,
-        Err(e) => return TacticResult::Failure(e),
-    };
-    let binder_info = match LeanExpr::forall_info(&goal_ty) {
-        Ok(bi) => bi,
-        Err(e) => return TacticResult::Failure(e),
-    };
-
-    // Create a fresh metavariable name for the new goal
-    // Use a unique name based on the intro'd variable name
-    let new_goal_name = match LeanName::append_str(name.clone(), lean, "_goal") {
-        Ok(n) => n,
-        Err(e) => return TacticResult::Failure(e),
-    };
-    let new_goal_mvar = match LeanExpr::mvar(lean, new_goal_name) {
-        Ok(m) => m,
-        Err(e) => return TacticResult::Failure(e),
-    };
-
-    // Build λ (name : domain), ?new_goal
-    // The new goal mvar stands in for the body — it has bvar(0) replaced
-    // by the bound variable of the lambda, so we use it directly as the body.
-    let lambda = match LeanExpr::lambda(name.clone(), domain, new_goal_mvar.clone(), binder_info) {
-        Ok(l) => l,
-        Err(e) => return TacticResult::Failure(e),
-    };
-
-    // Assign the lambda to the original goal
     let mvar_id = match LeanExpr::mvar_id(goal) {
         Ok(id) => id,
         Err(e) => return TacticResult::Failure(e),
     };
-
-    match checked_assign(metam, &mvar_id, &lambda) {
-        Ok(true) => {}
-        Ok(false) => {
-            return TacticResult::Failure(LeanError::other("intro: checked assignment failed"));
+    let new_goal_mvar = unsafe {
+        ffi::lean_inc(mvar_id.as_ptr());
+        ffi::lean_inc(name.as_ptr());
+        let closure = ffi::inline::lean_alloc_closure(
+            ffi::meta::l_Lean_MVarId_intro as *mut std::ffi::c_void,
+            7,
+            2,
+        );
+        ffi::inline::lean_closure_set(closure, 0, mvar_id.into_ptr());
+        ffi::inline::lean_closure_set(closure, 1, name.clone().into_ptr());
+        let computation = LeanBound::from_owned_ptr(metam.lean(), closure);
+        let result = match metam.run_persistent(computation) {
+            Ok(r) => r,
+            Err(e) => return TacticResult::Failure(e),
+        };
+        let new_mvar_id =
+            LeanBound::<crate::instance::LeanAny>::from_borrowed_ptr(metam.lean(), ffi::lean_ctor_get(result.as_ptr(), 1))
+                .cast();
+        match LeanExpr::mvar(metam.lean(), new_mvar_id) {
+            Ok(m) => m,
+            Err(e) => return TacticResult::Failure(e),
         }
-        Err(e) => return TacticResult::Failure(e),
-    }
+    };
 
-    // The new goals: the fresh mvar + remaining old goals
     let remaining = state.remaining_goals();
     let mut new_goals = vec![new_goal_mvar];
     new_goals.extend(remaining.into_goals());
@@ -492,8 +471,7 @@ pub fn intro<'l>(
 /// # Limitations
 ///
 /// This is a simplified apply that peels off forall binders one at a time.
-/// It doesn't handle universe polymorphism or implicit argument synthesis
-/// beyond what `checked_assign` provides.
+/// It doesn't synthesize implicit arguments beyond the metavariables it creates.
 pub fn apply<'l>(
     metam: &mut MetaMContext<'l>,
     state: TacticState<'l>,
@@ -506,14 +484,14 @@ pub fn apply<'l>(
 
     let lean = metam.lean();
 
-    // Get the goal type
-    let goal_ty = match goal_type(metam, goal) {
-        Ok(ty) => ty,
+    let goal_decl = match metam.get_mvar_decl(goal) {
+        Ok(decl) => decl,
         Err(e) => return TacticResult::Failure(e),
     };
-
     // Infer the type of the expression being applied
-    let mut expr_ty = match metam.infer_type(expr) {
+    let mut expr_ty = match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        m.infer_type(expr)
+    }) {
         Ok(ty) => ty,
         Err(e) => return TacticResult::Failure(e),
     };
@@ -525,7 +503,9 @@ pub fn apply<'l>(
 
     loop {
         // WHNF to expose forall structure
-        expr_ty = match metam.whnf(&expr_ty) {
+        expr_ty = match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+            m.whnf(&expr_ty)
+        }) {
             Ok(ty) => ty,
             Err(e) => return TacticResult::Failure(e),
         };
@@ -538,13 +518,22 @@ pub fn apply<'l>(
             Ok(b) => b,
             Err(e) => return TacticResult::Failure(e),
         };
+        let domain = match LeanExpr::forall_domain(&expr_ty) {
+            Ok(d) => d,
+            Err(e) => return TacticResult::Failure(e),
+        };
 
         // Create a fresh mvar for this argument
-        let mvar_name = match LeanName::from_str(lean, &format!("_apply_arg.{}", arg_idx)) {
+        let mvar_name = match LeanName::from_str(lean, &format!("apply_arg.{arg_idx}")) {
             Ok(n) => n,
             Err(e) => return TacticResult::Failure(e),
         };
-        let mvar = match LeanExpr::mvar(lean, mvar_name) {
+        let mvar = match metam.mk_fresh_expr_mvar_at(
+            &goal_decl.lctx,
+            &goal_decl.local_instances,
+            &domain,
+            &mvar_name,
+        ) {
             Ok(m) => m,
             Err(e) => return TacticResult::Failure(e),
         };
@@ -566,25 +555,15 @@ pub fn apply<'l>(
         arg_idx += 1;
     }
 
-    // Now expr_ty should be the result type after all arguments are applied.
-    // Check it matches the goal type.
-    match metam.is_def_eq(&expr_ty, &goal_ty) {
-        Ok(true) => {}
-        Ok(false) => {
-            return TacticResult::Failure(LeanError::other(
-                "apply: result type does not match goal type after applying arguments",
-            ));
-        }
-        Err(e) => return TacticResult::Failure(e),
-    }
-
     // Assign the application to the goal
     let mvar_id = match LeanExpr::mvar_id(goal) {
         Ok(id) => id,
         Err(e) => return TacticResult::Failure(e),
     };
 
-    match checked_assign(metam, &mvar_id, &app_expr) {
+    match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+        checked_assign(m, &mvar_id, &app_expr)
+    }) {
         Ok(true) => {}
         Ok(false) => {
             return TacticResult::Failure(LeanError::other("apply: checked assignment failed"));
@@ -636,14 +615,17 @@ pub fn assumption<'l>(
     };
 
     // Get the goal type
-    let goal_ty = match goal_type(metam, goal) {
-        Ok(ty) => ty,
+    let goal_decl = match metam.get_mvar_decl(goal) {
+        Ok(decl) => decl,
         Err(e) => return TacticResult::Failure(e),
     };
+    let goal_ty = goal_decl.type_.clone();
 
     // Search hypotheses for one whose type matches
     for (hyp_expr, hyp_type) in hypotheses {
-        match metam.is_def_eq(hyp_type, &goal_ty) {
+        match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+            m.is_def_eq(hyp_type, &goal_ty)
+        }) {
             Ok(true) => {
                 // Found a match — assign the hypothesis to the goal
                 let mvar_id = match LeanExpr::mvar_id(goal) {
@@ -651,7 +633,9 @@ pub fn assumption<'l>(
                     Err(e) => return TacticResult::Failure(e),
                 };
 
-                match checked_assign(metam, &mvar_id, hyp_expr) {
+                match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+                    checked_assign(m, &mvar_id, hyp_expr)
+                }) {
                     Ok(true) => return TacticResult::Success(state.remaining_goals()),
                     Ok(false) => {
                         // Assignment failed despite type match — try next hypothesis

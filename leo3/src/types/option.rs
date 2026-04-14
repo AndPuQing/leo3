@@ -76,10 +76,7 @@ impl LeanOption {
     /// Corresponds to `Option.isNone` in Lean4.
     #[allow(non_snake_case)]
     pub fn isNone<'l>(obj: &LeanBound<'l, Self>) -> bool {
-        unsafe {
-            let tag = ffi::lean_obj_tag(obj.as_ptr());
-            tag == 0 // none has tag 0
-        }
+        unsafe { ffi::inline::lean_is_scalar(obj.as_ptr()) }
     }
 
     /// Check if the option is some.

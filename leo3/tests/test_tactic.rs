@@ -116,6 +116,22 @@ fn test_exact_prop_identity() {
     assert!(result.is_ok(), "test failed: {:?}", result.err());
 }
 
+#[test]
+fn test_goal_type_on_registered_goal() {
+    let result: LeanResult<()> = leo3::test_with_lean(|lean| {
+        let env = LeanEnvironment::empty(lean, 0)?;
+        let mut metam = MetaMContext::new(lean, env)?;
+
+        let prop = LeanExpr::sort(lean, LeanLevel::zero(lean)?)?;
+        let goal = metam.mk_goal(&prop)?;
+        let ty = goal_type(&mut metam, &goal)?;
+
+        assert!(metam.is_def_eq(&ty, &prop)?);
+        Ok(())
+    });
+    assert!(result.is_ok(), "test failed: {:?}", result.err());
+}
+
 // ============================================================================
 // rfl tactic
 // ============================================================================
@@ -452,36 +468,6 @@ fn test_tactic_chain_failure_propagation() {
         Ok(())
     });
     assert!(result.is_ok(), "test failed: {:?}", result.err());
-}
-
-#[test]
-#[ignore = "Full tactic composition with registered mvars requires MetaM.mkFreshExprMVar FFI binding"]
-fn test_tactic_intro_then_exact() {
-    // This test would:
-    // 1. Create a goal for ∀ (P : Prop), P → P
-    // 2. intro P, intro h
-    // 3. exact h
-    // Requires mkFreshExprMVar to register mvars in the MetaM context.
-}
-
-#[test]
-#[ignore = "Full apply with unification requires MetaM.mkFreshExprMVar FFI binding"]
-fn test_apply_creates_subgoals() {
-    // This test would:
-    // 1. Create a goal for some type
-    // 2. Apply a function that takes arguments
-    // 3. Verify subgoals are created for each argument
-    // Requires mkFreshExprMVar to register mvars in the MetaM context.
-}
-
-#[test]
-#[ignore = "Full rfl test requires Eq in the environment (needs import or axiom setup)"]
-fn test_rfl_solves_equality() {
-    // This test would:
-    // 1. Create an environment with Eq and Eq.refl
-    // 2. Create a goal for a = a
-    // 3. Apply rfl to solve it
-    // Requires Eq/Eq.refl in the environment.
 }
 
 // ============================================================================

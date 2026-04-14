@@ -45,7 +45,9 @@ use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::meta::context::{CoreContext, CoreState, MetaContext, MetaState};
 use crate::meta::expr::LeanExpr;
+use crate::meta::name::LeanName;
 use crate::meta::LeanEnvironment;
+use crate::types::{LeanNat, LeanOption};
 use leo3_ffi as ffi;
 use std::ffi::CStr;
 
@@ -82,6 +84,13 @@ pub struct MetaMContext<'l> {
     core_state: LeanBound<'l, CoreState>,
     meta_ctx: LeanBound<'l, MetaContext>,
     meta_state: LeanBound<'l, MetaState>,
+}
+
+#[derive(Clone)]
+pub(crate) struct MVarDeclParts<'l> {
+    pub lctx: LeanBound<'l, LeanAny>,
+    pub type_: LeanBound<'l, LeanExpr>,
+    pub local_instances: LeanBound<'l, LeanAny>,
 }
 
 impl<'l> MetaMContext<'l> {
@@ -127,7 +136,7 @@ impl<'l> MetaMContext<'l> {
         })
     }
 
-    /// Run a MetaM computation.
+    /// Run a read-only MetaM computation.
     ///
     /// Executes the given MetaM computation using the stored context and state.
     /// The computation is dispatched to the worker thread to avoid cross-thread
@@ -211,6 +220,94 @@ impl<'l> MetaMContext<'l> {
         unsafe { Ok(LeanBound::from_owned_ptr(self.lean, result)) }
     }
 
+    pub(crate) fn run_persistent(
+        &mut self,
+        computation: LeanBound<'l, LeanAny>,
+    ) -> LeanResult<LeanBound<'l, LeanAny>> {
+        let meta_ctx = self.meta_ctx.clone();
+        let meta_state = self.meta_state.clone();
+        let core_ctx = self.core_ctx.clone();
+        let core_state = self.core_state.clone();
+
+        let computation_ptr = computation.into_ptr();
+        let meta_ctx_ptr = meta_ctx.into_ptr();
+        let meta_state_ptr = meta_state.into_ptr();
+        let core_ctx_ptr = core_ctx.into_ptr();
+        let core_state_ptr = core_state.into_ptr();
+
+        let (result, new_meta_state, new_core_state) = crate::runtime::with_worker(move || unsafe {
+            #[cfg(not(lean_4_26))]
+            let (core_state_ref, world2) = {
+                let world = ffi::lean_box(0);
+                let ref_result = ffi::lean_st_mk_ref(core_state_ptr, world);
+                let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
+                let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
+                ffi::lean_inc(core_state_ref);
+                ffi::lean_inc(world2);
+                ffi::lean_dec(ref_result);
+                (core_state_ref, world2)
+            };
+
+            #[cfg(lean_4_26)]
+            let (core_state_ref, world2) = {
+                let core_state_ref = ffi::lean_st_mk_ref(core_state_ptr, ffi::lean_box(0));
+                let world2 = ffi::lean_box(0);
+                (core_state_ref, world2)
+            };
+
+            let result = ffi::meta::lean_meta_metam_run_state(
+                computation_ptr,
+                meta_ctx_ptr,
+                meta_state_ptr,
+                core_ctx_ptr,
+                core_state_ref,
+                world2,
+            );
+
+            let pair = handle_eio_result(result)?;
+            let value_ptr = ffi::lean_ctor_get(pair, 0) as *mut ffi::lean_object;
+            let meta_state_ptr = ffi::lean_ctor_get(pair, 1) as *mut ffi::lean_object;
+            ffi::lean_inc(value_ptr);
+            ffi::lean_inc(meta_state_ptr);
+            ffi::lean_dec(pair);
+
+            #[cfg(not(lean_4_26))]
+            let core_state_ptr = {
+                let get_result = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
+                let value = ffi::lean_ctor_get(get_result, 0) as *mut ffi::lean_object;
+                ffi::lean_inc(value);
+                ffi::lean_dec(get_result);
+                value
+            };
+
+            #[cfg(lean_4_26)]
+            let core_state_ptr = {
+                let value = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
+                ffi::lean_inc(value);
+                value
+            };
+
+            ffi::lean_dec(core_state_ref);
+
+            Ok::<
+                (
+                    *mut ffi::lean_object,
+                    *mut ffi::lean_object,
+                    *mut ffi::lean_object,
+                ),
+                LeanError,
+            >((value_ptr, meta_state_ptr, core_state_ptr))
+        })?;
+
+        unsafe {
+            self.meta_state =
+                LeanBound::<LeanAny>::from_owned_ptr(self.lean, new_meta_state).cast();
+            self.core_state =
+                LeanBound::<LeanAny>::from_owned_ptr(self.lean, new_core_state).cast();
+            Ok(LeanBound::from_owned_ptr(self.lean, result))
+        }
+    }
+
     /// Get a reference to the [`LeanEnvironment`] used by this context.
     pub fn env(&self) -> &LeanBound<'l, LeanEnvironment> {
         &self.env
@@ -219,6 +316,253 @@ impl<'l> MetaMContext<'l> {
     /// Get the [`Lean`] runtime token associated with this context.
     pub fn lean(&self) -> Lean<'l> {
         self.lean
+    }
+
+    pub(crate) fn set_local_context(
+        &mut self,
+        lctx: &LeanBound<'l, LeanAny>,
+        local_instances: &LeanBound<'l, LeanAny>,
+    ) {
+        unsafe {
+            #[cfg(lean_4_25)]
+            let ctx = ffi::lean_alloc_ctor(0, 7, 3);
+            #[cfg(not(lean_4_25))]
+            let ctx = ffi::lean_alloc_ctor(0, 7, 11);
+
+            for i in [0u32, 1, 4, 5, 6] {
+                let field = ffi::lean_ctor_get(self.meta_ctx.as_ptr(), i) as *mut ffi::lean_object;
+                ffi::lean_inc(field);
+                ffi::lean_ctor_set(ctx, i, field);
+            }
+            ffi::lean_ctor_set(ctx, 2, lctx.clone().into_ptr());
+            ffi::lean_ctor_set(ctx, 3, local_instances.clone().into_ptr());
+
+            #[cfg(lean_4_25)]
+            {
+                let src = ffi::inline::lean_ctor_scalar_cptr(self.meta_ctx.as_ptr());
+                let dst = ffi::inline::lean_ctor_scalar_cptr(ctx);
+                std::ptr::copy_nonoverlapping(src, dst, 3);
+            }
+            #[cfg(not(lean_4_25))]
+            {
+                let src = ffi::inline::lean_ctor_scalar_cptr(self.meta_ctx.as_ptr());
+                let dst = ffi::inline::lean_ctor_scalar_cptr(ctx);
+                std::ptr::copy_nonoverlapping(src, dst, 11);
+            }
+
+            self.meta_ctx = LeanBound::<LeanAny>::from_owned_ptr(self.lean, ctx).cast();
+        }
+    }
+
+    pub(crate) fn with_local_context<R>(
+        &mut self,
+        lctx: &LeanBound<'l, LeanAny>,
+        local_instances: &LeanBound<'l, LeanAny>,
+        f: impl FnOnce(&mut Self) -> LeanResult<R>,
+    ) -> LeanResult<R> {
+        let old_ctx = self.meta_ctx.clone();
+        self.set_local_context(lctx, local_instances);
+        let result = f(self);
+        self.meta_ctx = old_ctx;
+        result
+    }
+
+    /// Create a fresh metavariable goal in the current local context.
+    pub fn mk_goal(&mut self, type_: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        let user_name = LeanName::anonymous(self.lean)?;
+        self.mk_fresh_expr_mvar(type_, &user_name)
+    }
+
+    /// Create a fresh metavariable goal with a user-visible name.
+    pub fn mk_named_goal(
+        &mut self,
+        type_: &LeanBound<'l, LeanExpr>,
+        user_name: &LeanBound<'l, LeanName>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        self.mk_fresh_expr_mvar(type_, user_name)
+    }
+
+    pub(crate) fn mk_fresh_expr_mvar(
+        &mut self,
+        type_: &LeanBound<'l, LeanExpr>,
+        user_name: &LeanBound<'l, LeanName>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::runtime::ensure_meta_initialized();
+        unsafe {
+            let type_opt = LeanOption::some(type_.clone().cast())?;
+            let kind = ffi::lean_box(0); // MetavarKind.natural
+
+            ffi::lean_inc(type_opt.as_ptr());
+            ffi::lean_inc(kind);
+            ffi::lean_inc(user_name.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::l_Lean_Meta_mkFreshExprMVar as *mut std::ffi::c_void,
+                8,
+                3,
+            );
+            ffi::inline::lean_closure_set(closure, 0, type_opt.into_ptr());
+            ffi::inline::lean_closure_set(closure, 1, kind);
+            ffi::inline::lean_closure_set(closure, 2, user_name.as_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let result = self.run_persistent(computation)?;
+            Ok(result.cast())
+        }
+    }
+
+    pub(crate) fn mk_fresh_expr_mvar_at(
+        &mut self,
+        lctx: &LeanBound<'l, LeanAny>,
+        local_instances: &LeanBound<'l, LeanAny>,
+        type_: &LeanBound<'l, LeanExpr>,
+        user_name: &LeanBound<'l, LeanName>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        crate::runtime::ensure_meta_initialized();
+        unsafe {
+            let kind = ffi::lean_box(0); // MetavarKind.natural
+            let num_scope_args = LeanNat::from_usize(self.lean, 0)?;
+
+            ffi::lean_inc(lctx.as_ptr());
+            ffi::lean_inc(local_instances.as_ptr());
+            ffi::lean_inc(type_.as_ptr());
+            ffi::lean_inc(kind);
+            ffi::lean_inc(user_name.as_ptr());
+            ffi::lean_inc(num_scope_args.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::l_Lean_Meta_mkFreshExprMVarAt as *mut std::ffi::c_void,
+                11,
+                6,
+            );
+            ffi::inline::lean_closure_set(closure, 0, lctx.as_ptr());
+            ffi::inline::lean_closure_set(closure, 1, local_instances.as_ptr());
+            ffi::inline::lean_closure_set(closure, 2, type_.as_ptr());
+            ffi::inline::lean_closure_set(closure, 3, kind);
+            ffi::inline::lean_closure_set(closure, 4, user_name.as_ptr());
+            ffi::inline::lean_closure_set(closure, 5, num_scope_args.into_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let result = self.run_persistent(computation)?;
+            Ok(result.cast())
+        }
+    }
+
+    pub(crate) fn get_mvar_decl(
+        &mut self,
+        mvar: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<MVarDeclParts<'l>> {
+        crate::runtime::ensure_meta_initialized();
+        let mvar_id = LeanExpr::mvar_id(mvar)?;
+        unsafe {
+            ffi::lean_inc(mvar_id.as_ptr());
+            let closure = ffi::inline::lean_alloc_closure(
+                ffi::meta::l_Lean_MVarId_getDecl as *mut std::ffi::c_void,
+                6,
+                1,
+            );
+            ffi::inline::lean_closure_set(closure, 0, mvar_id.into_ptr());
+
+            let computation = LeanBound::from_owned_ptr(self.lean, closure);
+            let decl = self.run(computation)?;
+
+            let decl_ptr = decl.as_ptr();
+            let num_objs = ffi::inline::lean_ctor_num_objs(decl_ptr);
+            if num_objs < 5 {
+                return Err(LeanError::other(&format!(
+                    "unexpected MetavarDecl layout: expected >= 5 object fields, got {num_objs}"
+                )));
+            }
+            let lctx = LeanBound::<LeanAny>::from_borrowed_ptr(
+                self.lean,
+                ffi::lean_ctor_get(decl_ptr, 1),
+            )
+            .cast();
+            let type_ = LeanBound::<LeanAny>::from_borrowed_ptr(
+                self.lean,
+                ffi::lean_ctor_get(decl_ptr, 2),
+            )
+            .cast();
+            let local_instances = LeanBound::<LeanAny>::from_borrowed_ptr(
+                self.lean,
+                ffi::lean_ctor_get(decl_ptr, 4),
+            )
+            .cast();
+
+            Ok(MVarDeclParts {
+                lctx,
+                type_,
+                local_instances,
+            })
+        }
+    }
+
+
+    /// Look up a local hypothesis by its user-facing name in a goal's local context.
+    pub fn goal_hypothesis(
+        &mut self,
+        goal: &LeanBound<'l, LeanExpr>,
+        user_name: &LeanBound<'l, LeanName>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        let decl = self.get_mvar_decl(goal)?;
+        unsafe {
+            let raw =
+                ffi::meta::lean_local_ctx_find_from_user_name(decl.lctx.as_ptr(), user_name.as_ptr());
+            if ffi::inline::lean_is_scalar(raw) {
+                return Err(LeanError::other(
+                    "goal_hypothesis: no local declaration with that user name",
+                ));
+            }
+            let raw = LeanBound::<LeanAny>::from_owned_ptr(self.lean, raw);
+            let local_decl = if ffi::inline::lean_ctor_num_objs(raw.as_ptr()) == 1 {
+                LeanBound::<LeanAny>::from_borrowed_ptr(
+                    self.lean,
+                    ffi::lean_ctor_get(raw.as_ptr(), 0),
+                )
+            } else {
+                raw
+            };
+            let fvar_id = ffi::meta::lean_local_decl_fvar_id(local_decl.as_ptr());
+            let fvar_id = LeanBound::<LeanAny>::from_owned_ptr(self.lean, fvar_id).cast();
+            LeanExpr::fvar(self.lean, fvar_id)
+        }
+    }
+
+    /// Get the most recently introduced hypothesis from a goal's local context.
+    pub fn goal_latest_hypothesis(
+        &mut self,
+        goal: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
+        let decl = self.get_mvar_decl(goal)?;
+        unsafe {
+            let num = ffi::meta::lean_local_ctx_num_indices(decl.lctx.as_ptr());
+            let num = LeanBound::<LeanNat>::from_owned_ptr(self.lean, num);
+            let num = LeanNat::to_usize(&num)?;
+            if num == 0 {
+                return Err(LeanError::other(
+                    "goal_latest_hypothesis: local context is empty",
+                ));
+            }
+
+            let index = LeanNat::from_usize(self.lean, num - 1)?;
+            let raw = ffi::meta::lean_local_ctx_get_at(decl.lctx.as_ptr(), index.into_ptr());
+            if ffi::inline::lean_is_scalar(raw) {
+                return Err(LeanError::other(
+                    "goal_latest_hypothesis: missing declaration at last local-context index",
+                ));
+            }
+
+            let raw = LeanBound::<LeanAny>::from_owned_ptr(self.lean, raw);
+            let local_decl = if ffi::inline::lean_ctor_num_objs(raw.as_ptr()) == 1 {
+                LeanBound::<LeanAny>::from_borrowed_ptr(
+                    self.lean,
+                    ffi::lean_ctor_get(raw.as_ptr(), 0),
+                )
+            } else {
+                raw
+            };
+            let fvar_id = ffi::meta::lean_local_decl_fvar_id(local_decl.as_ptr());
+            let fvar_id = LeanBound::<LeanAny>::from_owned_ptr(self.lean, fvar_id).cast();
+            LeanExpr::fvar(self.lean, fvar_id)
+        }
     }
 
     /// Infer the type of a Lean expression.

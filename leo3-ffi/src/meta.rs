@@ -18,6 +18,18 @@ use super::*;
 // In Lean >= 4.22, it was renamed to `_redArg`.
 #[cfg(not(lean_4_22))]
 extern "C" {
+    /// Run a MetaM computation and return the result plus the final Meta.State (Lean < 4.22)
+    ///
+    /// `Lean.Meta.MetaM.run : MetaM α → Meta.Context → Meta.State → CoreM (α × Meta.State)`
+    pub fn l_Lean_Meta_MetaM_run___rarg(
+        x: lean_obj_arg,
+        ctx: lean_obj_arg,
+        state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state_ref: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Run a MetaM computation (Lean < 4.22)
     ///
     /// `Lean.Meta.MetaM.run' : MetaM α → Meta.Context → Meta.State → CoreM α`
@@ -41,6 +53,16 @@ extern "C" {
 
 #[cfg(all(lean_4_22, not(lean_4_26)))]
 extern "C" {
+    /// Run a MetaM computation and return the result plus the final Meta.State (Lean 4.22..4.25)
+    pub fn l_Lean_Meta_MetaM_run___redArg(
+        x: lean_obj_arg,
+        ctx: lean_obj_arg,
+        state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state_ref: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Run a MetaM computation (Lean 4.22..4.25)
     ///
     /// Same as `l_Lean_Meta_MetaM_run_x27___rarg` but for Lean >= 4.22.
@@ -56,6 +78,15 @@ extern "C" {
 
 #[cfg(lean_4_26)]
 extern "C" {
+    /// Run a MetaM computation and return the result plus the final Meta.State (Lean >= 4.26)
+    pub fn l_Lean_Meta_MetaM_run___redArg(
+        x: lean_obj_arg,
+        ctx: lean_obj_arg,
+        state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state_ref: lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Run a MetaM computation (Lean >= 4.26)
     ///
     /// In Lean 4.26+, the IO world token was removed from the calling convention.
@@ -105,6 +136,33 @@ pub unsafe fn lean_meta_metam_run(
         // The function handles it internally.
         let _ = world;
         l_Lean_Meta_MetaM_run_x27___redArg(x, ctx, state, core_ctx, core_state_ref)
+    }
+}
+
+/// Run a MetaM computation, returning the result together with the final `Meta.State`.
+///
+/// This dispatches to `MetaM.run` instead of `MetaM.run'`.
+#[inline]
+pub unsafe fn lean_meta_metam_run_state(
+    x: lean_obj_arg,
+    ctx: lean_obj_arg,
+    state: lean_obj_arg,
+    core_ctx: lean_obj_arg,
+    core_state_ref: lean_obj_arg,
+    world: lean_obj_arg,
+) -> lean_obj_res {
+    #[cfg(not(lean_4_22))]
+    {
+        l_Lean_Meta_MetaM_run___rarg(x, ctx, state, core_ctx, core_state_ref, world)
+    }
+    #[cfg(all(lean_4_22, not(lean_4_26)))]
+    {
+        l_Lean_Meta_MetaM_run___redArg(x, ctx, state, core_ctx, core_state_ref, world)
+    }
+    #[cfg(lean_4_26)]
+    {
+        let _ = world;
+        l_Lean_Meta_MetaM_run___redArg(x, ctx, state, core_ctx, core_state_ref)
     }
 }
 
@@ -174,6 +232,76 @@ extern "C" {
     pub fn lean_is_expr_def_eq(
         a: lean_obj_arg,
         b: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a fresh expression metavariable in the current local context.
+    ///
+    /// `Lean.Meta.mkFreshExprMVar : Option Expr → MetavarKind → Name → MetaM Expr`
+    pub fn l_Lean_Meta_mkFreshExprMVar(
+        type_: lean_obj_arg,
+        kind: lean_obj_arg,
+        user_name: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Create a fresh expression metavariable at an explicit local context.
+    ///
+    /// `Lean.Meta.mkFreshExprMVarAt :
+    ///   LocalContext → LocalInstances → Expr → MetavarKind → Name → Nat → MetaM Expr`
+    pub fn l_Lean_Meta_mkFreshExprMVarAt(
+        lctx: lean_obj_arg,
+        local_instances: lean_obj_arg,
+        type_: lean_obj_arg,
+        kind: lean_obj_arg,
+        user_name: lean_obj_arg,
+        num_scope_args: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Get the declaration for a metavariable.
+    ///
+    /// `Lean.MVarId.getDecl : MVarId → MetaM MetavarDecl`
+    pub fn l_Lean_MVarId_getDecl(
+        mvar_id: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Introduce one binder in a goal, using the provided user name.
+    ///
+    /// `Lean.MVarId.intro : MVarId → Name → MetaM (FVarId × MVarId)`
+    pub fn l_Lean_MVarId_intro(
+        mvar_id: lean_obj_arg,
+        user_name: lean_obj_arg,
+        meta_ctx: lean_obj_arg,
+        meta_state: lean_obj_arg,
+        core_ctx: lean_obj_arg,
+        core_state: lean_obj_arg,
+        world: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Run a MetaM computation under a metavariable's local context.
+    ///
+    /// `Lean.MVarId.withContext : MVarId → MetaM α → MetaM α`
+    pub fn l_Lean_MVarId_withContext(
+        mvar_id: lean_obj_arg,
+        computation: lean_obj_arg,
         meta_ctx: lean_obj_arg,
         meta_state: lean_obj_arg,
         core_ctx: lean_obj_arg,
@@ -816,6 +944,15 @@ extern "C" {
     /// - `fvar_id` must be a valid FVarId/Name (borrowed)
     pub fn lean_local_ctx_find(lctx: b_lean_obj_arg, fvar_id: b_lean_obj_arg) -> lean_obj_res;
 
+    /// Find a local declaration by user name.
+    ///
+    /// This binds Lean's internal `LocalContext.findFromUserName?` symbol.
+    #[link_name = "l_Lean_LocalContext_findFromUserName_x3f"]
+    pub fn lean_local_ctx_find_from_user_name(
+        lctx: b_lean_obj_arg,
+        user_name: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Erase a local declaration from a LocalContext
     ///
     /// `@[export lean_local_ctx_erase] def erase (lctx : LocalContext) (fvarId : FVarId) : LocalContext`
@@ -832,6 +969,12 @@ extern "C" {
     /// # Safety
     /// - `lctx` must be a valid LocalContext (borrowed)
     pub fn lean_local_ctx_num_indices(lctx: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the local declaration at a given index.
+    ///
+    /// This binds Lean's internal `LocalContext.getAt?`.
+    #[link_name = "l_Lean_LocalContext_getAt_x3f"]
+    pub fn lean_local_ctx_get_at(lctx: lean_obj_arg, index: lean_obj_arg) -> lean_obj_res;
 }
 
 // ============================================================================
@@ -884,6 +1027,18 @@ extern "C" {
     /// # Safety
     /// - `decl` must be a valid LocalDecl (borrowed)
     pub fn lean_local_decl_binder_info(decl: b_lean_obj_arg) -> u8;
+
+    /// Get the free-variable id of a LocalDecl.
+    #[link_name = "l_Lean_LocalDecl_fvarId"]
+    pub fn lean_local_decl_fvar_id(decl: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the user-facing name of a LocalDecl.
+    #[link_name = "l_Lean_LocalDecl_userName"]
+    pub fn lean_local_decl_user_name(decl: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the type of a LocalDecl.
+    #[link_name = "l_Lean_LocalDecl_type"]
+    pub fn lean_local_decl_type(decl: b_lean_obj_arg) -> lean_obj_res;
 }
 
 // ============================================================================
