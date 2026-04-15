@@ -8,7 +8,7 @@ use leo3_macros_backend::{build_lean_function, LeanFunctionOptions};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::parse_macro_input;
+use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Token};
 
 /// A proc macro used to expose Rust functions to Lean4.
 ///
@@ -223,27 +223,26 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// ```
 ///
 /// This generates a module initialization function `initialize_MyRustLib` that
-/// can be called from Lean4 to initialize the module.
+/// can be called from Lean4 to initialize the module. The generated entry point
+/// aligns with Leo3's runtime model instead of calling Lean initialization
+/// primitives directly on the caller thread.
+///
+/// Supported options:
+///
+/// - `#[leanmodule]` uses the Rust module identifier
+/// - `#[leanmodule(MyName)]` uses a bare identifier as the Lean module name
+/// - `#[leanmodule(name = "MyName")]` uses an explicit string name
+/// - `#[leanmodule(crate = my::leo3)]` changes the crate path used in generated code
 #[proc_macro_attribute]
 pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
     let item_mod = parse_macro_input!(input as syn::ItemMod);
+    let options = parse_macro_input!(attr as LeanModuleOptions);
 
-    // Parse the module name from attributes
-    let attr_str = attr.to_string();
-    let module_name = if attr_str.contains("name") {
-        // Extract name from `name = "..."`
-        attr_str
-            .split('"')
-            .nth(1)
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| item_mod.ident.to_string())
-    } else if !attr_str.is_empty() {
-        // Bare identifier
-        attr_str.trim().to_string()
-    } else {
-        // Default to module name
-        item_mod.ident.to_string()
-    };
+    let module_name = options.name.unwrap_or_else(|| item_mod.ident.to_string());
+    let leo3_crate = options
+        .krate
+        .map(|path| quote! { #path })
+        .unwrap_or_else(|| quote! { ::leo3 });
 
     let init_fn_name = syn::Ident::new(
         &format!("initialize_{}", module_name),
@@ -262,13 +261,13 @@ pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
             _world: *mut ::std::ffi::c_void,
         ) -> *mut ::std::ffi::c_void {
             if builtin == 0 {
-                ::leo3::ffi::lean_initialize_runtime_module();
-                ::leo3::ffi::lean_initialize_thread();
+                #leo3_crate::prepare_freethreaded_lean();
             }
+            #leo3_crate::sync::ensure_lean_thread();
 
             // Return IO.ok ()
-            let unit = ::leo3::ffi::lean_mk_unit();
-            let io_ok = ::leo3::ffi::lean_except_ok(unit);
+            let unit = #leo3_crate::ffi::lean_mk_unit();
+            let io_ok = #leo3_crate::ffi::lean_except_ok(unit);
             io_ok as *mut ::std::ffi::c_void
         }
     };
@@ -333,5 +332,108 @@ trait UnwrapOrCompileError {
 impl UnwrapOrCompileError for syn::Result<TokenStream2> {
     fn unwrap_or_compile_error(self) -> TokenStream2 {
         self.unwrap_or_else(|e| e.into_compile_error())
+    }
+}
+
+#[derive(Default)]
+struct LeanModuleOptions {
+    name: Option<String>,
+    krate: Option<syn::Path>,
+}
+
+impl Parse for LeanModuleOptions {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let metas: Punctuated<syn::Meta, Token![,]> =
+            input.parse_terminated(syn::Meta::parse, Token![,])?;
+        let mut options = LeanModuleOptions::default();
+
+        for meta in metas {
+            match meta {
+                syn::Meta::Path(path) => {
+                    if options.name.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            "module name was already specified",
+                        ));
+                    }
+                    if path.segments.len() != 1 {
+                        return Err(syn::Error::new_spanned(
+                            path,
+                            "bare #[leanmodule(...)] names must be a single identifier",
+                        ));
+                    }
+                    options.name = path.get_ident().map(|ident| ident.to_string());
+                }
+                syn::Meta::NameValue(nv) if nv.path.is_ident("name") => {
+                    let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(s),
+                        ..
+                    }) = nv.value
+                    else {
+                        return Err(syn::Error::new_spanned(
+                            nv,
+                            "`name` must be a string literal",
+                        ));
+                    };
+                    options.name = Some(s.value());
+                }
+                syn::Meta::NameValue(nv) if nv.path.is_ident("crate") => {
+                    let syn::Expr::Path(path) = nv.value else {
+                        return Err(syn::Error::new_spanned(
+                            nv,
+                            "`crate` must be a Rust path",
+                        ));
+                    };
+                    options.krate = Some(path.path);
+                }
+                other => {
+                    return Err(syn::Error::new_spanned(
+                        other,
+                        "expected #[leanmodule], #[leanmodule(Name)], #[leanmodule(name = \"...\")], or #[leanmodule(crate = path)]",
+                    ))
+                }
+            }
+        }
+
+        Ok(options)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LeanModuleOptions;
+    use quote::ToTokens;
+
+    #[test]
+    fn parse_empty_module_options() {
+        let options: LeanModuleOptions = syn::parse_quote! {};
+        assert!(options.name.is_none());
+        assert!(options.krate.is_none());
+    }
+
+    #[test]
+    fn parse_bare_module_name() {
+        let options: LeanModuleOptions = syn::parse_quote! { MyModule };
+        assert_eq!(options.name.as_deref(), Some("MyModule"));
+        assert!(options.krate.is_none());
+    }
+
+    #[test]
+    fn parse_named_module_options() {
+        let options: LeanModuleOptions = syn::parse_quote! { name = "MyModule", crate = my::leo3 };
+        assert_eq!(options.name.as_deref(), Some("MyModule"));
+        assert_eq!(
+            options
+                .krate
+                .as_ref()
+                .unwrap()
+                .to_token_stream()
+                .to_string(),
+            "my :: leo3"
+        );
     }
 }

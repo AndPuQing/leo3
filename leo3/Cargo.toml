@@ -61,6 +61,7 @@ required-features = ["macros"]
 default = []
 
 # Optional public subsystems.
+experimental-containers = []
 macros = ["dep:leo3-macros"]
 meta = []
 io = []

@@ -33,8 +33,17 @@ impl Counter {
         self.value += 1;
     }
 
+    fn bump_and_get(&mut self, amount: i32) -> i32 {
+        self.value += amount;
+        self.value
+    }
+
     fn add(&self, amount: i32) -> i32 {
         self.value + amount
+    }
+
+    fn unwrap_result_or_zero(&self, value: Result<u64, u64>) -> u64 {
+        value.unwrap_or(0)
     }
 
     fn consume_and_return(self) -> i32 {
@@ -129,6 +138,33 @@ fn test_leanclass_ffi_functions_exist() {
     // This test just verifies that the FFI functions were generated and linked
     // We can't easily call them from Rust, but we can at least check they exist
     // by verifying the test compiles
+}
+
+#[test]
+fn test_leanclass_try_wrapper_reports_conversion_errors() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        let counter = Counter { value: 10 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+        let invalid = LeanOption::none(lean)?;
+
+        let err = unsafe {
+            __leo3_try_Counter_unwrap_result_or_zero(external.into_ptr(), invalid.into_ptr())
+                .unwrap_err()
+        };
+
+        match err {
+            LeanError::Conversion(message) => {
+                assert!(message.contains("Failed to convert `value` from Lean to Rust"));
+                assert!(message.contains("Except value must be a constructor"));
+            }
+            other => panic!("expected conversion error, got: {:?}", other),
+        }
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
 }
 
 // --- COW (Copy-on-Write) behavior tests ---
@@ -271,6 +307,35 @@ fn test_cow_multiple_shared_mutations_create_independent_copies() {
             leo3::ffi::object::lean_dec_ref(copy1);
             leo3::ffi::object::lean_dec_ref(copy2);
         }
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
+}
+
+#[test]
+fn test_mut_ref_non_unit_returns_updated_object_and_value() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| {
+        let counter = Counter { value: 10 };
+        let external = LeanExternal::new(lean, counter).unwrap();
+
+        let pair_ptr = unsafe {
+            let amount = LeanInt32::mk(lean, 5)?;
+            __lean_ffi_Counter_bump_and_get(external.into_ptr(), amount.into_ptr())
+        };
+
+        let pair = unsafe { LeanBound::<LeanProd>::from_owned_ptr(lean, pair_ptr) };
+
+        let updated_counter_any = LeanProd::fst(&pair);
+        let updated_counter: LeanBound<'_, leo3::external::LeanExternalType<Counter>> =
+            updated_counter_any.cast();
+        assert_eq!(updated_counter.get_ref().value, 15);
+
+        let result_any = LeanProd::snd(&pair);
+        let result_value: LeanBound<'_, LeanInt32> = result_any.cast();
+        assert_eq!(LeanInt32::to_i32(&result_value), 15);
 
         Ok::<_, LeanError>(())
     })

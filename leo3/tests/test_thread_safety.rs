@@ -377,6 +377,23 @@ fn test_ensure_lean_thread_from_spawned_thread() {
     assert_eq!(result, 42);
 }
 
+#[test]
+#[cfg(feature = "runtime-tests")]
+fn test_with_lean_from_spawned_thread_without_manual_attach() {
+    let handle = thread::spawn(|| {
+        assert!(!leo3::sync::thread_is_lean_initialized());
+        let result = leo3::with_lean(|lean| {
+            let n = LeanNat::from_usize(lean, 42).unwrap();
+            LeanNat::to_usize(&n).unwrap()
+        });
+        assert!(leo3::sync::thread_is_lean_initialized());
+        result
+    });
+
+    let result = handle.join().unwrap();
+    assert_eq!(result, 42);
+}
+
 // ============================================================================
 // Stress Tests
 // ============================================================================

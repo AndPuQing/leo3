@@ -20,6 +20,11 @@ impl Counter {
         self.value += delta;
     }
 
+    fn increment_and_get(&mut self, delta: i32) -> i32 {
+        self.value += delta;
+        self.value
+    }
+
     fn get(&self) -> i32 {
         self.value
     }
@@ -78,6 +83,27 @@ fn main() -> LeanResult<()> {
             let value = LeanBound::<LeanInt32>::from_owned_ptr(lean, value_ptr);
             LeanInt32::to_i32(&value)
         };
+
+        let pair_value = unsafe {
+            let initial = LeanInt32::mk(lean, 10)?;
+            let counter_ptr = __lean_ffi_Counter_new(initial.into_ptr());
+            let delta = LeanInt32::mk(lean, 7)?;
+            let pair_ptr = __lean_ffi_Counter_increment_and_get(counter_ptr, delta.into_ptr());
+            let pair = LeanBound::<LeanProd>::from_owned_ptr(lean, pair_ptr);
+            let updated_counter_any = LeanProd::fst(&pair);
+            let updated_counter: LeanBound<'_, leo3::external::LeanExternalType<Counter>> =
+                updated_counter_any.cast();
+            let observed = updated_counter.get_ref().value;
+            let result_any = LeanProd::snd(&pair);
+            let result: LeanBound<'_, LeanInt32> = result_any.cast();
+            let returned = LeanInt32::to_i32(&result);
+            assert_eq!(observed, returned);
+            returned
+        };
+        println!(
+            "FFI mut+value call: increment_and_get(10, 7) = {}",
+            pair_value
+        );
 
         let banner = counter_demo::banner("counter".to_string(), counter_value);
         println!("{}", banner);

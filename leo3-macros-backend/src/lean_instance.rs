@@ -173,6 +173,7 @@ fn generate_ffi_function(
     _method: &syn::ImplItemFn,
 ) -> syn::Result<TokenStream> {
     let ffi_name = format_ident!("{}_{}", typeclass.ffi_prefix(), struct_name);
+    let try_name = format_ident!("__leo3_try_{}", ffi_name);
     let method_ident = format_ident!("{}", typeclass.method_name());
 
     match typeclass {
@@ -183,19 +184,24 @@ fn generate_ffi_function(
                 a: *mut #leo3_crate::ffi::lean_object,
                 b: *mut #leo3_crate::ffi::lean_object,
             ) -> *mut #leo3_crate::ffi::lean_object {
+                #leo3_crate::__private::ffi_panic_boundary(|| #try_name(a, b))
+            }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            pub(crate) unsafe fn #try_name(
+                a: *mut #leo3_crate::ffi::lean_object,
+                b: *mut #leo3_crate::ffi::lean_object,
+            ) -> #leo3_crate::LeanResult<*mut #leo3_crate::ffi::lean_object> {
                 let lean = #leo3_crate::Lean::assume_initialized();
 
-                // Get references to the external objects
                 let a_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, a);
                 let b_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, b);
 
-                // Call the beq method
                 let result = a_bound.get_ref().#method_ident(b_bound.get_ref());
-
-                // Return Lean Bool (boxed)
-                #leo3_crate::ffi::inline::lean_box(result as usize)
+                Ok(#leo3_crate::ffi::inline::lean_box(result as usize))
             }
         }),
 
@@ -205,13 +211,20 @@ fn generate_ffi_function(
             pub unsafe extern "C" fn #ffi_name(
                 obj: *mut #leo3_crate::ffi::lean_object,
             ) -> u64 {
+                #leo3_crate::__private::scalar_u64_ffi_panic_boundary(stringify!(#ffi_name), || #try_name(obj))
+            }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            pub(crate) unsafe fn #try_name(
+                obj: *mut #leo3_crate::ffi::lean_object,
+            ) -> #leo3_crate::LeanResult<u64> {
                 let lean = #leo3_crate::Lean::assume_initialized();
 
                 let obj_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, obj);
 
-                // Call the hash method
-                obj_bound.get_ref().#method_ident()
+                Ok(obj_bound.get_ref().#method_ident())
             }
         }),
 
@@ -221,22 +234,26 @@ fn generate_ffi_function(
             pub unsafe extern "C" fn #ffi_name(
                 obj: *mut #leo3_crate::ffi::lean_object,
             ) -> *mut #leo3_crate::ffi::lean_object {
+                #leo3_crate::__private::ffi_panic_boundary(|| #try_name(obj))
+            }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            pub(crate) unsafe fn #try_name(
+                obj: *mut #leo3_crate::ffi::lean_object,
+            ) -> #leo3_crate::LeanResult<*mut #leo3_crate::ffi::lean_object> {
                 let lean = #leo3_crate::Lean::assume_initialized();
 
                 let obj_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, obj);
 
-                // Call the repr method
                 let repr_str: String = obj_bound.get_ref().#method_ident();
-
-                // Convert to Lean String
-                match #leo3_crate::types::LeanString::mk(lean, &repr_str) {
-                    Ok(s) => s.into_ptr(),
-                    Err(_) => {
-                        // Return empty string on error
-                        #leo3_crate::ffi::string::lean_mk_string(b"\0".as_ptr() as *const _)
-                    }
-                }
+                let s = #leo3_crate::types::LeanString::mk(lean, &repr_str)
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust repr result to Lean: {}",
+                        e
+                    )))?;
+                Ok(s.into_ptr())
             }
         }),
 
@@ -246,21 +263,26 @@ fn generate_ffi_function(
             pub unsafe extern "C" fn #ffi_name(
                 obj: *mut #leo3_crate::ffi::lean_object,
             ) -> *mut #leo3_crate::ffi::lean_object {
+                #leo3_crate::__private::ffi_panic_boundary(|| #try_name(obj))
+            }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            pub(crate) unsafe fn #try_name(
+                obj: *mut #leo3_crate::ffi::lean_object,
+            ) -> #leo3_crate::LeanResult<*mut #leo3_crate::ffi::lean_object> {
                 let lean = #leo3_crate::Lean::assume_initialized();
 
                 let obj_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, obj);
 
-                // Call the to_string method
                 let s: String = obj_bound.get_ref().#method_ident();
-
-                // Convert to Lean String
-                match #leo3_crate::types::LeanString::mk(lean, &s) {
-                    Ok(lean_str) => lean_str.into_ptr(),
-                    Err(_) => {
-                        #leo3_crate::ffi::string::lean_mk_string(b"\0".as_ptr() as *const _)
-                    }
-                }
+                let lean_str = #leo3_crate::types::LeanString::mk(lean, &s)
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust string result to Lean: {}",
+                        e
+                    )))?;
+                Ok(lean_str.into_ptr())
             }
         }),
 
@@ -271,6 +293,15 @@ fn generate_ffi_function(
                 a: *mut #leo3_crate::ffi::lean_object,
                 b: *mut #leo3_crate::ffi::lean_object,
             ) -> *mut #leo3_crate::ffi::lean_object {
+                #leo3_crate::__private::ffi_panic_boundary(|| #try_name(a, b))
+            }
+
+            #[doc(hidden)]
+            #[allow(non_snake_case)]
+            pub(crate) unsafe fn #try_name(
+                a: *mut #leo3_crate::ffi::lean_object,
+                b: *mut #leo3_crate::ffi::lean_object,
+            ) -> #leo3_crate::LeanResult<*mut #leo3_crate::ffi::lean_object> {
                 let lean = #leo3_crate::Lean::assume_initialized();
 
                 let a_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
@@ -278,19 +309,67 @@ fn generate_ffi_function(
                 let b_bound: #leo3_crate::LeanBound<'_, #leo3_crate::external::LeanExternalType<#struct_name>> =
                     #leo3_crate::LeanBound::from_owned_ptr(lean, b);
 
-                // Call the compare method
                 let ordering = a_bound.get_ref().#method_ident(b_bound.get_ref());
-
-                // Convert Ordering to Lean representation
-                // Lean Ordering: lt = 0, eq = 1, gt = 2
                 let ord_val = match ordering {
                     std::cmp::Ordering::Less => 0usize,
                     std::cmp::Ordering::Equal => 1usize,
                     std::cmp::Ordering::Greater => 2usize,
                 };
 
-                #leo3_crate::ffi::inline::lean_box(ord_val)
+                Ok(#leo3_crate::ffi::inline::lean_box(ord_val))
             }
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_lean_instance_wrappers_use_boundary_helpers() {
+        let mut item: syn::ItemImpl = syn::parse_quote! {
+            impl Demo {
+                fn repr(&self) -> String {
+                    "demo".to_string()
+                }
+            }
+        };
+
+        let repr_tokens = build_lean_instance(
+            &mut item,
+            LeanInstanceOptions {
+                typeclass: syn::parse_quote!(Repr),
+                krate: None,
+            },
+        )
+        .expect("lean_instance repr expansion should succeed");
+        let rendered_repr = repr_tokens.to_string();
+        assert!(rendered_repr.contains("__private :: ffi_panic_boundary"));
+        assert!(rendered_repr.contains("Failed to convert Rust repr result to Lean"));
+        assert!(!rendered_repr.contains("empty string"));
+        assert!(!rendered_repr.contains(".expect("));
+        assert!(!rendered_repr.contains(". expect ("));
+
+        let mut hash_item: syn::ItemImpl = syn::parse_quote! {
+            impl Demo {
+                fn hash(&self) -> u64 {
+                    7
+                }
+            }
+        };
+
+        let hash_tokens = build_lean_instance(
+            &mut hash_item,
+            LeanInstanceOptions {
+                typeclass: syn::parse_quote!(Hashable),
+                krate: None,
+            },
+        )
+        .expect("lean_instance hash expansion should succeed");
+        let rendered_hash = hash_tokens.to_string();
+        assert!(rendered_hash.contains("__private :: scalar_u64_ffi_panic_boundary"));
+        assert!(!rendered_hash.contains(".expect("));
+        assert!(!rendered_hash.contains(". expect ("));
     }
 }

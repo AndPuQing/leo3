@@ -52,8 +52,9 @@
 //!   environment/meta operations.
 //! - **Lean tasks**: `leo3::task` builds on Lean's native task manager for
 //!   asynchronous computation after that worker has initialized the runtime.
-//! - **User threads**: threads you create yourself may access MT-marked Lean
-//!   objects after calling `leo3::sync::ensure_lean_thread()`.
+//! - **User threads**: safe entry points such as `with_lean()` automatically
+//!   attach the caller thread; lower-level code can attach explicitly with
+//!   `leo3::sync::ensure_lean_thread()`.
 //!
 //! Blocking waits and polling-based waits are intentionally kept separate:
 //! blocking APIs use Lean's native task waits, while combinators and futures
@@ -65,6 +66,9 @@
 //! token, smart pointers, type wrappers/conversions, closures, thunks, and
 //! synchronization helpers. Optional subsystems are enabled explicitly:
 //!
+//! - **`experimental-containers`**: placeholder wrappers for `HashMap`,
+//!   `HashSet`, and `RBMap`; these APIs are intentionally gated because they do
+//!   not yet provide full Lean container semantics
 //! - **`macros`**: Procedural macros (`#[leanfn]`, `#[leanclass]`, `#[leanmodule]`)
 //! - **`meta`**: `leo3::meta` metaprogramming APIs
 //! - **`io`**: `leo3::io` helpers for Lean IO / filesystem / process utilities
@@ -150,11 +154,12 @@ pub mod prelude {
 
     // Re-export commonly used types
     pub use crate::types::{
-        LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanFloat32, LeanHashMap,
-        LeanHashSet, LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList,
-        LeanNat, LeanOption, LeanProd, LeanRBMap, LeanString, LeanUInt16, LeanUInt32, LeanUInt64,
-        LeanUInt8, LeanUSize,
+        LeanArray, LeanBool, LeanByteArray, LeanChar, LeanFloat, LeanFloat32, LeanISize, LeanInt,
+        LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption, LeanProd,
+        LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8, LeanUSize,
     };
+    #[cfg(feature = "experimental-containers")]
+    pub use crate::types::{LeanHashMap, LeanHashSet, LeanRBMap};
 
     #[cfg(feature = "macros")]
     pub use leo3_macros::{leanclass, leanfn, leanmodule, FromLean, IntoLean};
@@ -173,8 +178,12 @@ pub mod prelude {
 
 /// Initialize the Lean runtime for standalone use.
 ///
-/// This must be called before any Lean operations. It initializes the
-/// Lean runtime and returns a `Lean<'l>` token that proves initialization.
+/// This eagerly starts Leo3's long-lived runtime worker.
+///
+/// Safe caller-facing entry points such as [`with_lean`] already perform lazy
+/// initialization as needed, so calling this function is optional. Use it when
+/// you want to pay startup cost early or bootstrap runtime state before the
+/// first `with_lean()` call.
 ///
 /// This function is thread-safe and can be called multiple times - the
 /// initialization will only happen once.
@@ -212,6 +221,10 @@ pub fn prepare_freethreaded_lean() {
 /// This provides a `Lean<'l>` token to the closure, which can be used to
 /// create and manipulate Lean objects.
 ///
+/// `with_lean()` is the canonical safe entry point for caller code. It ensures
+/// both the shared runtime worker and the current thread are initialized before
+/// constructing the `Lean<'l>` token.
+///
 /// # Example
 ///
 /// ```rust,no_run
@@ -231,6 +244,7 @@ pub fn with_lean<F, R>(f: F) -> R
 where
     F: for<'l> FnOnce(Lean<'l>) -> R,
 {
+    sync::ensure_lean_thread();
     let lean = unsafe { Lean::assume_initialized() };
     f(lean)
 }
@@ -257,10 +271,6 @@ pub fn test_with_lean<F, R>(f: F) -> R
 where
     F: for<'l> FnOnce(Lean<'l>) -> R,
 {
-    // Initialize if needed (idempotent per thread)
-    prepare_freethreaded_lean();
-
-    // Run the test
     with_lean(f)
 }
 
@@ -300,5 +310,51 @@ pub mod __private {
         };
 
         ffi::object::lean_panic_fn(ffi::inline::lean_box(0), msg)
+    }
+
+    /// Execute an object-returning FFI body behind a panic boundary.
+    pub unsafe fn ffi_panic_boundary<F>(f: F) -> ffi::object::lean_obj_res
+    where
+        F: FnOnce() -> crate::LeanResult<ffi::object::lean_obj_res>,
+    {
+        match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
+            Ok(Ok(ptr)) => ptr,
+            Ok(Err(err)) => {
+                let lean = Lean::assume_initialized();
+                lean_panic_message(lean, &err.to_string())
+            }
+            Err(payload) => {
+                let lean = Lean::assume_initialized();
+                let message = panic_payload_message(payload.as_ref());
+                lean_panic_message(lean, &message)
+            }
+        }
+    }
+
+    /// Abort the process after reporting a scalar-returning FFI boundary error.
+    pub fn abort_ffi_boundary(message: &str) -> ! {
+        eprintln!("{message}");
+        std::process::abort()
+    }
+
+    /// Execute a scalar-returning FFI body behind a panic boundary.
+    ///
+    /// Scalar-returning Lean extern signatures cannot encode a Lean panic object,
+    /// so the only sound failure behavior is to terminate explicitly after
+    /// reporting the boundary error.
+    pub fn scalar_u64_ffi_panic_boundary<F>(symbol: &str, f: F) -> u64
+    where
+        F: FnOnce() -> crate::LeanResult<u64>,
+    {
+        match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(f)) {
+            Ok(Ok(value)) => value,
+            Ok(Err(err)) => {
+                abort_ffi_boundary(&format!("fatal scalar FFI error in {symbol}: {err}"))
+            }
+            Err(payload) => {
+                let message = panic_payload_message(payload.as_ref());
+                abort_ffi_boundary(&format!("fatal scalar FFI panic in {symbol}: {message}"))
+            }
+        }
     }
 }

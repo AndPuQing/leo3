@@ -25,10 +25,19 @@ thread_local! {
     static LEAN_THREAD_INITIALIZED: Cell<bool> = const { Cell::new(false) };
 }
 
+#[inline]
+pub(crate) fn mark_current_thread_initialized() {
+    LEAN_THREAD_INITIALIZED.with(|init| init.set(true));
+}
+
 /// Ensure the current thread is initialized for Lean operations.
 ///
-/// This is a no-op if the thread is already initialized. Call this before
-/// performing Lean operations from a new thread.
+/// This is a no-op if the thread is already initialized. It also ensures the
+/// process-wide Leo3 runtime worker has been started before attaching the
+/// current thread.
+///
+/// Call this on threads that need direct Lean access without going through
+/// [`crate::with_lean`]. `with_lean` already performs this step automatically.
 ///
 /// # Example
 ///
@@ -42,12 +51,14 @@ thread_local! {
 /// });
 /// ```
 pub fn ensure_lean_thread() {
+    crate::prepare_freethreaded_lean();
+
     LEAN_THREAD_INITIALIZED.with(|init| {
         if !init.get() {
             unsafe {
                 ffi::lean_initialize_thread();
             }
-            init.set(true);
+            mark_current_thread_initialized();
         }
     });
 }
@@ -55,8 +66,8 @@ pub fn ensure_lean_thread() {
 /// Check if the current thread is initialized for Lean operations.
 ///
 /// Returns `true` if `ensure_lean_thread()` has initialized the current thread.
-/// `prepare_freethreaded_lean()` initializes Leo3's dedicated runtime worker,
-/// not the caller thread.
+/// `prepare_freethreaded_lean()` only guarantees the dedicated runtime worker is
+/// running; it does not by itself attach the caller thread.
 pub fn thread_is_lean_initialized() -> bool {
     LEAN_THREAD_INITIALIZED.with(|init| init.get())
 }

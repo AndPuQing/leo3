@@ -38,12 +38,21 @@ mod math_module {
     }
 }
 
+#[leanmodule(name = "CratePathModule", crate = leo3)]
+mod crate_path_module {
+    #[allow(dead_code)]
+    pub fn negate(x: i32) -> i32 {
+        -x
+    }
+}
+
 #[test]
 fn test_module_initialization_function_exists() {
     // The #[leanmodule] macro generates:
     // - initialize_TestModule
     // - initialize_another_module
     // - initialize_MathModule
+    // - initialize_CratePathModule
 
     // If this compiles, the functions exist (they're #[no_mangle] extern "C")
 }
@@ -55,6 +64,7 @@ fn test_module_functions_accessible() {
     assert_eq!(test_module::multiply(4, 5), 20);
     assert_eq!(another_module::greet(), "Hello!");
     assert_eq!(math_module::square(7), 49);
+    assert_eq!(crate_path_module::negate(9), -9);
 }
 
 #[test]
@@ -68,6 +78,30 @@ fn test_module_initialization_safety() {
         Ok::<_, LeanError>(())
     })
     .unwrap();
+}
+
+#[test]
+fn test_module_initialization_attaches_thread() {
+    let handle = std::thread::spawn(|| {
+        assert!(!leo3::sync::thread_is_lean_initialized());
+
+        unsafe {
+            let result = initialize_TestModule(0, std::ptr::null_mut());
+            let result_ptr = result as *mut leo3::ffi::lean_object;
+            leo3::ffi::lean_dec(result_ptr);
+        }
+
+        assert!(leo3::sync::thread_is_lean_initialized());
+
+        leo3::with_lean(|lean| {
+            let n = LeanNat::from_usize(lean, 9)?;
+            assert_eq!(LeanNat::to_usize(&n)?, 9);
+            Ok::<_, LeanError>(())
+        })
+        .unwrap();
+    });
+
+    handle.join().unwrap();
 }
 
 // Test nested content in modules

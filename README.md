@@ -34,6 +34,11 @@ fn main() -> LeanResult<()> {
 }
 ```
 
+`with_lean()` is the canonical safe entry point for caller code. It ensures the
+shared runtime worker exists and attaches the current thread before handing out a
+`Lean<'l>` token. `prepare_freethreaded_lean()` is still useful when you want to
+pay initialization cost eagerly during startup.
+
 ## Cargo Features
 
 Default features: **none**. The default build keeps the public surface intentionally
@@ -43,6 +48,7 @@ closures, thunks, and synchronization helpers are always available.
 | Feature | Enables |
 |---------|---------|
 | _default (none)_ | Core runtime/token APIs, conversions, closures, thunks, sync helpers, Lean type wrappers |
+| `experimental-containers` | Placeholder wrappers for `HashMap`, `HashSet`, `RBMap`; intentionally gated because semantics are incomplete |
 | `macros` | `#[leanfn]`, `#[leanclass]`, `#[leanmodule]`, `#[derive(IntoLean, FromLean)]` |
 | `meta` | `leo3::meta::*` metaprogramming APIs |
 | `io` | `leo3::io::*` IO / filesystem / process / environment helpers |
@@ -59,6 +65,9 @@ leo3 = "0.2.1"
 
 # Opt into specific subsystems
 leo3 = { version = "0.2.1", features = ["macros", "meta", "task"] }
+
+# Opt into currently experimental container wrappers
+leo3 = { version = "0.2.1", features = ["experimental-containers"] }
 ```
 
 ## Lean Discovery
@@ -92,10 +101,17 @@ Bidirectional conversions between Rust and Lean types via `IntoLean` / `FromLean
 | `Result<T, E>` | `Except` | `LeanExcept` |
 | `(A, B)` | `Prod` / `Sigma` | `LeanProd` / `LeanSigma` |
 | — | `List` | `LeanList` |
-| — | `HashMap` / `HashSet` | `LeanHashMap` / `LeanHashSet` |
-| — | `RBMap` | `LeanRBMap` |
 | — | `Nat` / `Int` | `LeanNat` / `LeanInt` |
 | — | `Sum`, `Fin`, `Subtype`, `BitVec`, `Range` | corresponding wrappers |
+
+### Experimental Container Wrappers (`experimental-containers`)
+
+`LeanHashMap`, `LeanHashSet`, and `LeanRBMap` are available only behind the
+`experimental-containers` feature.
+
+These APIs are currently placeholder wrappers and do not yet provide full Lean
+container semantics. They are gated explicitly so the default public surface
+remains semantically honest while container support is being completed.
 
 ### Procedural Macros (`macros`)
 
@@ -132,6 +148,12 @@ impl Counter {
 }
 # }
 ```
+
+For `&mut self` methods, Leo3 preserves mutation explicitly in the Lean-facing
+signature:
+
+- `&mut self -> ()` returns the updated object
+- `&mut self -> T` returns `Prod Self T`
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
 
@@ -201,6 +223,8 @@ See `TESTING.md` for the full tiered CI map and exact contributor workflows. Com
 ```bash
 LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_surface_contract
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features experimental-containers --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
 cargo test --locked --all-features --workspace
 ```

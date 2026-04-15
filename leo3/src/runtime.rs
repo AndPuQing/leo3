@@ -99,6 +99,7 @@ pub(crate) fn ensure_worker_initialized() {
                     ffi::lean_initialize_thread();
                     ffi::closure::lean_init_task_manager();
                 }
+                crate::sync::mark_current_thread_initialized();
                 ensure_environment_initialized();
 
                 let _ = init_tx.send(());

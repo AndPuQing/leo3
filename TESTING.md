@@ -34,7 +34,9 @@ RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --no-default-fea
 RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3 --doc --features "macros,task,tokio"
 RUSTC_WRAPPER= LEO3_NO_LEAN=1 cargo test --locked -p leo3-macros --doc
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_features
-LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features "macros,meta,io,module-loading,tokio" --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_surface_contract
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features experimental-containers --test test_features
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features "experimental-containers,macros,meta,io,module-loading,tokio" --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
 LEO3_NO_LEAN=1 RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo +nightly doc --locked --workspace --no-deps --all-features
 ```
@@ -113,6 +115,7 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 ## Test Coverage Map
 
 - `leo3/tests/test_features.rs`: feature-surface smoke tests.
+- `leo3/tests/test_surface_contract.rs` + `leo3/tests/surface_ui/`: compile-fail guardrails for intentionally hidden default-surface items.
 - `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage.
 - `leo3` doctests: runtime initialization, README quick start, string/nat conversion, and task/tokio docs.
 - `leo3-macros` doctests: compile-check macro usage snippets such as `#[leanfn]`, `#[leanclass]`, and derives.

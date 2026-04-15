@@ -1,0 +1,5 @@
+error: reference types are not supported in generated Lean declarations; use owned types instead
+ --> tests/ui/leanclass_unsupported_ref.rs:9:26
+  |
+9 |     fn bad(&self, value: &str) -> i32 {
+  |                          ^^^^

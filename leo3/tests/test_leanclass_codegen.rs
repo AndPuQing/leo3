@@ -27,6 +27,35 @@ impl Widget {
     fn set_value(&mut self, val: i32) {
         self.val = val;
     }
+
+    fn set_value_and_get(&mut self, val: i32) -> i32 {
+        self.val = val;
+        self.val
+    }
+}
+
+#[derive(Clone)]
+#[leanclass]
+#[allow(dead_code)]
+struct TypeShowcase;
+
+#[leanclass]
+impl TypeShowcase {
+    fn shapes(
+        &self,
+        xs: Vec<u64>,
+        flag: Option<bool>,
+        pair: (u64, bool),
+        value: Result<String, i32>,
+    ) -> Result<Vec<u64>, (String, i32)> {
+        let _ = (flag, pair, value);
+        Ok(xs)
+    }
+
+    fn scalars(&self, a: usize, b: isize, c: f32, d: u8, e: i16) -> u16 {
+        let _ = (a, b, c, d, e);
+        0
+    }
 }
 
 #[test]
@@ -41,8 +70,8 @@ fn test_lean_methods_decl_contains_all_methods() {
     let lines: Vec<&str> = decl.lines().collect();
     assert_eq!(
         lines.len(),
-        3,
-        "Expected 3 method declarations, got: {decl}"
+        4,
+        "Expected 4 method declarations, got: {decl}"
     );
 }
 
@@ -81,6 +110,17 @@ fn test_lean_methods_decl_mut_ref_method() {
 }
 
 #[test]
+fn test_lean_methods_decl_mut_ref_non_unit_method() {
+    let decl = WIDGET_LEAN_METHODS_DECL;
+    assert!(
+        decl.contains(
+            r#"@[extern "__lean_ffi_Widget_set_value_and_get"] opaque Widget.set_value_and_get : Widget → Int32 → Prod Widget Int32"#
+        ),
+        "Missing or incorrect &mut self non-unit declaration in:\n{decl}"
+    );
+}
+
+#[test]
 fn test_ffi_names_follow_pattern() {
     let decl = WIDGET_LEAN_METHODS_DECL;
     // All FFI names should follow __lean_ffi_{Struct}_{method}
@@ -93,4 +133,21 @@ fn test_ffi_names_follow_pattern() {
             "FFI name {ffi_name} doesn't match expected pattern __lean_ffi_Widget_*"
         );
     }
+}
+
+#[test]
+fn test_richer_type_mapping_for_common_supported_shapes() {
+    let decl = TYPESHOWCASE_LEAN_METHODS_DECL;
+    assert!(
+        decl.contains(
+            r#"@[extern "__lean_ffi_TypeShowcase_shapes"] opaque TypeShowcase.shapes : TypeShowcase → Array UInt64 → Option Bool → Prod UInt64 Bool → Except Int32 String → Except (Prod String Int32) (Array UInt64)"#
+        ),
+        "Missing or incorrect richer declaration mapping in:\n{decl}"
+    );
+    assert!(
+        decl.contains(
+            r#"@[extern "__lean_ffi_TypeShowcase_scalars"] opaque TypeShowcase.scalars : TypeShowcase → USize → ISize → Float32 → UInt8 → Int16 → UInt16"#
+        ),
+        "Missing or incorrect scalar declaration mapping in:\n{decl}"
+    );
 }

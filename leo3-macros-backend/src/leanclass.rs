@@ -7,7 +7,7 @@
 //! and `@[extern]`-annotated function signatures) that can be embedded into
 //! `.lean` files.
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::parse::Parse;
 
@@ -141,7 +141,7 @@ pub fn build_lean_class_impl(
 
     // Generate Lean code metadata
     let lean_code_gen =
-        generate_lean_code_metadata_for_methods(&struct_name, &methods, &leo3_crate);
+        generate_lean_code_metadata_for_methods(&struct_name, &methods, &leo3_crate)?;
 
     // Keep original impl
     let original_impl = quote! { #item };
@@ -249,23 +249,92 @@ fn generate_method_ffi_wrapper(
     let method_name = &method.name;
     let lean_name = &method.lean_name;
     let ffi_name = format_ident!("__lean_ffi_{}_{}", struct_name, method_name);
+    let try_name = format_ident!("__leo3_try_{}_{}", struct_name, method_name);
 
     match &method.receiver {
         MethodReceiver::None => {
             // Static method
-            generate_static_method_wrapper(method, struct_name, &ffi_name, lean_name, leo3_crate)
+            generate_static_method_wrapper(
+                method,
+                struct_name,
+                &ffi_name,
+                &try_name,
+                lean_name,
+                leo3_crate,
+            )
         }
         MethodReceiver::Ref => {
             // &self method
-            generate_ref_method_wrapper(method, struct_name, &ffi_name, lean_name, leo3_crate)
+            generate_ref_method_wrapper(
+                method,
+                struct_name,
+                &ffi_name,
+                &try_name,
+                lean_name,
+                leo3_crate,
+            )
         }
         MethodReceiver::MutRef => {
             // &mut self method - needs special handling for Lean's pure functional semantics
-            generate_mut_ref_method_wrapper(method, struct_name, &ffi_name, lean_name, leo3_crate)
+            generate_mut_ref_method_wrapper(
+                method,
+                struct_name,
+                &ffi_name,
+                &try_name,
+                lean_name,
+                leo3_crate,
+            )
         }
         MethodReceiver::Owned => {
             // self method (consuming)
-            generate_owned_method_wrapper(method, struct_name, &ffi_name, lean_name, leo3_crate)
+            generate_owned_method_wrapper(
+                method,
+                struct_name,
+                &ffi_name,
+                &try_name,
+                lean_name,
+                leo3_crate,
+            )
+        }
+    }
+}
+
+fn generate_param_conversions_with_offset(
+    params: &[(syn::Ident, syn::Type)],
+    offset: usize,
+    leo3_crate: &TokenStream,
+) -> Vec<TokenStream> {
+    params
+        .iter()
+        .enumerate()
+        .map(|(i, (name, ty))| {
+            let arg_name = format_ident!("arg{}", i + offset);
+            quote! {
+                let #name = {
+                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
+                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
+                        .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                            "Failed to convert `{}` from Lean to Rust: {}",
+                            stringify!(#name),
+                            e
+                        )))?
+                };
+            }
+        })
+        .collect()
+}
+
+fn generate_object_ffi_wrapper(
+    ffi_name: &syn::Ident,
+    try_name: &syn::Ident,
+    ffi_params: &[TokenStream],
+    wrapper_call_args: &[TokenStream],
+    leo3_crate: &TokenStream,
+) -> TokenStream {
+    quote! {
+        #[no_mangle]
+        pub unsafe extern "C" fn #ffi_name(#(#ffi_params),*) -> #leo3_crate::ffi::object::lean_obj_res {
+            #leo3_crate::__private::ffi_panic_boundary(|| #try_name(#(#wrapper_call_args),*))
         }
     }
 }
@@ -275,6 +344,7 @@ fn generate_static_method_wrapper(
     method: &MethodInfo,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
+    try_name: &syn::Ident,
     lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
@@ -290,22 +360,15 @@ fn generate_static_method_wrapper(
             quote! { #arg_name: #leo3_crate::ffi::object::lean_obj_arg }
         })
         .collect();
-
-    // Generate parameter conversions
-    let param_conversions: Vec<_> = params
-        .iter()
-        .enumerate()
-        .map(|(i, (name, ty))| {
+    let wrapper_call_args: Vec<_> = (0..param_count)
+        .map(|i| {
             let arg_name = format_ident!("arg{}", i);
-            quote! {
-                let #name = {
-                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                        .expect(&format!("Failed to convert {} from Lean to Rust", stringify!(#name)))
-                };
-            }
+            quote! { #arg_name }
         })
         .collect();
+
+    // Generate parameter conversions
+    let param_conversions = generate_param_conversions_with_offset(params, 0, leo3_crate);
 
     // Generate method call
     let param_names: Vec<_> = params.iter().map(|(name, _)| name).collect();
@@ -316,27 +379,43 @@ fn generate_static_method_wrapper(
         quote! {
             {
                 let external = #leo3_crate::external::LeanExternal::new(lean, result)
-                    .expect("Failed to create external object");
-                external.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::Other(format!(
+                        "Failed to create external object: {}",
+                        e
+                    )))?;
+                Ok(external.into_ptr())
             }
         }
     } else if is_unit_type(return_type) {
         quote! {
-            #leo3_crate::ffi::lean_mk_unit()
+            Ok(#leo3_crate::ffi::lean_mk_unit())
         }
     } else {
         quote! {
             {
                 let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
-                    .expect("Failed to convert result from Rust to Lean");
-                lean_result.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust result to Lean: {}",
+                        e
+                    )))?;
+                Ok(lean_result.into_ptr())
             }
         }
     };
+    let ffi_wrapper = generate_object_ffi_wrapper(
+        ffi_name,
+        try_name,
+        &ffi_params,
+        &wrapper_call_args,
+        leo3_crate,
+    );
 
     Ok(quote! {
-        #[no_mangle]
-        pub unsafe extern "C" fn #ffi_name(#(#ffi_params),*) -> #leo3_crate::ffi::object::lean_obj_res {
+        #ffi_wrapper
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub(crate) unsafe fn #try_name(#(#ffi_params),*) -> #leo3_crate::LeanResult<#leo3_crate::ffi::object::lean_obj_res> {
             let lean = #leo3_crate::Lean::assume_initialized();
 
             #(#param_conversions)*
@@ -363,6 +442,7 @@ fn generate_ref_method_wrapper(
     method: &MethodInfo,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
+    try_name: &syn::Ident,
     lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
@@ -378,6 +458,12 @@ fn generate_ref_method_wrapper(
             quote! { #arg_name: #leo3_crate::ffi::object::lean_obj_arg }
         })
         .collect();
+    let wrapper_call_args: Vec<_> = (0..param_count)
+        .map(|i| {
+            let arg_name = format_ident!("arg{}", i);
+            quote! { #arg_name }
+        })
+        .collect();
 
     // Convert self parameter
     let self_conversion = quote! {
@@ -386,20 +472,7 @@ fn generate_ref_method_wrapper(
     };
 
     // Convert other parameters
-    let param_conversions: Vec<_> = params
-        .iter()
-        .enumerate()
-        .map(|(i, (name, ty))| {
-            let arg_name = format_ident!("arg{}", i + 1);
-            quote! {
-                let #name = {
-                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                        .expect(&format!("Failed to convert {} from Lean to Rust", stringify!(#name)))
-                };
-            }
-        })
-        .collect();
+    let param_conversions = generate_param_conversions_with_offset(params, 1, leo3_crate);
 
     // Generate method call
     let param_names: Vec<_> = params.iter().map(|(name, _)| name).collect();
@@ -407,21 +480,34 @@ fn generate_ref_method_wrapper(
     // Generate result conversion
     let result_conversion = if is_unit_type(return_type) {
         quote! {
-            unsafe { #leo3_crate::ffi::lean_mk_unit() }
+            Ok(unsafe { #leo3_crate::ffi::lean_mk_unit() })
         }
     } else {
         quote! {
             {
                 let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
-                    .expect("Failed to convert result from Rust to Lean");
-                lean_result.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust result to Lean: {}",
+                        e
+                    )))?;
+                Ok(lean_result.into_ptr())
             }
         }
     };
+    let ffi_wrapper = generate_object_ffi_wrapper(
+        ffi_name,
+        try_name,
+        &ffi_params,
+        &wrapper_call_args,
+        leo3_crate,
+    );
 
     Ok(quote! {
-        #[no_mangle]
-        pub unsafe extern "C" fn #ffi_name(#(#ffi_params),*) -> #leo3_crate::ffi::object::lean_obj_res {
+        #ffi_wrapper
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub(crate) unsafe fn #try_name(#(#ffi_params),*) -> #leo3_crate::LeanResult<#leo3_crate::ffi::object::lean_obj_res> {
             let lean = #leo3_crate::Lean::assume_initialized();
 
             #self_conversion
@@ -450,6 +536,7 @@ fn generate_mut_ref_method_wrapper(
     method: &MethodInfo,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
+    try_name: &syn::Ident,
     lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
@@ -463,6 +550,12 @@ fn generate_mut_ref_method_wrapper(
         .map(|i| {
             let arg_name = format_ident!("arg{}", i);
             quote! { #arg_name: #leo3_crate::ffi::object::lean_obj_arg }
+        })
+        .collect();
+    let wrapper_call_args: Vec<_> = (0..param_count)
+        .map(|i| {
+            let arg_name = format_ident!("arg{}", i);
+            quote! { #arg_name }
         })
         .collect();
 
@@ -480,52 +573,58 @@ fn generate_mut_ref_method_wrapper(
             let cloned: #struct_name = borrowed.get_ref().clone();
             drop(borrowed);
             #leo3_crate::external::LeanExternal::new(lean, cloned)
-                .expect("Failed to allocate COW copy of external object")
+                .map_err(|e| #leo3_crate::LeanError::Other(format!(
+                    "Failed to allocate COW copy of external object: {}",
+                    e
+                )))?
         };
         let self_mut = self_obj.get_mut();
     };
 
     // Convert other parameters
-    let param_conversions: Vec<_> = params
-        .iter()
-        .enumerate()
-        .map(|(i, (name, ty))| {
-            let arg_name = format_ident!("arg{}", i + 1);
-            quote! {
-                let #name = {
-                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                        .expect(&format!("Failed to convert {} from Lean to Rust", stringify!(#name)))
-                };
-            }
-        })
-        .collect();
+    let param_conversions = generate_param_conversions_with_offset(params, 1, leo3_crate);
 
     // Generate method call
     let param_names: Vec<_> = params.iter().map(|(name, _)| name).collect();
 
-    // For &mut self methods, we return the modified object
+    // For &mut self methods, we return the modified object. When the Rust
+    // method also returns a value, we preserve both pieces of information as a
+    // Lean `Prod self result` so mutation never gets discarded.
     let result_conversion = if is_unit_type(return_type) {
         // Method returns (), so return the modified self
         quote! {
-            self_obj.into_ptr()
+            Ok(self_obj.into_ptr())
         }
     } else {
-        // Method returns some value and modifies self
-        // We need to return both (as a tuple? or just the result?)
-        // For now, return the result and discard the modified self
         quote! {
             {
+                let any_self: #leo3_crate::LeanBound<'_, #leo3_crate::instance::LeanAny> = self_obj.cast();
                 let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
-                    .expect("Failed to convert result from Rust to Lean");
-                lean_result.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust result to Lean: {}",
+                        e
+                    )))?;
+                let any_result: #leo3_crate::LeanBound<'_, #leo3_crate::instance::LeanAny> =
+                    lean_result.cast();
+                let pair = #leo3_crate::types::LeanProd::mk(any_self, any_result)?;
+                Ok(pair.into_ptr())
             }
         }
     };
+    let ffi_wrapper = generate_object_ffi_wrapper(
+        ffi_name,
+        try_name,
+        &ffi_params,
+        &wrapper_call_args,
+        leo3_crate,
+    );
 
     Ok(quote! {
-        #[no_mangle]
-        pub unsafe extern "C" fn #ffi_name(#(#ffi_params),*) -> #leo3_crate::ffi::object::lean_obj_res {
+        #ffi_wrapper
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub(crate) unsafe fn #try_name(#(#ffi_params),*) -> #leo3_crate::LeanResult<#leo3_crate::ffi::object::lean_obj_res> {
             let lean = #leo3_crate::Lean::assume_initialized();
 
             #self_conversion
@@ -553,6 +652,7 @@ fn generate_owned_method_wrapper(
     method: &MethodInfo,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
+    try_name: &syn::Ident,
     lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
@@ -566,6 +666,12 @@ fn generate_owned_method_wrapper(
         .map(|i| {
             let arg_name = format_ident!("arg{}", i);
             quote! { #arg_name: #leo3_crate::ffi::object::lean_obj_arg }
+        })
+        .collect();
+    let wrapper_call_args: Vec<_> = (0..param_count)
+        .map(|i| {
+            let arg_name = format_ident!("arg{}", i);
+            quote! { #arg_name }
         })
         .collect();
 
@@ -585,20 +691,7 @@ fn generate_owned_method_wrapper(
     };
 
     // Convert other parameters
-    let param_conversions: Vec<_> = params
-        .iter()
-        .enumerate()
-        .map(|(i, (name, ty))| {
-            let arg_name = format_ident!("arg{}", i + 1);
-            quote! {
-                let #name = {
-                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                        .expect(&format!("Failed to convert {} from Lean to Rust", stringify!(#name)))
-                };
-            }
-        })
-        .collect();
+    let param_conversions = generate_param_conversions_with_offset(params, 1, leo3_crate);
 
     // Generate method call
     let param_names: Vec<_> = params.iter().map(|(name, _)| name).collect();
@@ -606,21 +699,34 @@ fn generate_owned_method_wrapper(
     // Generate result conversion
     let result_conversion = if is_unit_type(return_type) {
         quote! {
-            unsafe { #leo3_crate::ffi::lean_mk_unit() }
+            Ok(unsafe { #leo3_crate::ffi::lean_mk_unit() })
         }
     } else {
         quote! {
             {
                 let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
-                    .expect("Failed to convert result from Rust to Lean");
-                lean_result.into_ptr()
+                    .map_err(|e| #leo3_crate::LeanError::Conversion(format!(
+                        "Failed to convert Rust result to Lean: {}",
+                        e
+                    )))?;
+                Ok(lean_result.into_ptr())
             }
         }
     };
+    let ffi_wrapper = generate_object_ffi_wrapper(
+        ffi_name,
+        try_name,
+        &ffi_params,
+        &wrapper_call_args,
+        leo3_crate,
+    );
 
     Ok(quote! {
-        #[no_mangle]
-        pub unsafe extern "C" fn #ffi_name(#(#ffi_params),*) -> #leo3_crate::ffi::object::lean_obj_res {
+        #ffi_wrapper
+
+        #[doc(hidden)]
+        #[allow(non_snake_case)]
+        pub(crate) unsafe fn #try_name(#(#ffi_params),*) -> #leo3_crate::LeanResult<#leo3_crate::ffi::object::lean_obj_res> {
             let lean = #leo3_crate::Lean::assume_initialized();
 
             #self_conversion
@@ -672,12 +778,13 @@ fn generate_lean_code_metadata(
 ///
 /// Receiver types are mapped as follows:
 /// - `&self` / `&mut self` / `self` → the struct type as the first parameter
-/// - `&mut self` with `()` return → return type becomes the struct (modified-in-place semantics)
+/// - `&mut self` with `()` return → return type becomes the struct
+/// - `&mut self` with non-unit return → return type becomes `Prod Struct Return`
 fn generate_lean_code_metadata_for_methods(
     struct_name: &syn::Ident,
     methods: &[MethodInfo],
     _leo3_crate: &TokenStream,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let struct_name_str = struct_name.to_string();
     let const_name = format_ident!("{}_LEAN_METHODS_DECL", struct_name_str.to_uppercase());
 
@@ -700,14 +807,19 @@ fn generate_lean_code_metadata_for_methods(
 
         // Add regular parameters
         for (_name, ty) in &method.params {
-            type_parts.push(rust_type_to_lean(ty, &struct_name_str));
+            type_parts.push(rust_type_to_lean(ty, &struct_name_str)?);
         }
 
         // Determine return type
-        // For &mut self with unit return, the FFI returns the modified struct
+        // For &mut self, the FFI returns the modified struct. If the method
+        // also produces a value, the result is `Prod Struct Return`.
         let return_lean_type = match &method.receiver {
             MethodReceiver::MutRef if is_unit_type(&method.return_type) => struct_name_str.clone(),
-            _ => rust_type_to_lean(&method.return_type, &struct_name_str),
+            MethodReceiver::MutRef => {
+                let return_ty = rust_type_to_lean(&method.return_type, &struct_name_str)?;
+                format!("Prod {} {}", struct_name_str, lean_type_arg(&return_ty))
+            }
+            _ => rust_type_to_lean(&method.return_type, &struct_name_str)?,
         };
         type_parts.push(return_lean_type);
 
@@ -721,35 +833,193 @@ fn generate_lean_code_metadata_for_methods(
 
     let lean_code = lean_lines.join("\n");
 
-    quote! {
+    Ok(quote! {
         pub const #const_name: &str = #lean_code;
-    }
+    })
 }
 
 /// Map a Rust type to its Lean equivalent string
-fn rust_type_to_lean(ty: &syn::Type, struct_name: &str) -> String {
+fn rust_type_to_lean(ty: &syn::Type, struct_name: &str) -> syn::Result<String> {
     match ty {
+        syn::Type::Paren(paren) => rust_type_to_lean(&paren.elem, struct_name),
+        syn::Type::Group(group) => rust_type_to_lean(&group.elem, struct_name),
         syn::Type::Path(type_path) => {
             if let Some(segment) = type_path.path.segments.last() {
-                match segment.ident.to_string().as_str() {
-                    "i32" => "Int32".to_string(),
-                    "i64" => "Int64".to_string(),
-                    "u32" => "UInt32".to_string(),
-                    "u64" => "UInt64".to_string(),
-                    "f64" => "Float".to_string(),
-                    "String" => "String".to_string(),
-                    "bool" => "Bool".to_string(),
-                    "Self" => struct_name.to_string(),
-                    other if other == struct_name => struct_name.to_string(),
-                    other => other.to_string(),
-                }
+                rust_path_segment_to_lean(segment, struct_name)
             } else {
-                "Unit".to_string()
+                Err(syn::Error::new_spanned(
+                    ty,
+                    "cannot determine Lean type for an empty path",
+                ))
             }
         }
-        syn::Type::Tuple(tuple) if tuple.elems.is_empty() => "Unit".to_string(),
-        _ => "Unit".to_string(),
+        syn::Type::Tuple(tuple) if tuple.elems.is_empty() => Ok("Unit".to_string()),
+        syn::Type::Tuple(tuple) if tuple.elems.len() == 2 => {
+            let left = rust_type_to_lean(&tuple.elems[0], struct_name)?;
+            let right = rust_type_to_lean(&tuple.elems[1], struct_name)?;
+            Ok(format!("Prod {} {}", left, right))
+        }
+        syn::Type::Tuple(_) => Err(syn::Error::new_spanned(
+            ty,
+            "tuple Lean declarations currently support only unit `()` or pairs `(A, B)`",
+        )),
+        syn::Type::Reference(_) => Err(syn::Error::new_spanned(
+            ty,
+            "reference types are not supported in generated Lean declarations; use owned types instead",
+        )),
+        other => Err(syn::Error::new_spanned(
+            other,
+            "unsupported Rust type in generated Lean declaration",
+        )),
     }
+}
+
+fn rust_path_segment_to_lean(segment: &syn::PathSegment, struct_name: &str) -> syn::Result<String> {
+    let ident = segment.ident.to_string();
+    match ident.as_str() {
+        "i8" => Ok("Int8".to_string()),
+        "i16" => Ok("Int16".to_string()),
+        "i32" => Ok("Int32".to_string()),
+        "i64" => Ok("Int64".to_string()),
+        "isize" => Ok("ISize".to_string()),
+        "u8" => Ok("UInt8".to_string()),
+        "u16" => Ok("UInt16".to_string()),
+        "u32" => Ok("UInt32".to_string()),
+        "u64" => Ok("UInt64".to_string()),
+        "usize" => Ok("USize".to_string()),
+        "f32" => Ok("Float32".to_string()),
+        "f64" => Ok("Float".to_string()),
+        "String" => Ok("String".to_string()),
+        "bool" => Ok("Bool".to_string()),
+        "char" => Ok("Char".to_string()),
+        "Self" => Ok(struct_name.to_string()),
+        other if other == struct_name => Ok(struct_name.to_string()),
+        "Vec" => {
+            let elem = expect_single_type_arg(segment, "Vec")?;
+            let elem_ty = rust_type_to_lean(elem, struct_name)?;
+            Ok(format!("Array {}", lean_type_arg(&elem_ty)))
+        }
+        "Option" => {
+            let elem = expect_single_type_arg(segment, "Option")?;
+            let elem_ty = rust_type_to_lean(elem, struct_name)?;
+            Ok(format!("Option {}", lean_type_arg(&elem_ty)))
+        }
+        "Result" => {
+            let (ok_ty, err_ty) = expect_two_type_args(segment, "Result")?;
+            let ok_ty = rust_type_to_lean(ok_ty, struct_name)?;
+            let err_ty = rust_type_to_lean(err_ty, struct_name)?;
+            Ok(format!(
+                "Except {} {}",
+                lean_type_arg(&err_ty),
+                lean_type_arg(&ok_ty)
+            ))
+        }
+        _ => match &segment.arguments {
+            syn::PathArguments::None => Ok(ident),
+            syn::PathArguments::AngleBracketed(args) => {
+                let mapped = args
+                    .args
+                    .iter()
+                    .filter_map(|arg| match arg {
+                        syn::GenericArgument::Type(ty) => Some(rust_type_to_lean(ty, struct_name)),
+                        _ => None,
+                    })
+                    .collect::<syn::Result<Vec<_>>>()?;
+                if mapped.is_empty() {
+                    Ok(ident)
+                } else {
+                    Ok(format!(
+                        "{} {}",
+                        ident,
+                        mapped
+                            .iter()
+                            .map(|ty| lean_type_arg(ty))
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                    ))
+                }
+            }
+            syn::PathArguments::Parenthesized(_) => Err(syn::Error::new(
+                Span::call_site(),
+                "function-trait-style path arguments are not supported in generated Lean declarations",
+            )),
+        },
+    }
+}
+
+fn lean_type_arg(ty: &str) -> String {
+    if ty.contains(' ') {
+        format!("({})", ty)
+    } else {
+        ty.to_string()
+    }
+}
+
+fn expect_single_type_arg<'a>(
+    segment: &'a syn::PathSegment,
+    type_name: &str,
+) -> syn::Result<&'a syn::Type> {
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Err(syn::Error::new_spanned(
+            segment,
+            format!("{type_name} requires one type argument in generated Lean declarations"),
+        ));
+    };
+
+    let mut tys = args.args.iter().filter_map(|arg| match arg {
+        syn::GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    });
+
+    let first = tys.next().ok_or_else(|| {
+        syn::Error::new_spanned(
+            segment,
+            format!("{type_name} requires one type argument in generated Lean declarations"),
+        )
+    })?;
+
+    if tys.next().is_some() {
+        return Err(syn::Error::new_spanned(
+            segment,
+            format!(
+                "{type_name} requires exactly one type argument in generated Lean declarations"
+            ),
+        ));
+    }
+
+    Ok(first)
+}
+
+fn expect_two_type_args<'a>(
+    segment: &'a syn::PathSegment,
+    type_name: &str,
+) -> syn::Result<(&'a syn::Type, &'a syn::Type)> {
+    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return Err(syn::Error::new_spanned(
+            segment,
+            format!("{type_name} requires two type arguments in generated Lean declarations"),
+        ));
+    };
+
+    let tys = args
+        .args
+        .iter()
+        .filter_map(|arg| match arg {
+            syn::GenericArgument::Type(ty) => Some(ty),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if tys.len() != 2 {
+        return Err(syn::Error::new_spanned(
+            segment,
+            format!(
+                "{type_name} requires exactly two type arguments in generated Lean declarations"
+            ),
+        ));
+    }
+
+    Ok((tys[0], tys[1]))
 }
 
 /// Check if a type is unit ()
@@ -768,5 +1038,39 @@ fn is_self_return(ty: &syn::Type, struct_name: &syn::Ident) -> bool {
             }
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::CommonOptions;
+
+    #[test]
+    fn generated_leanclass_wrapper_uses_boundary_helpers() {
+        let mut item: syn::ItemImpl = syn::parse_quote! {
+            impl Demo {
+                fn bump(&mut self, amount: i32) -> i32 {
+                    self.value += amount;
+                    self.value
+                }
+            }
+        };
+
+        let tokens = build_lean_class_impl(
+            &mut item,
+            LeanClassOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanclass expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__private :: ffi_panic_boundary"));
+        assert!(rendered.contains("Failed to convert"));
+        assert!(rendered.contains("amount"));
+        assert!(rendered.contains("Failed to convert Rust result to Lean"));
+        assert!(!rendered.contains(".expect("));
+        assert!(!rendered.contains(". expect ("));
     }
 }

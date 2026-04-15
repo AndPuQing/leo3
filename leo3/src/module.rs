@@ -47,6 +47,10 @@ pub struct LeanModule {
 impl LeanModule {
     /// Load a Lean module from a shared library file
     ///
+    /// This method aligns module loading with Leo3's safe caller-thread entry
+    /// path: it ensures the runtime worker exists and attaches the current
+    /// thread before constructing IO worlds or invoking module initialization.
+    ///
     /// # Safety
     /// - The library must be a valid Lean4 compiled shared library
     /// - The library must export an `initialize_<ModuleName>` function
@@ -55,17 +59,15 @@ impl LeanModule {
     /// ```no_run
     /// use leo3::module::LeanModule;
     ///
-    /// leo3::prepare_freethreaded_lean();
-    ///
     /// let module = LeanModule::load("./libMyModule.so", "MyModule").unwrap();
     /// ```
     pub fn load<P: AsRef<Path>>(path: P, module_name: &str) -> LeanResult<Self> {
         unsafe {
-            // Ensure Lean runtime is initialized via the worker thread.
-            // Do NOT call lean_initialize_runtime_module / lean_initialize_thread
-            // directly — that creates a mimalloc heap on the calling thread whose
-            // teardown crashes under AddressSanitizer (and can SIGSEGV in general).
-            crate::prepare_freethreaded_lean();
+            // Align module loading with the same safe caller-thread entry path
+            // used by `with_lean()`: make sure the runtime worker exists and the
+            // current thread is attached before constructing worlds or invoking
+            // module initialization code.
+            crate::sync::ensure_lean_thread();
 
             let path = path.as_ref();
 

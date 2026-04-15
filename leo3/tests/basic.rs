@@ -33,6 +33,35 @@ fn test_runtime_initialization() {
 }
 
 #[test]
+fn test_prepare_freethreaded_lean_does_not_attach_caller_thread() {
+    let handle = std::thread::spawn(|| {
+        assert!(!leo3::sync::thread_is_lean_initialized());
+        leo3::prepare_freethreaded_lean();
+        assert!(!leo3::sync::thread_is_lean_initialized());
+    });
+
+    handle.join().unwrap();
+}
+
+#[test]
+fn test_with_lean_attaches_spawned_thread_without_explicit_prepare() {
+    let handle = std::thread::spawn(|| {
+        assert!(!leo3::sync::thread_is_lean_initialized());
+
+        let result: LeanResult<usize> = leo3::with_lean(|lean| {
+            assert!(leo3::sync::thread_is_lean_initialized());
+            let n = LeanNat::from_usize(lean, 7)?;
+            LeanNat::to_usize(&n)
+        });
+
+        assert!(leo3::sync::thread_is_lean_initialized());
+        result.unwrap()
+    });
+
+    assert_eq!(handle.join().unwrap(), 7);
+}
+
+#[test]
 fn test_basic_nat_creation() {
     leo3::prepare_freethreaded_lean();
 

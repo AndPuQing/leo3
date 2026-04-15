@@ -2,7 +2,13 @@
 
 ## Current Status
 
-The container types (HashMap, HashSet, RBMap) in `leo3/src/types/containers/` currently have **placeholder implementations**. These types compile and provide a type-safe API, but do not implement the actual Lean container behavior.
+The container types (HashMap, HashSet, RBMap) in `leo3/src/types/containers/`
+currently have **placeholder implementations**. These types compile and provide
+a type-safe API, but do not implement the actual Lean container behavior.
+
+Because of that, they are exposed only behind the
+`experimental-containers` Cargo feature. They should not be treated as part of
+Leo3's stable public surface until their semantics are real.
 
 ## FFI Bindings
 
@@ -71,7 +77,9 @@ pub struct TypeclassInstances {
 
 2. **For general library support**: Implement Approach 3 - create a typeclass instance registry for common types
 
-3. **Current implementation**: The placeholder implementations are sufficient for initial API design and testing. They should be clearly documented as placeholders.
+3. **Current implementation**: The placeholder implementations are useful for
+   API exploration and internal iteration, but they should remain explicitly
+   experimental until they are backed by real Lean behavior.
 
 ## Available FFI Functions
 
