@@ -1,0 +1,5 @@
+error: #[leanclass] does not support generic types yet
+ --> tests/ui/leanclass_generic_struct.rs:4:18
+  |
+4 | struct BadGeneric<T> {
+  |                  ^^^

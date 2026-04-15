@@ -86,23 +86,26 @@ Explicit overrides are authoritative: if `DEP_LEAN4_LEO3_CONFIG`, `LEO3_CONFIG_F
 
 ### Core Type Conversions
 
-Bidirectional conversions between Rust and Lean types via `IntoLean` / `FromLean` traits:
+Leo3's built-in `IntoLean` / `FromLean` support matrix is intentionally small and explicit:
 
-| Rust | Lean | Wrapper |
-|------|------|---------|
-| `String`, `&str` | `String` | `LeanString` |
-| `u8`–`u64`, `usize` | `UInt8`–`UInt64`, `USize` | `LeanUInt*` |
-| `i8`–`i64`, `isize` | `Int8`–`Int64`, `ISize` | `LeanInt*` |
-| `f32`, `f64` | `Float32`, `Float` | `LeanFloat32`, `LeanFloat` |
-| `bool` | `Bool` | `LeanBool` |
-| `char` | `Char` | `LeanChar` |
-| `Vec<T>` | `Array` | `LeanArray` |
-| `Option<T>` | `Option` | `LeanOption` |
-| `Result<T, E>` | `Except` | `LeanExcept` |
-| `(A, B)` | `Prod` / `Sigma` | `LeanProd` / `LeanSigma` |
-| — | `List` | `LeanList` |
-| — | `Nat` / `Int` | `LeanNat` / `LeanInt` |
-| — | `Sum`, `Fin`, `Subtype`, `BitVec`, `Range` | corresponding wrappers |
+| Rust shape | Lean shape | `IntoLean` | `FromLean` | Cost / ownership rule |
+|------|------|---------|---------|---------|
+| `u8`-`u64`, `usize`, `i8`-`i64`, `isize`, `f32`, `f64`, `bool`, `char`, `()` | scalar wrappers / `Unit` | yes | yes | value conversion; allocating the Lean object on Rust -> Lean |
+| `String` | `String` | yes | yes | allocative copy |
+| `&str` | `String` | yes | no | allocative copy into Lean only |
+| `Vec<T>` | `Array` | yes | yes | allocates the container and converts elements one by one |
+| `Option<T>` | `Option` | yes | yes | recursive container conversion |
+| `Result<T, E>` | `Except E T` | yes | yes | recursive container conversion; Lean keeps the error type first |
+| `(A, B)` | `Prod A B` | yes | yes | recursive pair conversion; only pairs are built in |
+| `Vec<u8>` / `&[u8]` helpers | `ByteArray` | helper path | helper path | bulk memcpy fast path via `vec_u8_*`, `slice_u8_into_lean`, `to_lean!`, `from_lean!` |
+| `T: ExternalClass` | Lean external object | yes | yes, if `T: Clone` | Rust -> Lean stores ownership in an external object; Lean -> Rust clones the inner value |
+
+Rules behind that table:
+
+- `FromLean` is not implemented for `&str`; round-trips use `String`.
+- `Vec<u8>` does not use a specialized trait impl on stable Rust. The optimized `ByteArray` path is exposed through helper functions and the `to_lean!` / `from_lean!` macros.
+- `FromLean` for `T: ExternalClass + Clone` is clone-based extraction, not borrowing. Borrow-based access goes through `LeanExternal<T>::get_ref()` / `get_mut()`.
+- User-defined types can extend the matrix with manual impls or `#[derive(IntoLean, FromLean)]`.
 
 ### Experimental Container Wrappers (`experimental-containers`)
 
@@ -149,11 +152,37 @@ impl Counter {
 # }
 ```
 
-For `&mut self` methods, Leo3 preserves mutation explicitly in the Lean-facing
-signature:
+`#[leanclass]` receiver semantics are fixed:
 
-- `&mut self -> ()` returns the updated object
-- `&mut self -> T` returns `Prod Self T`
+| Rust receiver | Lean-visible signature rule | Runtime rule |
+|------|------|------|
+| no receiver | `A -> ... -> R` | parameters use `FromLean`, result uses `IntoLean` |
+| `&self` | `Self -> A -> ... -> R` | shared borrow of the external object |
+| `&mut self`, `-> ()` | `Self -> A -> ... -> Self` | copy-on-write mutation; returns the updated object |
+| `&mut self`, `-> R` | `Self -> A -> ... -> Prod Self R` | copy-on-write mutation; preserves both updated object and value |
+| `self` | `Self -> A -> ... -> R` | exclusive receivers move out; shared receivers clone first |
+
+`&mut self` and `self` methods therefore require the class type to implement
+`Clone`, because the shared-receiver fallback is clone-based.
+
+Generated Lean declaration strings accept a narrower type grammar than "anything
+that implements conversion traits". The supported declaration shapes are:
+
+- scalars: integers, floats, `bool`, `char`, `String`, `()`
+- `Self`, the current struct name, and other plain non-generic path types
+- `Vec<T>`, `Option<T>`, `Result<T, E>`
+- pairs `(A, B)`
+
+The macro intentionally rejects these declaration shapes at compile time:
+
+- references such as `&str` or `&T`
+- tuples with arity other than `0` or `2`
+- generic path types other than `Vec<T>`, `Option<T>`, and `Result<T, E>`
+- generic `#[leanclass]` structs, generic `impl` blocks, generic methods, and non-identifier parameter patterns
+
+Plain non-generic path types are emitted verbatim into the generated Lean type
+string. That means the Rust side still needs the relevant conversion impls, and
+the Lean side still needs a matching type name in scope.
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
 

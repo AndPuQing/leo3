@@ -308,6 +308,9 @@ Make Rust external classes behave predictably as Lean-facing objects.
 
 Raise the abstraction level for common Rust-to-Lean and Lean-to-Rust flows.
 
+The current boundary contract for this phase is captured in
+`docs/phase-6-7-boundary-contract.md`.
+
 ### Scope
 
 - review conversion trait design for future extensibility
@@ -320,12 +323,16 @@ Raise the abstraction level for common Rust-to-Lean and Lean-to-Rust flows.
 - conversion docs state cost and ownership model
 - external object extraction has a better story than "clone the Rust value"
 - derive macros align with actual runtime expectations and failure modes
+- one explicit support matrix defines directionality, cost, and ownership for
+  built-in conversions and external-object extraction
 
 ### Acceptance Criteria
 
 - new docs table maps conversion category to cost and guarantees
 - examples show borrow-based and owned extraction patterns
 - benchmark coverage exists for hot-path conversions that matter
+- README and docs agree on the supported conversion matrix and the `#[leanclass]`
+  receiver/declaration rules
 
 ### Risks
 
@@ -338,6 +345,9 @@ Raise the abstraction level for common Rust-to-Lean and Lean-to-Rust flows.
 
 Ensure the documented golden paths are runnable and trusted.
 
+The current boundary contract for this phase is captured in
+`docs/phase-6-7-boundary-contract.md`.
+
 ### Scope
 
 - convert as many ignored doctests as practical into compile or runtime-tested examples
@@ -349,15 +359,23 @@ Ensure the documented golden paths are runnable and trusted.
   - thread-safe object handoff
   - task/tokio integration
 - add a contributor-facing architecture guide for runtime and macro semantics
+- lock intentionally unsupported `#[leanclass]` declaration shapes with an
+  explicit compile-fail matrix
 
 ### Required Outcomes
 
 - docs become a tested interface contract
 - common downstream paths have one recommended example each
+- README, phase docs, and compile-fail coverage describe the same capability
+  boundary
 
 ### Acceptance Criteria
 
 - ignored doctest count is materially reduced
+- compile-fail coverage maps each intentionally unsupported `#[leanclass]`
+  shape to a named UI case
+- the conversion / `#[leanclass]` boundary contract is written down in one
+  contributor-facing document and summarized in README
 - README quick start, macro quick start, and module quick start are tested
 - architecture docs explain why the runtime worker exists and when `ensure_lean_thread` is required
 

@@ -94,6 +94,24 @@ TRYBUILD=overwrite LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros 
 
 Review the updated `leo3/tests/ui/*.stderr` files before committing them.
 
+## Compile-Fail Matrix
+
+The UI suite is the contract for intentionally unsupported surfaces. Current
+named cases are:
+
+| Rule | UI test |
+| --- | --- |
+| Lean object escapes `Lean<'l>` lifetime | `leo3/tests/ui/invalid_lifetime.rs` |
+| missing `Lean<'l>` token is rejected by types | `leo3/tests/ui/missing_lean_token.rs` |
+| wrapper/type mismatch is rejected by types | `leo3/tests/ui/type_mismatch.rs` |
+| generic `#[leanclass]` struct is rejected | `leo3/tests/ui/leanclass_generic_struct.rs` |
+| generic `#[leanclass]` impl is rejected | `leo3/tests/ui/leanclass_generic_impl.rs` |
+| generic `#[leanclass]` method is rejected | `leo3/tests/ui/leanclass_generic_method.rs` |
+| non-identifier parameter pattern is rejected | `leo3/tests/ui/leanclass_unsupported_pattern.rs` |
+| reference type in generated Lean declaration is rejected | `leo3/tests/ui/leanclass_unsupported_ref.rs` |
+| tuple arity other than pair is rejected | `leo3/tests/ui/leanclass_unsupported_tuple_arity.rs` |
+| unsupported generic path type is rejected | `leo3/tests/ui/leanclass_unsupported_generic_type.rs` |
+
 ## Lean Discovery and No-Lean Mode
 
 Build scripts use the same precedence rules in CI and locally:
@@ -116,7 +134,7 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 
 - `leo3/tests/test_features.rs`: feature-surface smoke tests.
 - `leo3/tests/test_surface_contract.rs` + `leo3/tests/surface_ui/`: compile-fail guardrails for intentionally hidden default-surface items.
-- `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage.
+- `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage for the compile-fail matrix above.
 - `leo3` doctests: runtime initialization, README quick start, string/nat conversion, and task/tokio docs.
 - `leo3-macros` doctests: compile-check macro usage snippets such as `#[leanfn]`, `#[leanclass]`, and derives.
 - `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.

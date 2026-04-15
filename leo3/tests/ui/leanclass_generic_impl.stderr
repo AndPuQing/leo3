@@ -1,0 +1,5 @@
+error: #[leanclass] does not support generic impl blocks yet
+ --> tests/ui/leanclass_generic_impl.rs:8:5
+  |
+8 | impl<T> BadGenericImpl {
+  |     ^^^

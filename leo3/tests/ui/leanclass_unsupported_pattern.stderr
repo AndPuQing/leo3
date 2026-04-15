@@ -1,0 +1,5 @@
+error: Only simple parameter patterns are supported
+ --> tests/ui/leanclass_unsupported_pattern.rs:9:19
+  |
+9 |     fn bad(&self, (left, right): (u64, bool)) -> i32 {
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
