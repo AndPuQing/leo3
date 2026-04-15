@@ -22,6 +22,8 @@ fn test_core_surface_always_available() {
 
     assert_into_lean::<usize>();
     assert_from_lean::<usize>();
+    assert_into_lean::<()>();
+    assert_from_lean::<()>();
     assert_into_lean::<String>();
     assert_from_lean::<String>();
     assert_send_sync::<LeanUnbound<LeanNat>>();

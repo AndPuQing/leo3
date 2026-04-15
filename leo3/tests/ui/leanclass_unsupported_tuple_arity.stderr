@@ -1,0 +1,5 @@
+error: tuple Lean declarations currently support only unit `()` or pairs `(A, B)`
+ --> tests/ui/leanclass_unsupported_tuple_arity.rs:9:26
+  |
+9 |     fn bad(&self, value: (u64, bool, String)) -> i32 {
+  |                          ^^^^^^^^^^^^^^^^^^^

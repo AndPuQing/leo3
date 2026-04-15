@@ -52,9 +52,9 @@ impl TypeShowcase {
         Ok(xs)
     }
 
-    fn scalars(&self, a: usize, b: isize, c: f32, d: u8, e: i16) -> u16 {
+    fn scalars(&self, a: usize, b: isize, c: f32, d: u8, e: i16, f: char) -> char {
         let _ = (a, b, c, d, e);
-        0
+        f
     }
 }
 
@@ -146,7 +146,7 @@ fn test_richer_type_mapping_for_common_supported_shapes() {
     );
     assert!(
         decl.contains(
-            r#"@[extern "__lean_ffi_TypeShowcase_scalars"] opaque TypeShowcase.scalars : TypeShowcase → USize → ISize → Float32 → UInt8 → Int16 → UInt16"#
+            r#"@[extern "__lean_ffi_TypeShowcase_scalars"] opaque TypeShowcase.scalars : TypeShowcase → USize → ISize → Float32 → UInt8 → Int16 → Char → Char"#
         ),
         "Missing or incorrect scalar declaration mapping in:\n{decl}"
     );

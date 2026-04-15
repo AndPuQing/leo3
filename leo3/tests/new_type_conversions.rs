@@ -121,6 +121,80 @@ fn test_isize_conversion() {
 }
 
 #[test]
+fn test_char_conversion() {
+    leo3::prepare_freethreaded_lean();
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let val: char = 'A';
+        let lean_val = val.into_lean(lean)?;
+        let result: char = FromLean::from_lean(&lean_val)?;
+        assert_eq!(result, val);
+
+        let val: char = '中';
+        let lean_val = val.into_lean(lean)?;
+        let result: char = FromLean::from_lean(&lean_val)?;
+        assert_eq!(result, val);
+
+        let val: char = '😀';
+        let lean_val = val.into_lean(lean)?;
+        let result: char = FromLean::from_lean(&lean_val)?;
+        assert_eq!(result, val);
+
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
+fn test_unit_conversion() {
+    leo3::prepare_freethreaded_lean();
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let lean_val = ().into_lean(lean)?;
+        let result: () = FromLean::from_lean(&lean_val)?;
+        let _ = result;
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
+fn test_option_of_unit_conversion() {
+    leo3::prepare_freethreaded_lean();
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let val: Option<()> = Some(());
+        let lean_val = val.into_lean(lean)?;
+        let result: Option<()> = FromLean::from_lean(&lean_val)?;
+        assert_eq!(result, Some(()));
+
+        let val: Option<()> = None;
+        let lean_val = val.into_lean(lean)?;
+        let result: Option<()> = FromLean::from_lean(&lean_val)?;
+        assert_eq!(result, None);
+
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
+fn test_result_with_unit_conversion() {
+    leo3::prepare_freethreaded_lean();
+    leo3::with_lean(|lean| -> LeanResult<()> {
+        let ok_val: Result<(), String> = Ok(());
+        let lean_ok = ok_val.into_lean(lean)?;
+        let ok_result: Result<(), String> = FromLean::from_lean(&lean_ok)?;
+        assert_eq!(ok_result, Ok(()));
+
+        let err_val: Result<(), String> = Err("boom".to_string());
+        let lean_err = err_val.into_lean(lean)?;
+        let err_result: Result<(), String> = FromLean::from_lean(&lean_err)?;
+        assert_eq!(err_result, Err("boom".to_string()));
+
+        Ok(())
+    })
+    .expect("test failed");
+}
+
+#[test]
 fn test_f64_conversion() {
     leo3::prepare_freethreaded_lean();
     leo3::with_lean(|lean| -> LeanResult<()> {

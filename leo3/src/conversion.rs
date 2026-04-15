@@ -6,9 +6,9 @@ use crate::err::LeanResult;
 use crate::instance::{LeanAny, LeanBound};
 use crate::marker::Lean;
 use crate::types::{
-    LeanArray, LeanBool, LeanByteArray, LeanExcept, LeanFloat, LeanFloat32, LeanISize, LeanInt16,
-    LeanInt32, LeanInt64, LeanInt8, LeanOption, LeanString, LeanUInt16, LeanUInt32, LeanUInt64,
-    LeanUInt8, LeanUSize,
+    LeanArray, LeanBool, LeanByteArray, LeanChar, LeanExcept, LeanFloat, LeanFloat32, LeanISize,
+    LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanOption, LeanString, LeanUInt16, LeanUInt32,
+    LeanUInt64, LeanUInt8, LeanUSize,
 };
 
 /// Macro for automatic conversion dispatch. For `Vec<u8>` and `&[u8]`, uses optimized
@@ -299,8 +299,37 @@ impl<'l> FromLean<'l> for bool {
     }
 }
 
+// char ↔ LeanChar
+impl<'l> IntoLean<'l> for char {
+    type Target = LeanChar;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        LeanChar::mk(lean, self)
+    }
+}
+
+impl<'l> FromLean<'l> for char {
+    type Source = LeanChar;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        LeanChar::toChar(obj)
+            .ok_or_else(|| crate::err::LeanError::conversion("invalid Lean Char value"))
+    }
+}
+
 // () ↔ Unit (Lean's Unit type)
 // In Lean4, Unit is represented as a constructor with no data
+impl<'l> IntoLean<'l> for () {
+    type Target = LeanAny;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        unsafe {
+            let ptr = crate::ffi::lean_mk_unit();
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+}
+
 impl<'l> FromLean<'l> for () {
     type Source = LeanAny;
 

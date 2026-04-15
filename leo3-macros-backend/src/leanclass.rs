@@ -916,29 +916,13 @@ fn rust_path_segment_to_lean(segment: &syn::PathSegment, struct_name: &str) -> s
         }
         _ => match &segment.arguments {
             syn::PathArguments::None => Ok(ident),
-            syn::PathArguments::AngleBracketed(args) => {
-                let mapped = args
-                    .args
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        syn::GenericArgument::Type(ty) => Some(rust_type_to_lean(ty, struct_name)),
-                        _ => None,
-                    })
-                    .collect::<syn::Result<Vec<_>>>()?;
-                if mapped.is_empty() {
-                    Ok(ident)
-                } else {
-                    Ok(format!(
-                        "{} {}",
-                        ident,
-                        mapped
-                            .iter()
-                            .map(|ty| lean_type_arg(ty))
-                            .collect::<Vec<_>>()
-                            .join(" ")
-                    ))
-                }
-            }
+            syn::PathArguments::AngleBracketed(_) => Err(syn::Error::new_spanned(
+                segment,
+                format!(
+                    "generic type `{}` is not supported in generated Lean declarations; only Vec<T>, Option<T>, Result<T, E>, and pairs `(A, B)` are currently supported",
+                    ident
+                ),
+            )),
             syn::PathArguments::Parenthesized(_) => Err(syn::Error::new(
                 Span::call_site(),
                 "function-trait-style path arguments are not supported in generated Lean declarations",
