@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress
+Implemented for the public runtime entry points.
 
 ## Goal
 

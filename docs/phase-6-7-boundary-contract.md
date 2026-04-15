@@ -2,8 +2,7 @@
 
 ## Status
 
-The `conversion` and `#[leanclass]` support surface is now treated as a
-documented contract instead of an inferred property of the current code.
+Current boundary contract written down and aligned across docs and tests.
 
 ## Conversion Matrix
 

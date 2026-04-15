@@ -2,456 +2,381 @@
 
 ## Status
 
-Draft v0.1
+Current implementation record as of 2026-04-15.
+
+The maturity program defined in this document is no longer just a forward plan.
+Its major decisions have been implemented across the 0.2.x line and broken out
+into phase documents under `docs/`.
+
+Current high-level status:
+
+- Phase 0 is complete.
+- Phases 1-3 are implemented on the stable default surface.
+- Phases 4-5 have completed a first functional pass.
+- Phases 6-7 are locked as the current conversion, `#[leanclass]`, docs, and
+  test contract.
+- Remaining work is follow-up hardening and future surface expansion, not
+  unresolved foundation ambiguity.
 
 ## Purpose
 
-This document defines a staged plan to move `leo3` from its current "usable 0.x binding framework" state toward a mature Lean binding library with clearer semantics, fewer placeholder APIs, stronger macro ergonomics, and a more coherent runtime model.
+This document records the maturity program that moved `leo3` from an early
+"usable 0.x binding framework" toward a more disciplined Lean binding library
+with:
 
-The reference point is not literal feature parity with `pyo3`, because Lean and Python have different runtimes and extension models. The reference point is product maturity parity:
+- semantically honest public APIs
+- one coherent runtime and threading model
+- explicit macro error boundaries
+- more faithful `#[leanclass]` behavior
+- a documented conversion contract
+- documentation and tests that act as interface checks
+
+The reference point is not source-level parity with `pyo3`. Lean and Python
+have different runtimes and extension models. The target is maturity parity:
 
 - clear ownership and threading semantics
-- complete and trustworthy public APIs
-- uniform error propagation
-- module and macro flows that are practical in real downstream projects
-- documentation and tests that validate the intended usage paths
+- complete and trustworthy stable APIs
+- uniform error propagation across generated wrappers
+- module and macro flows that are practical in downstream projects
+- documentation and tests that validate intended usage
 
-## Problem Statement
+## Related Documents
 
-`leo3` already has strong foundations:
-
-- layered architecture (`leo3`, `leo3-ffi`, macros, build-config, ffi-check)
-- token-based access model (`Lean<'l>`)
-- smart pointer model (`LeanBound`, `LeanRef`, `LeanUnbound`)
-- runtime worker design for sensitive Lean initialization paths
-- proc macros for functions, classes, modules, derives, and Lean typeclass hooks
-- meaningful runtime and compile-fail test coverage
-
-However, several high-level APIs and semantics are still incomplete or inconsistent:
-
-- some public container wrappers are placeholder implementations
-- runtime initialization semantics are split across multiple paths
-- generated macro wrappers do not share one error model
-- `#[leanmodule]` is minimal and not yet a true module registration system
-- `#[leanclass]` semantics are incomplete for some mutation and conversion paths
-- documentation coverage is broad, but many examples are still ignored instead of executable
+- `docs/phase-1-public-api-honesty.md`
+- `docs/phase-2-runtime-threading.md`
+- `docs/phase-3-error-boundaries.md`
+- `docs/phase-4-module-surface.md`
+- `docs/phase-5-leanclass-semantics.md`
+- `docs/phase-6-7-boundary-contract.md`
+- `README.md`
+- `TESTING.md`
 
 ## North Star
 
-Leo3 should become the default Rust-side binding layer for Lean projects that need:
+Leo3 should be the default Rust-side binding layer for Lean projects that need:
 
 - safe runtime interaction with Lean values and environments
-- stable FFI export/import patterns
+- stable FFI export and import patterns
 - ergonomic proc macros for exposing Rust code to Lean
 - predictable multithreaded behavior
 - practical downstream authoring and testing workflows
 
 ## Non-Goals
 
-The following are explicitly out of scope for this spec:
+The maturity program does not aim to provide:
 
 - exact source-level parity with every `pyo3` macro or API
-- solving all possible Lean metaprogramming abstractions in one pass
-- implementing generic support everywhere before core semantics are stable
-- building a generalized package manager or distribution platform
+- every possible Lean metaprogramming abstraction in one pass
+- generic support everywhere before core semantics are stable
+- a package manager or distribution platform
 
 ## Design Principles
 
 1. Public APIs must be semantically honest.
-   If an API is exposed as a Lean wrapper, it must either perform the real operation or be clearly gated/removed from stable surface.
+   If an API is exposed as a Lean wrapper, it must perform the real operation or
+   be clearly gated or documented as experimental.
 
 2. One semantic path beats many partial paths.
-   Runtime initialization, module loading, and macro-generated bindings must converge on one consistent execution model.
+   Runtime initialization, module loading, and macro-generated bindings should
+   converge on one consistent execution model.
 
 3. Errors must cross boundaries explicitly.
-   Generated wrappers should not panic or silently degrade on recoverable failures.
+   Generated wrappers should not use ad hoc recoverable-path `expect(...)` or
+   silent fallback values.
 
-4. Lean-side and Rust-side declarations must remain synchronized.
-   Generated metadata, extern names, signatures, and registration hooks must reflect actual runtime behavior.
+4. Lean-side and Rust-side declarations must stay synchronized.
+   Generated metadata, exported symbol names, and Lean declaration strings must
+   describe actual runtime behavior.
 
 5. Tests should validate intended usage, not only compilation.
-   Compile-only docs are useful, but the golden paths must be executable where practical.
+   Compile-only checks remain useful, but the golden paths should be runnable
+   where practical.
 
 ## Current State Summary
 
 ### Strengths
 
-- Clear crate layering and ownership boundaries.
-- Reasonable smart pointer architecture modeled after modern binding libraries.
-- Early support for runtime, module loading, meta APIs, async/task, and macros.
-- CI structure is already better than many early-stage libraries.
+- Clear workspace layering across safe APIs, FFI, build config, macros, and FFI
+  validation.
+- Token-based runtime access model with `Lean<'l>` and lifetime-aware smart
+  pointers.
+- Canonical safe runtime entry path through `with_lean(...)`.
+- Shared macro/runtime boundary helpers instead of one-off panic handling.
+- Explicit conversion and `#[leanclass]` declaration contract.
+- Better CI shape than many early-stage binding libraries, including doctests,
+  UI tests, runtime integration tests, and FFI layout checks.
 
-### Main Gaps
+### Resolved Foundation Gaps
 
-1. Public placeholder APIs exist in stable surface.
-2. Thread/runtime initialization semantics are not fully unified.
-3. Macro-generated code uses mixed panic and result behavior.
-4. Module initialization is not yet a complete downstream story.
-5. Some Lean declaration/codegen paths are lossy.
-6. External object ergonomics are still low-level.
-7. Documentation execution ratio is still too low.
+The original maturity plan targeted seven core problems. Their current status is
+now:
 
-## Phase Plan
+1. Public placeholder APIs on the stable surface: addressed by explicit
+   `experimental-containers` gating.
+2. Split runtime initialization semantics: addressed by the unified
+   `with_lean(...)` / `prepare_freethreaded_lean()` /
+   `sync::ensure_lean_thread()` contract.
+3. Mixed panic and result behavior in generated wrappers: addressed for the
+   current macro families with shared boundary helpers.
+4. Minimal `#[leanmodule]` parsing surface: improved with structured parsing and
+   crate-path-aware generation.
+5. Lossy `#[leanclass]` mutation semantics: addressed by preserving updated
+   objects in the generated Lean-visible type.
+6. Implicit conversion and extraction rules: addressed by the Phase 6/7
+   boundary contract.
+7. Docs and tests not acting as a contract: addressed by README, `TESTING.md`,
+   doctests, runtime tests, and named UI matrices moving together.
+
+### Remaining Gaps
+
+The remaining work is real, but it is narrower than the original roadmap:
+
+- `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` are still experimental rather
+  than stable.
+- `#[leanmodule]` has a cleaner attribute surface, but not yet a richer module
+  registration model.
+- External-object ergonomics still lean on clone-based extraction for
+  `FromLean`; borrow-first APIs exist, but the trait-level story is still
+  intentionally conservative.
+- Architecture and contributor docs can still go deeper even though the main
+  user-facing contract is now written down.
+
+## Phase Record
 
 ## Phase 0: Specification Lock-In
 
-### Goal
+### Status
 
-Create a stable implementation target before changing behavior.
+Complete.
 
-### Deliverables
+### Outcome
 
-- this spec
-- a tracked phase checklist derived from this spec
-- issue or task breakdown per phase
-
-### Exit Criteria
-
-- team agrees on phase ordering
-- breaking-change policy for the next releases is explicit
-
-## Phase 1: Public API Honesty
-
-### Goal
-
-Remove or clearly isolate public APIs whose semantics are not real yet.
-
-### Scope
-
-- audit all public APIs for placeholder behavior
-- decide for each placeholder item:
-  - implement now
-  - gate behind unstable/internal feature
-  - document as experimental
-  - remove from public surface until real
-
-### Priority Targets
-
-- `LeanHashMap`
-- `LeanHashSet`
-- `LeanRBMap`
-- any helper that returns placeholder values, fake structures, or lossy stand-ins
-
-### Required Outcomes
-
-- no stable public API should intentionally lie about Lean behavior
-- placeholder container APIs are either real or clearly marked and gated
-
-### Acceptance Criteria
-
-- grep-based placeholder audit has no unresolved stable-surface placeholder hits
-- README and docs do not advertise incomplete semantics as production-ready
-- test suite includes explicit checks for the revised public status
-
-### Risks
-
-- temporary reduction in exposed surface may feel like regression
-- real container support depends on typeclass instance strategy
+- the maturity program is written down in this document
+- phase-specific records exist in `docs/`
+- the breaking-change rationale for the 0.x line is explicit
 
 ### Notes
 
-If full generic container support is too large for this phase, the correct move is to narrow scope honestly rather than keep fake implementations public.
+This phase did its job: it created a stable decision frame before the larger API
+and runtime cleanups landed.
+
+## Phase 1: Public API Honesty
+
+### Status
+
+Implemented on the stable default surface.
+
+### Outcome
+
+- placeholder container wrappers were removed from the stable default surface
+- `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` now require
+  `experimental-containers`
+- README, crate docs, and feature tests all reflect that gating
+- compile-time surface tests protect the decision
+
+### Boundary
+
+Phase 1 does not claim the experimental containers are complete. It claims only
+that the default stable surface no longer presents them as complete.
+
+### Record
+
+See `docs/phase-1-public-api-honesty.md`.
 
 ## Phase 2: Unified Runtime and Threading Model
 
-### Goal
+### Status
 
-Make runtime access semantics coherent and explainable.
+Implemented for the public runtime entry points.
 
-### Scope
+### Outcome
 
-- define exact contract for:
-  - `prepare_freethreaded_lean()`
-  - `with_lean(...)`
-  - `ensure_lean_thread()`
-  - module loading path
-  - macro-generated initialization path
-- eliminate contradictory initialization behavior
-- document the allowed thread transitions for:
-  - caller threads
-  - worker thread
-  - Lean task execution
-  - Tokio bridge
+- `with_lean(...)` is the canonical safe caller entry point
+- `prepare_freethreaded_lean()` is eager worker startup, not caller-thread
+  attachment
+- `sync::ensure_lean_thread()` is the low-level attach-current-thread primitive
+- module loading and macro-generated initialization use the same runtime model
+- Leo3's internal TLS bookkeeping now matches the worker-thread reality
 
-### Required Outcomes
+### Boundary
 
-- there is one canonical initialization model
-- `with_lean` is either made safe-by-construction or clearly separated from a lower-level unsafe path
-- `#[leanmodule]` and `LeanModule::load` follow the same runtime assumptions
+The runtime contract is coherent and documented. Further simplification is still
+possible, but callers no longer have to infer contradictory initialization
+semantics from multiple APIs.
 
-### Acceptance Criteria
+### Record
 
-- a new runtime model section exists in crate docs and README
-- dedicated tests cover:
-  - calling from main thread
-  - calling from spawned threads
-  - calling after `ensure_lean_thread`
-  - module loading path
-  - task/tokio path
-- no public path depends on undocumented `assume_initialized()` usage patterns
-
-### Risks
-
-- any change here may expose latent assumptions in current tests
-- runtime worker invariants may need internal refactors before the public API becomes cleaner
+See `docs/phase-2-runtime-threading.md`.
 
 ## Phase 3: Uniform Error Boundary and Panic Policy
 
-### Goal
+### Status
 
-Make generated bindings fail in a controlled, inspectable way.
+Implemented for the current macro families.
 
-### Scope
+### Outcome
 
-- define one error conversion policy for proc-macro generated extern wrappers
-- remove `.expect(...)` from generated FFI wrappers
-- remove silent lossy fallbacks such as "return empty string on conversion failure"
-- standardize panic boundary handling across:
-  - `#[leanfn]`
-  - `#[leanclass]`
-  - `#[lean_instance]`
-  - future module wrappers
+- shared FFI boundary helpers now live in `leo3::__private`
+- `#[leanclass]` wrappers use result-based try paths plus one outer panic
+  boundary
+- `#[lean_instance]` no longer uses silent empty-string fallbacks
+- scalar-returning wrappers use an explicit abort-on-boundary-failure policy
+  rather than pretending a Lean panic object can be returned in every case
 
-### Required Outcomes
+### Boundary
 
-- recoverable failures become Lean-visible error objects or structured panic objects according to one policy
-- internal panics are caught at extern boundaries
-- downstream users can reason about failure behavior without reading macro output
+This phase established one explicit policy for the macro families currently in
+scope. It does not claim every future wrapper shape has already been designed.
 
-### Acceptance Criteria
+### Record
 
-- generated code contains no recoverable-path `expect`/`unwrap`
-- test suite covers conversion failure, user panic, internal error, and type mismatch across all macro families
-- error messages are stable enough for snapshot testing where appropriate
+See `docs/phase-3-error-boundaries.md`.
 
-### Risks
+## Phase 4: Module Surface
 
-- Lean-side error representation may need additional support helpers
-- changing failure behavior may require updating current macro tests
+### Status
 
-## Phase 4: Module System Completion
+First implementation pass completed.
 
-### Goal
+### Outcome
 
-Turn `#[leanmodule]` into a real downstream module authoring story.
+- `#[leanmodule]` uses structured parsing instead of string manipulation
+- module attributes now support the same crate-path customization style as other
+  macros
+- generated module initialization aligns with the Phase 2 runtime contract
 
-### Scope
+### Remaining Work
 
-- replace stringly attribute parsing with proper structured parsing
-- define what a Lean module means in `leo3`
-- support explicit registration of exported functions/classes/instances
-- make generated initialization logic compatible with runtime policy from Phase 2
-- document recommended Rust + Lean project layout
+Leo3 still does not define a richer exported-item registration model for
+modules. Phase 4 therefore improved the brittle part of the surface without
+claiming full module-system completion.
 
-### Required Outcomes
+### Record
 
-- `#[leanmodule]` is not just an `initialize_*` symbol generator
-- module initialization reflects exported items intentionally
-- downstream crate authors have a documented and testable integration path
-
-### Acceptance Criteria
-
-- macro supports robust parsing and useful compile errors
-- end-to-end example covers:
-  - a module
-  - exported functions
-  - exported class
-  - initialization from Lean/runtime side
-- module-loading tests validate realistic usage, not only symbol presence
-
-### Risks
-
-- may require additional metadata representation
-- may require small Lean-side support code or conventions
+See `docs/phase-4-module-surface.md`.
 
 ## Phase 5: `leanclass` Semantic Completion
 
-### Goal
+### Status
 
-Make Rust external classes behave predictably as Lean-facing objects.
+First implementation pass completed.
 
-### Scope
+### Outcome
 
-- define exact ownership rules for:
-  - `&self`
-  - `&mut self`
-  - `self`
-- fix `&mut self` plus non-unit return semantics
-- improve Lean signature generation so generated declarations match real runtime behavior
-- review `ExternalClass` lifecycle hooks, GC hooks, and nested Lean object marking needs
-- improve downcast and borrow ergonomics
+- `&mut self -> ()` remains a mutation-preserving path that returns the updated
+  object to Lean
+- `&mut self -> R` now returns `Prod Self R` so mutation state is not discarded
+- generated Lean declaration strings more faithfully describe runtime behavior
+- tests cover the mutation-preserving wrapper shape
 
-### Required Outcomes
+### Remaining Work
 
-- no mutation path discards state silently
-- generated Lean declarations are faithful
-- class wrappers support common downstream patterns without raw-pointer reasoning
+The major semantic bug is fixed. More declaration-shape polish and broader test
+coverage can still be added later.
 
-### Acceptance Criteria
+### Record
 
-- targeted tests for:
-  - borrowed methods
-  - mutating methods
-  - consuming methods
-  - methods returning `Self`
-  - methods returning values after mutation
-- generated declaration tests include more than primitive scalar cases
-
-### Risks
-
-- exact Lean-side encoding of mutable semantics may require explicit design tradeoffs
-- richer declaration mapping may depend on trait-based type metadata
+See `docs/phase-5-leanclass-semantics.md`.
 
 ## Phase 6: Conversion and External Object Ergonomics
 
-### Goal
+### Status
 
-Raise the abstraction level for common Rust-to-Lean and Lean-to-Rust flows.
+Current boundary contract written down and aligned across docs and tests.
 
-The current boundary contract for this phase is captured in
-`docs/phase-6-7-boundary-contract.md`.
+### Outcome
 
-### Scope
+- the supported built-in conversion matrix is explicit
+- cost and ownership rules are documented
+- external-object extraction is explicitly clone-based for `FromLean`
+- borrow-based external access is documented as a separate API surface
 
-- review conversion trait design for future extensibility
-- reduce forced `Clone` extraction patterns where borrow-based access is more appropriate
-- add more structured conversions for common types where semantics are stable
-- define which conversions are zero-copy, clone-based, or allocative
+### Boundary
 
-### Required Outcomes
+Phase 6 currently acts as a contract lock, not a promise of maximal conversion
+coverage. The intentionally small matrix is part of the maturity story.
 
-- conversion docs state cost and ownership model
-- external object extraction has a better story than "clone the Rust value"
-- derive macros align with actual runtime expectations and failure modes
-- one explicit support matrix defines directionality, cost, and ownership for
-  built-in conversions and external-object extraction
+### Record
 
-### Acceptance Criteria
-
-- new docs table maps conversion category to cost and guarantees
-- examples show borrow-based and owned extraction patterns
-- benchmark coverage exists for hot-path conversions that matter
-- README and docs agree on the supported conversion matrix and the `#[leanclass]`
-  receiver/declaration rules
-
-### Risks
-
-- some ergonomic improvements may need new wrapper types
-- overly broad conversion support can create long-term maintenance burden
+See `docs/phase-6-7-boundary-contract.md`.
 
 ## Phase 7: Documentation and Test Maturity
 
-### Goal
+### Status
 
-Ensure the documented golden paths are runnable and trusted.
+Current boundary contract locked by docs and tests.
 
-The current boundary contract for this phase is captured in
-`docs/phase-6-7-boundary-contract.md`.
+### Outcome
 
-### Scope
+- README now documents the runtime model, conversion rules, and macro
+  boundaries in one public place
+- `TESTING.md` names the CI tiers and exact local commands
+- doctests cover the public quick start and key macro/documentation paths
+- UI tests lock intentionally unsupported `#[leanclass]` declaration shapes
+- runtime and macro integration tests cover the main golden paths
 
-- convert as many ignored doctests as practical into compile or runtime-tested examples
-- document the canonical workflows:
-  - standalone runtime use
-  - exporting Rust functions to Lean
-  - defining external classes
-  - module loading
-  - thread-safe object handoff
-  - task/tokio integration
-- add a contributor-facing architecture guide for runtime and macro semantics
-- lock intentionally unsupported `#[leanclass]` declaration shapes with an
-  explicit compile-fail matrix
+### Boundary
 
-### Required Outcomes
+Documentation maturity is now good enough to act as an interface contract.
+That does not mean every possible runtime-dependent example is executable as a
+standalone doctest.
 
-- docs become a tested interface contract
-- common downstream paths have one recommended example each
-- README, phase docs, and compile-fail coverage describe the same capability
-  boundary
+### Record
 
-### Acceptance Criteria
-
-- ignored doctest count is materially reduced
-- compile-fail coverage maps each intentionally unsupported `#[leanclass]`
-  shape to a named UI case
-- the conversion / `#[leanclass]` boundary contract is written down in one
-  contributor-facing document and summarized in README
-- README quick start, macro quick start, and module quick start are tested
-- architecture docs explain why the runtime worker exists and when `ensure_lean_thread` is required
-
-### Risks
-
-- some runtime-dependent docs may remain non-executable without dedicated fixtures
-- examples can rot unless explicitly tied to CI
+See `docs/phase-6-7-boundary-contract.md` and `TESTING.md`.
 
 ## Cross-Cutting Engineering Rules
 
-The following rules apply across all phases:
+These rules remain in force after the initial maturity program:
 
-1. No new placeholder public APIs.
-2. No new macro-generated `expect` on recoverable paths.
+1. No new placeholder public APIs on the stable default surface.
+2. No new macro-generated `expect(...)` on recoverable paths.
 3. New user-facing semantics require tests and docs in the same change.
-4. Breaking behavior changes must update:
-   - README
-   - crate docs
-   - trybuild/UI snapshots when relevant
-   - end-to-end examples when relevant
+4. Breaking behavior changes must update README, crate docs, UI snapshots, and
+   end-to-end examples when relevant.
 
-## Proposed Execution Order
+## Resolved Questions
 
-Recommended implementation order:
+The open questions in the original draft now have working answers:
 
-1. Phase 1: Public API honesty
-2. Phase 2: Unified runtime/threading model
-3. Phase 3: Uniform error boundary
-4. Phase 5: `leanclass` semantic completion
-5. Phase 4: Module system completion
-6. Phase 6: Conversion and external object ergonomics
-7. Phase 7: Documentation and test maturity
+1. Placeholder containers should be gated out of the stable default surface
+   until they have real semantics. Leo3 chose gating, not premature promotion.
+2. `with_lean(...)` should remain the canonical safe entry point.
+   `sync::ensure_lean_thread()` is the lower-level explicit attachment API.
+3. The canonical generated-wrapper policy is boundary-helper based: object
+   wrappers route through shared panic boundaries, and scalar wrappers use an
+   explicit stricter failure path.
+4. Small amounts of Lean-side support code are acceptable when needed, but the
+   current implemented surface prefers minimal support code plus explicit Rust-
+   side and documentation contracts.
+5. Trait-based metadata is not required for the current declaration surface.
+   Leo3 instead locked a smaller explicit declaration grammar with UI tests.
 
-Reasoning:
+## Release Context
 
-- placeholder APIs and runtime inconsistency are the highest-risk foundation issues
-- `leanclass` and `leanmodule` should be rebuilt on top of the runtime and error model, not before
-- documentation should finalize the stabilized semantics rather than document moving targets too early
+The workspace is currently at `0.2.1`.
 
-## Release Strategy
+This maturity program should be read as "the core 0.2.x stabilization work that
+already landed", not as a promise that Leo3 is ready for `1.0.0`.
 
-### Suggested Versioning
+Reasonable future release expectations are:
 
-- `0.2.x`: stabilization work may still include breaking changes with explicit release notes
-- `0.3.0`: target release for runtime model, error model, and API honesty cleanup
-- `0.4.0`: target release for stronger module/class ergonomics and richer docs
-- `1.0.0`: only after container semantics, runtime semantics, macro semantics, and documentation/testing are all coherent and intentionally stable
-
-### Breaking-Change Policy Before 1.0
-
-Breaking changes are acceptable when they:
-
-- remove dishonest placeholder behavior
-- unify contradictory runtime semantics
-- replace panic-prone generated behavior with structured failure behavior
-
-They must still be documented clearly and accompanied by migration notes.
-
-## Open Questions
-
-These questions should be resolved during implementation, not before Phase 1 starts:
-
-1. Should placeholder containers be temporarily gated out, or should we implement a minimal real subset first?
-2. Should `with_lean` remain safe, or should a lower-level unsafe entry point become explicit?
-3. What is the canonical Lean-visible error representation for generated wrappers?
-4. How much Lean-side support code is acceptable for a complete module/container story?
-5. Do we want trait-based metadata for better Lean declaration generation?
+- `0.2.x`: continue hardening the now-explicit contracts
+- `0.3.x`: widen stable surface only where semantics are already clear
+- `1.0.0`: only after experimental containers, module surface, runtime
+  semantics, macro semantics, and documentation/testing all feel intentionally
+  stable rather than merely implemented
 
 ## Definition of Done
 
-This spec is considered fulfilled when:
+The original maturity program is considered fulfilled in the following sense:
 
-- stable public APIs are semantically honest
+- the stable default public API is semantically honest
 - runtime and thread usage are coherent and documented
-- macro-generated bindings share one predictable error boundary
-- module and class flows support real downstream projects
-- documentation demonstrates the intended workflows and is substantially tested
+- macro-generated bindings share a predictable boundary policy
+- module and class flows have a usable downstream story
+- documentation and tests now describe and check the intended public contract
 
-At that point, `leo3` should no longer feel like a promising prototype. It should feel like a dependable binding layer.
+The remaining work before `1.0.0` is no longer "make the foundations coherent".
+It is "decide what additional stable surface Leo3 is prepared to support
+without weakening those foundations".

@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress
+Implemented on the stable default surface.
 
 ## Goal
 
@@ -74,9 +74,9 @@ violations for Phase 1:
 - `cargo test --locked -p leo3 --doc --no-default-features`
 - `cargo test --locked -p leo3 --doc --features "macros,task,tokio"`
 
-## Exit Criteria for Phase 1
+## Completion Check
 
-Phase 1 can be considered complete when:
+Phase 1 is considered complete because:
 
 1. no known placeholder implementation remains on the stable default surface
 2. docs do not advertise experimental behavior as stable

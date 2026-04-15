@@ -2,7 +2,7 @@
 
 ## Status
 
-First implementation pass completed
+First implementation pass completed.
 
 ## What Changed
 
