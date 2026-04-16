@@ -184,6 +184,8 @@ Current state:
 - the supported key matrix is still intentionally narrow and explicit
 - the whole surface remains feature-gated while that narrow implementation is
   validated and potentially widened
+- runtime tests now cover duplicate inserts, replacement semantics, string-key
+  support, and cross-family parity for the supported families
 
 That means the contract today is "real but experimental", not "placeholder but
 stable". The stabilization question remains open and is tracked in

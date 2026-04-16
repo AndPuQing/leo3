@@ -5,7 +5,10 @@ use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::{LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption, LeanProd, LeanString};
+use crate::types::{
+    LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption,
+    LeanProd, LeanString,
+};
 use std::ffi::c_void;
 use std::marker::PhantomData;
 
@@ -32,14 +35,38 @@ unsafe extern "C" {
     static mut l_instHashableInt64: *mut ffi::lean_object;
     static mut l_instHashableISize: *mut ffi::lean_object;
 
-    fn l_instDecidableEqNat___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqString___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt8___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt16___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt32___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt64___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
-    fn l_instDecidableEqISize___boxed(a: *mut ffi::lean_object, b: *mut ffi::lean_object) -> *mut ffi::lean_object;
+    fn l_instDecidableEqNat___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqInt___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqString___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqInt8___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqInt16___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqInt32___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqInt64___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
+    fn l_instDecidableEqISize___boxed(
+        a: *mut ffi::lean_object,
+        b: *mut ffi::lean_object,
+    ) -> *mut ffi::lean_object;
 }
 
 impl LeanHashKey for LeanNat {
@@ -134,7 +161,8 @@ unsafe fn owned_view<T>(obj: &LeanBound<'_, T>) -> *mut ffi::lean_object {
 impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
     pub fn empty(lean: Lean<'l>) -> LeanResult<Self> {
         unsafe {
-            let ptr = ffi::hashmap::l_Std_HashMap_emptyWithCapacity___redArg(ffi::inline::lean_box(8));
+            let ptr =
+                ffi::hashmap::l_Std_HashMap_emptyWithCapacity___redArg(ffi::inline::lean_box(8));
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -226,14 +254,14 @@ impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
         let mut map = Self::empty(lean)?;
         let mut current = list;
         while !crate::types::LeanList::isEmpty(&current) {
-            let pair = crate::types::LeanList::head(&current)
-                .expect("non-empty list should have head");
+            let pair =
+                crate::types::LeanList::head(&current).expect("non-empty list should have head");
             let pair: LeanBound<'l, LeanProd> = pair.cast();
             let key: LeanBound<'l, K> = LeanProd::fst(&pair).cast();
             let value: LeanBound<'l, V> = LeanProd::snd(&pair).cast();
             map = map.insert(lean, key, value)?;
-            current = crate::types::LeanList::tail(&current)
-                .expect("non-empty list should have tail");
+            current =
+                crate::types::LeanList::tail(&current).expect("non-empty list should have tail");
         }
         Ok(map)
     }

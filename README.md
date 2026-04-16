@@ -125,6 +125,8 @@ Current status:
 - `LeanRBMap` now uses Lean's real runtime representation and reduced-arity
   container entry points for a narrow key matrix (`Nat`, `Int`, `String`, and
   fixed-width signed integer wrappers).
+- runtime tests now cover duplicate inserts, replacement semantics, string-key
+  support, and cross-family parity for the supported paths.
 
 ### Procedural Macros (`macros`)
 

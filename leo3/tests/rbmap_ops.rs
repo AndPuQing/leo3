@@ -13,7 +13,10 @@ fn rbmap_entries<'l>(list: &LeanBound<'l, LeanList>) -> LeanResult<Vec<(usize, S
         let pair: LeanBound<'l, LeanProd> = head.cast();
         let key: LeanBound<'l, LeanNat> = LeanProd::fst(&pair).cast();
         let value: LeanBound<'l, LeanString> = LeanProd::snd(&pair).cast();
-        out.push((LeanNat::to_usize(&key)?, LeanString::cstr(&value)?.to_owned()));
+        out.push((
+            LeanNat::to_usize(&key)?,
+            LeanString::cstr(&value)?.to_owned(),
+        ));
         current = LeanList::tail(&current).expect("non-empty list should have tail");
     }
 

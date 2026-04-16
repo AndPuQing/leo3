@@ -892,7 +892,13 @@ where
         let tail: LeanBound<'l, LeanProd> = LeanProd::snd(obj).cast();
         let rust_head = A::from_lean(&head)?;
         let rust_tail = <(B, C, D, E) as FromLean>::from_lean(&tail)?;
-        Ok((rust_head, rust_tail.0, rust_tail.1, rust_tail.2, rust_tail.3))
+        Ok((
+            rust_head,
+            rust_tail.0,
+            rust_tail.1,
+            rust_tail.2,
+            rust_tail.3,
+        ))
     }
 }
 

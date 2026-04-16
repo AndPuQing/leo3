@@ -7,7 +7,7 @@
 ))]
 
 use leo3::module::LeanModule;
-use leo3::prelude::*;
+use leo3::LeanError;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};

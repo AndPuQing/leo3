@@ -92,6 +92,13 @@ Current supported key matrix:
 - `LeanString`
 - `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
 
+Runtime coverage now includes:
+
+- duplicate insert / dedup semantics
+- replacement semantics for existing keys
+- string-key support
+- cross-family parity checks for the supported string-key paths
+
 The implementation uses exported compare closures such as `l_instOrdNat` and
 `l_String_instOrd`. This is intentionally narrow but real.
 
@@ -115,6 +122,14 @@ Current supported key matrix:
 - `LeanInt`
 - `LeanString`
 - `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
+
+Current runtime tests exercise:
+
+- duplicate insert behavior for `HashSet`
+- replacement semantics for `HashMap` / `RBMap`
+- string-key support across all three families
+- parity checks for equivalent final states across `HashMap`, `HashSet`, and
+  `RBMap`
 
 ## Recommended Next Steps
 

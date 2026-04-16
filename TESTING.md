@@ -148,8 +148,9 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 - `leo3` doctests: runtime initialization, README quick start, string/nat conversion, and task/tokio docs.
 - `leo3-macros` doctests: compile-check macro usage snippets such as `#[leanfn]`, `#[leanclass]`, and derives.
 - `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.
-- `leo3/tests/hash_containers_ops.rs`: real Lean `HashMap` / `HashSet` runtime path under `experimental-containers`.
-- `leo3/tests/rbmap_ops.rs`: real Lean `RBMap` runtime path under `experimental-containers`.
+- `leo3/tests/hash_containers_ops.rs`, `leo3/tests/hashset_nat_ops.rs`, `leo3/tests/hashset_string_ops.rs`: real Lean `HashMap` / `HashSet` runtime path under `experimental-containers`, including string-key and duplicate-insert coverage.
+- `leo3/tests/rbmap_ops.rs`, `leo3/tests/rbmap_string_ops.rs`: real Lean `RBMap` runtime path under `experimental-containers`, including string-key replacement coverage.
+- `leo3/tests/container_family_parity.rs`: cross-family parity checks for the supported string-key matrix.
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
 - `leo3/tests/test_macro_pipeline.rs` + `leo3/examples/macro_pipeline.rs`: end-to-end macro golden path covering `#[leanmodule]`, `#[leanfn]`, and `#[leanclass]`.

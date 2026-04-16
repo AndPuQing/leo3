@@ -52,9 +52,7 @@ What is still required:
    in part, or whether the feature should stay experimental until widened.
 2. Broaden the supported key matrix only when the runtime instance source stays
    explicit and testable.
-3. Add more runtime tests around duplicate inserts, replacement semantics,
-   string-key coverage, and cross-family parity.
-4. Keep the container docs aligned with the exact supported matrix instead of
+3. Keep the container docs aligned with the exact supported matrix instead of
    drifting back to vague "generic support" language.
 
 Recommended implementation order:
@@ -116,7 +114,7 @@ Definition of done:
 - failures in that flow would clearly localize whether the issue is fixture
   generation, dynamic loading, symbol naming, or call conversion
 
-## Closed For the Current Policy
+## Closed For The Current Policy
 
 ### External objects
 

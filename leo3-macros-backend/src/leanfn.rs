@@ -102,12 +102,7 @@ fn generate_param_conversions(
         .map(|(i, (name, ty))| {
             let arg_name = format_ident!("arg{}", i);
             let source_ty = lean_source_type(ty, leo3_crate);
-            let from_expr = generate_from_lean_expr(
-                ty,
-                quote! { bound },
-                leo3_crate,
-                &mut counter,
-            );
+            let from_expr = generate_from_lean_expr(ty, quote! { bound }, leo3_crate, &mut counter);
             quote! {
                 let #name = {
                     let bound: #leo3_crate::LeanBound<'_, #source_ty> =
@@ -136,12 +131,8 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
         }
     } else {
         let mut counter = 0usize;
-        let into_expr = generate_into_lean_expr(
-            return_type,
-            quote! { result },
-            leo3_crate,
-            &mut counter,
-        );
+        let into_expr =
+            generate_into_lean_expr(return_type, quote! { result }, leo3_crate, &mut counter);
         quote! {
             {
                 let lean_result = #into_expr
@@ -260,7 +251,7 @@ fn generate_from_lean_expr(
             };
         }
 
-        let tail_ty = tuple_tail_type(items);
+        let tail_ty = tuple_tail_type(&items);
         let tail_source = lean_source_type(&tail_ty, leo3_crate);
         let tail_expr =
             generate_from_lean_expr(&tail_ty, quote! { #tail_typed }, leo3_crate, counter);
@@ -356,8 +347,9 @@ fn generate_into_lean_expr(
             };
         }
 
-        let tail_ty = tuple_tail_type(items);
-        let tail_expr = generate_into_lean_expr(&tail_ty, quote! { #tail_ident }, leo3_crate, counter);
+        let tail_ty = tuple_tail_type(&items);
+        let tail_expr =
+            generate_into_lean_expr(&tail_ty, quote! { #tail_ident }, leo3_crate, counter);
         return quote! {
             {
                 let #value_ident = #value_expr;
@@ -374,7 +366,9 @@ fn generate_into_lean_expr(
 
 fn tuple_items(ty: &syn::Type) -> Option<Vec<syn::Type>> {
     match ty {
-        syn::Type::Tuple(tuple) if tuple.elems.len() >= 2 => Some(tuple.elems.iter().cloned().collect()),
+        syn::Type::Tuple(tuple) if tuple.elems.len() >= 2 => {
+            Some(tuple.elems.iter().cloned().collect())
+        }
         _ => None,
     }
 }
@@ -481,7 +475,12 @@ fn is_u8_type(ty: &syn::Type) -> bool {
 fn path_is_simple_ident(type_path: &syn::TypePath, ident: &str) -> bool {
     type_path.qself.is_none()
         && type_path.path.segments.len() == 1
-        && type_path.path.segments.first().map(|segment| segment.ident == ident).unwrap_or(false)
+        && type_path
+            .path
+            .segments
+            .first()
+            .map(|segment| segment.ident == ident)
+            .unwrap_or(false)
 }
 
 /// Generate the FFI wrapper function with panic boundary

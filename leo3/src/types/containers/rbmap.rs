@@ -10,7 +10,10 @@ use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::{LeanInt, LeanISize, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption, LeanProd, LeanString};
+use crate::types::{
+    LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption,
+    LeanProd, LeanString,
+};
 use std::marker::PhantomData;
 
 pub struct LeanRBMapType<K, V> {
@@ -127,8 +130,11 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
         key: &LeanBound<'l, K>,
     ) -> LeanResult<Option<LeanBound<'l, V>>> {
         unsafe {
-            let ptr =
-                ffi::rbmap::l_Lean_RBMap_find_x3f___redArg(borrowed_cmp::<K>(), owned_view(self), key.as_ptr());
+            let ptr = ffi::rbmap::l_Lean_RBMap_find_x3f___redArg(
+                borrowed_cmp::<K>(),
+                owned_view(self),
+                key.as_ptr(),
+            );
             let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
             Ok(LeanOption::get(&opt).map(|value| value.cast()))
         }
@@ -136,15 +142,22 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
 
     pub fn contains(&self, _lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<bool> {
         let contains = unsafe {
-            ffi::rbmap::l_Lean_RBMap_contains___redArg(borrowed_cmp::<K>(), owned_view(self), key.as_ptr())
+            ffi::rbmap::l_Lean_RBMap_contains___redArg(
+                borrowed_cmp::<K>(),
+                owned_view(self),
+                key.as_ptr(),
+            )
         };
         Ok(contains != 0)
     }
 
     pub fn erase(self, lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<Self> {
         unsafe {
-            let ptr =
-                ffi::rbmap::l_Lean_RBMap_erase___redArg(borrowed_cmp::<K>(), self.into_ptr(), key.as_ptr());
+            let ptr = ffi::rbmap::l_Lean_RBMap_erase___redArg(
+                borrowed_cmp::<K>(),
+                self.into_ptr(),
+                key.as_ptr(),
+            );
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }

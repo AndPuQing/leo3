@@ -67,7 +67,11 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
         Ok(contains != 0)
     }
 
-    pub fn get(&self, lean: Lean<'l>, elem: &LeanBound<'l, T>) -> LeanResult<Option<LeanBound<'l, T>>> {
+    pub fn get(
+        &self,
+        lean: Lean<'l>,
+        elem: &LeanBound<'l, T>,
+    ) -> LeanResult<Option<LeanBound<'l, T>>> {
         unsafe {
             let beq = beq_closure::<T>();
             let ptr = ffi::hashset::l_Std_HashSet_get_x3f___redArg(
@@ -118,10 +122,12 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
         let mut set = Self::empty(lean)?;
         let mut current = list;
         while !crate::types::LeanList::isEmpty(&current) {
-            let elem = crate::types::LeanList::head(&current).expect("non-empty list should have head");
+            let elem =
+                crate::types::LeanList::head(&current).expect("non-empty list should have head");
             let elem: LeanBound<'l, T> = elem.cast();
             set = set.insert(lean, elem)?;
-            current = crate::types::LeanList::tail(&current).expect("non-empty list should have tail");
+            current =
+                crate::types::LeanList::tail(&current).expect("non-empty list should have tail");
         }
         Ok(set)
     }
