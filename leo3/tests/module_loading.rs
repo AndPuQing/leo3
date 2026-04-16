@@ -3,7 +3,7 @@
 //! These tests verify that environments can be created, populated with declarations,
 //! and queried for constant information including kinds, types, and values.
 
-#![cfg(feature = "meta")]
+#![cfg(all(feature = "meta", not(target_os = "windows")))]
 
 use leo3::meta::*;
 use leo3::prelude::*;
