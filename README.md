@@ -130,6 +130,10 @@ Current status:
 
 ### Procedural Macros (`macros`)
 
+Enable the `macros` feature on the `leo3` dependency, then prefer the root-path
+form `#[leo3::leanfn]`, `#[leo3::leanclass]`, and `#[leo3::leanmodule]` so
+examples work without extra macro imports.
+
 `#[leanfn]` — Export Rust functions to Lean:
 
 ```rust,no_run
@@ -137,7 +141,7 @@ Current status:
 # mod leanfn_doctest {
 use leo3::prelude::*;
 
-#[leanfn]
+#[leo3::leanfn]
 fn add(a: u64, b: u64) -> u64 {
     a + b
 }
@@ -152,10 +156,10 @@ fn add(a: u64, b: u64) -> u64 {
 use leo3::prelude::*;
 
 #[derive(Clone)]
-#[leanclass]
+#[leo3::leanclass]
 struct Counter { value: i64 }
 
-#[leanclass]
+#[leo3::leanclass]
 impl Counter {
     fn new() -> Self { Counter { value: 0 } }
     fn get(&self) -> i64 { self.value }
