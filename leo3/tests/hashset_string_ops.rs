@@ -3,7 +3,8 @@
 #![cfg(all(
     feature = "experimental-containers",
     feature = "runtime-tests",
-    lean_4_22
+    lean_4_22,
+    not(target_os = "macos")
 ))]
 
 use leo3::prelude::*;

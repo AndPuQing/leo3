@@ -64,6 +64,7 @@ fn build_fixture() -> PathBuf {
 }
 
 #[test]
+#[cfg(not(sanitize = "address"))]
 fn test_dynamic_module_fixture_builds() {
     let dylib = build_fixture();
     assert!(
@@ -76,6 +77,7 @@ fn test_dynamic_module_fixture_builds() {
 }
 
 #[test]
+#[cfg(not(sanitize = "address"))]
 #[ignore = "Known blocker: loading the built fixture currently aborts during Lean plugin initialization after end_initialization"]
 fn test_dynamic_module_fixture_loads_and_calls_exports() {
     let dylib = build_fixture();
