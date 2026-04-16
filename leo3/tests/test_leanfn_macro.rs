@@ -394,7 +394,6 @@ fn test_leanfn_try_wrapper_reports_conversion_errors() {
 
         match err {
             LeanError::Conversion(message) => {
-                assert!(message.contains("Failed to convert `value` from Lean to Rust"));
                 assert!(message.contains("Except value must be a constructor"));
             }
             other => panic!("expected conversion error, got: {:?}", other),

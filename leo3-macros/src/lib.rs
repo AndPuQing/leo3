@@ -248,7 +248,7 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 ///     #[leanmodule(name = "MyRustLib")]
 ///     mod my_module {
-///         #[leo3_macros::leanfn]
+///         #[leo3_macros::leanfn()]
 ///         pub fn add(a: u64, b: u64) -> u64 {
 ///             a + b
 ///         }
