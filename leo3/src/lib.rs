@@ -143,6 +143,10 @@ pub use instance::{LeanBorrowed, LeanBound, LeanRef};
 pub use marker::Lean;
 pub use unbound::LeanUnbound;
 
+#[cfg(feature = "macros")]
+#[cfg_attr(docsrs, doc(cfg(feature = "macros")))]
+pub use leo3_macros::{leanclass, leanfn, leanmodule, FromLean, IntoLean};
+
 /// Prelude module for convenient imports
 pub mod prelude {
     pub use crate::{Lean, LeanBorrowed, LeanBound, LeanError, LeanRef, LeanResult, LeanUnbound};

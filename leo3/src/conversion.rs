@@ -434,6 +434,56 @@ where
     }
 }
 
+impl<'l, T, const N: usize> IntoLean<'l> for [T; N]
+where
+    T: IntoLean<'l> + 'l,
+{
+    type Target = LeanArray;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let mut arr = LeanArray::with_capacity(lean, N)?;
+
+        for item in self {
+            let lean_item = item.into_lean(lean)?;
+            let any_item: LeanBound<'l, LeanAny> = lean_item.cast();
+            arr = unsafe { LeanArray::push_unchecked(arr, any_item)? };
+        }
+
+        Ok(arr)
+    }
+}
+
+impl<'l, T, const N: usize> FromLean<'l> for [T; N]
+where
+    T: FromLean<'l> + 'l,
+{
+    type Source = LeanArray;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let size = LeanArray::size(obj);
+        if size != N {
+            return Err(crate::err::LeanError::conversion(&format!(
+                "expected Lean Array of length {N}, got {size}"
+            )));
+        }
+
+        let mut result = Vec::with_capacity(N);
+        for i in 0..size {
+            let elem = LeanArray::get(obj, i)
+                .ok_or_else(|| crate::err::LeanError::out_of_bounds(i, size))?;
+            let typed_elem: LeanBound<'l, T::Source> = elem.cast();
+            let rust_item = T::from_lean(&typed_elem)?;
+            result.push(rust_item);
+        }
+
+        result.try_into().map_err(|_| {
+            crate::err::LeanError::conversion(&format!(
+                "failed to convert Lean Array of length {size} into Rust array of length {N}"
+            ))
+        })
+    }
+}
+
 impl<'l> IntoLean<'l> for &'l [u8] {
     type Target = LeanByteArray;
 

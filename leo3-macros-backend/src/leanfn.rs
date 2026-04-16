@@ -102,6 +102,38 @@ fn generate_param_conversions(
         .map(|(i, (name, ty))| {
             let arg_name = format_ident!("arg{}", i);
             let source_ty = lean_source_type(ty, leo3_crate);
+            if let Some(inner) = borrowed_fixed_array_inner(ty) {
+                let storage_name = format_ident!("__{}_array_storage", name);
+                return quote! {
+                    let #storage_name = {
+                        let bound: #leo3_crate::LeanBound<'_, #source_ty> =
+                            #leo3_crate::LeanBound::from_owned_ptr(lean, #arg_name);
+                        <#inner as #leo3_crate::conversion::FromLean>::from_lean(&bound)
+                            .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
+                                "Failed to convert `{}` from Lean to Rust: {}",
+                                stringify!(#name),
+                                e
+                            )))?
+                    };
+                    let #name = &#storage_name;
+                };
+            }
+            if let Some(inner) = borrowed_non_u8_slice_inner(ty) {
+                let storage_name = format_ident!("__{}_slice_storage", name);
+                return quote! {
+                    let #storage_name = {
+                        let bound: #leo3_crate::LeanBound<'_, #source_ty> =
+                            #leo3_crate::LeanBound::from_owned_ptr(lean, #arg_name);
+                        <Vec<#inner> as #leo3_crate::conversion::FromLean>::from_lean(&bound)
+                            .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
+                                "Failed to convert `{}` from Lean to Rust: {}",
+                                stringify!(#name),
+                                e
+                            )))?
+                    };
+                    let #name = #storage_name.as_slice();
+                };
+            }
             let from_expr = generate_from_lean_expr(ty, quote! { bound }, leo3_crate, &mut counter);
             quote! {
                 let #name = {
@@ -151,6 +183,8 @@ fn lean_source_type(ty: &syn::Type, leo3_crate: &TokenStream) -> TokenStream {
         quote! { #leo3_crate::types::LeanString }
     } else if is_borrowed_u8_slice(ty) || is_vec_u8(ty) {
         quote! { #leo3_crate::types::LeanByteArray }
+    } else if is_borrowed_fixed_array(ty) || borrowed_non_u8_slice_inner(ty).is_some() {
+        quote! { #leo3_crate::types::LeanArray }
     } else if option_inner(ty).is_some() {
         quote! { #leo3_crate::types::LeanOption }
     } else if result_parts(ty).is_some() {
@@ -281,6 +315,10 @@ fn generate_into_lean_expr(
 ) -> TokenStream {
     if is_borrowed_u8_slice(ty) {
         return quote! { #leo3_crate::conversion::slice_u8_into_lean(#value_expr, lean) };
+    }
+
+    if borrowed_non_u8_slice_inner(ty).is_some() || is_borrowed_fixed_array(ty) {
+        return quote! { #leo3_crate::conversion::slice_into_lean(#value_expr, lean) };
     }
 
     if is_vec_u8(ty) {
@@ -457,6 +495,38 @@ fn is_borrowed_u8_slice(ty: &syn::Type) -> bool {
             matches!(&*reference.elem, syn::Type::Slice(slice) if is_u8_type(&slice.elem))
         }
         _ => false,
+    }
+}
+
+fn borrowed_non_u8_slice_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    match ty {
+        syn::Type::Reference(reference) if reference.mutability.is_none() => match &*reference.elem
+        {
+            syn::Type::Slice(slice) if !is_u8_type(&slice.elem) => Some(&slice.elem),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn is_borrowed_fixed_array(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Reference(reference) if reference.mutability.is_none() => {
+            matches!(&*reference.elem, syn::Type::Array(_))
+        }
+        _ => false,
+    }
+}
+
+fn borrowed_fixed_array_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    match ty {
+        syn::Type::Reference(reference) if reference.mutability.is_none() => {
+            match &*reference.elem {
+                syn::Type::Array(_) => Some(reference.elem.as_ref()),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 

@@ -10,6 +10,12 @@ fn double(x: u64) -> u64 {
     x * 2
 }
 
+// Test root-path macro usage without importing the attribute directly.
+#[leo3::leanfn]
+fn triple(x: u64) -> u64 {
+    x * 3
+}
+
 // Test function with custom name
 #[leanfn(name = "my_add")]
 fn add(a: u64, b: u64) -> u64 {
@@ -72,6 +78,39 @@ fn double_all(numbers: Vec<u64>) -> Vec<u64> {
 #[leanfn]
 fn sum_large_vec(numbers: Vec<u64>) -> u64 {
     numbers.iter().sum()
+}
+
+// Test function with fixed-size array parameter
+#[leanfn]
+fn sum_array(numbers: [u64; 4]) -> u64 {
+    numbers.into_iter().sum()
+}
+
+// Test function with borrowed non-byte slice parameter
+#[leanfn]
+fn sum_borrowed_slice(numbers: &[u64]) -> u64 {
+    numbers.iter().sum()
+}
+
+#[leanfn]
+fn sum_borrowed_array(numbers: &[u64; 3]) -> u64 {
+    numbers.iter().sum()
+}
+
+#[leanfn]
+fn static_word_slice() -> &'static [u64] {
+    &[1, 2, 3]
+}
+
+#[leanfn]
+fn static_word_array() -> &'static [u64; 3] {
+    &[4, 5, 6]
+}
+
+// Test function returning fixed-size arrays
+#[leanfn]
+fn flip_bool_array(values: [bool; 2]) -> [bool; 2] {
+    [!values[0], !values[1]]
 }
 
 // Test function with a conversion path that can fail gracefully.
@@ -374,6 +413,113 @@ fn test_leanfn_large_vec() {
             // Sum of 0..1000 is 999*1000/2 = 499500
             let expected: u64 = (0..size).sum();
             assert_eq!(LeanUInt64::to_u64(&result), expected);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_fixed_array_sum() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        let mut arr = LeanArray::empty(lean)?;
+        for value in [10_u64, 20, 30, 40] {
+            let n = LeanUInt64::mk(lean, value)?;
+            arr = LeanArray::push(arr, n.cast())?;
+        }
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_sum_array::__ffi_sum_array(arr.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 100);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_borrowed_slice_sum() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        let mut arr = LeanArray::empty(lean)?;
+        for value in [10_u64, 20, 30] {
+            let n = LeanUInt64::mk(lean, value)?;
+            arr = LeanArray::push(arr, n.cast())?;
+        }
+
+        unsafe {
+            let result_ptr =
+                __leo3_leanfn_sum_borrowed_slice::__ffi_sum_borrowed_slice(arr.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 60);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_borrowed_array_sum() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        let mut arr = LeanArray::empty(lean)?;
+        for value in [7_u64, 8, 9] {
+            let n = LeanUInt64::mk(lean, value)?;
+            arr = LeanArray::push(arr, n.cast())?;
+        }
+
+        unsafe {
+            let result_ptr =
+                __leo3_leanfn_sum_borrowed_array::__ffi_sum_borrowed_array(arr.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 24);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_fixed_array_return() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        use leo3::types::LeanArray;
+
+        let mut arr = LeanArray::empty(lean)?;
+        let a = LeanBool::mk(lean, true)?;
+        let b = LeanBool::mk(lean, false)?;
+        arr = LeanArray::push(arr, a.cast())?;
+        arr = LeanArray::push(arr, b.cast())?;
+
+        unsafe {
+            let result_ptr = __leo3_leanfn_flip_bool_array::__ffi_flip_bool_array(arr.into_ptr());
+            let result: LeanBound<LeanArray> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanArray::size(&result), 2);
+
+            let first: LeanBound<LeanBool> = LeanArray::get(&result, 0).unwrap().cast();
+            let second: LeanBound<LeanBool> = LeanArray::get(&result, 1).unwrap().cast();
+            assert!(!LeanBool::toBool(&first));
+            assert!(LeanBool::toBool(&second));
         }
 
         Ok(())
