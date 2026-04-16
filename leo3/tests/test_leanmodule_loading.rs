@@ -47,6 +47,12 @@ fn dylib_name() -> &'static str {
     }
 }
 
+fn address_sanitizer_enabled() -> bool {
+    std::env::var("RUSTFLAGS")
+        .ok()
+        .is_some_and(|flags| flags.contains("sanitizer=address"))
+}
+
 fn build_fixture() -> PathBuf {
     let target_dir = unique_target_dir();
     let status = Command::new("cargo")
@@ -64,8 +70,10 @@ fn build_fixture() -> PathBuf {
 }
 
 #[test]
-#[cfg(not(sanitize = "address"))]
 fn test_dynamic_module_fixture_builds() {
+    if address_sanitizer_enabled() {
+        return;
+    }
     let dylib = build_fixture();
     assert!(
         dylib.is_file(),
@@ -77,9 +85,11 @@ fn test_dynamic_module_fixture_builds() {
 }
 
 #[test]
-#[cfg(not(sanitize = "address"))]
 #[ignore = "Known blocker: loading the built fixture currently aborts during Lean plugin initialization after end_initialization"]
 fn test_dynamic_module_fixture_loads_and_calls_exports() {
+    if address_sanitizer_enabled() {
+        return;
+    }
     let dylib = build_fixture();
     assert!(
         dylib.is_file(),
