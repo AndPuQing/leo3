@@ -1,5 +1,5 @@
 error: Generic methods are not supported yet
- --> tests/ui/leanclass_generic_method.rs:9:11
+ --> tests/ui/leanclass_generic_method.rs:7:11
   |
-9 |     fn bad<T>(&self, value: T) {
+7 |     fn bad<T>(&self, value: T) {
   |           ^^^

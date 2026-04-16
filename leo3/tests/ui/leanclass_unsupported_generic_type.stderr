@@ -1,5 +1,5 @@
 error: generic type `HashMap` is not supported in generated Lean declarations; only Vec<T>, Option<T>, Result<T, E>, and pairs `(A, B)` are currently supported
- --> tests/ui/leanclass_unsupported_generic_type.rs:8:44
+ --> tests/ui/leanclass_unsupported_generic_type.rs:7:44
   |
-8 |     fn bad(&self, value: std::collections::HashMap<String, u64>) -> i32 {
+7 |     fn bad(&self, value: std::collections::HashMap<String, u64>) -> i32 {
   |                                            ^^^^^^^^^^^^^^^^^^^^

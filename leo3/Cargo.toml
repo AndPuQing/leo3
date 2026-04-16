@@ -30,6 +30,7 @@ leo3-build-config = { workspace = true }
 trybuild = "1.0"
 criterion.workspace = true
 futures = "0.3"
+leo3-macros.workspace = true
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "sync", "macros"] }
 
 [[bench]]

@@ -1,10 +1,8 @@
-use leo3::prelude::*;
-
 #[derive(Clone)]
-#[leanclass]
+#[leo3_macros::leanclass]
 struct BadTuple;
 
-#[leanclass]
+#[leo3_macros::leanclass]
 impl BadTuple {
     fn bad(&self, value: (u64, bool, String)) -> i32 {
         let _ = value;

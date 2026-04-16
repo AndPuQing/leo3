@@ -1,10 +1,8 @@
-use leo3::prelude::*;
-
 #[derive(Clone)]
-#[leanclass]
+#[leo3_macros::leanclass]
 struct BadGenericMethod;
 
-#[leanclass]
+#[leo3_macros::leanclass]
 impl BadGenericMethod {
     fn bad<T>(&self, value: T) {
         let _ = value;

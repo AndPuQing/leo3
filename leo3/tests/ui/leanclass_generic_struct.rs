@@ -1,6 +1,4 @@
-use leo3::prelude::*;
-
-#[leanclass]
+#[leo3_macros::leanclass]
 struct BadGeneric<T> {
     value: T,
 }
