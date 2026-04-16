@@ -9,6 +9,6 @@ note: found an item that was configured out
   |
   | #[cfg(feature = "experimental-containers")]
   |       ----------------------------------- the item is gated behind the `experimental-containers` feature
-  | #[cfg_attr(docsrs, doc(cfg(feature = "experimental-containers")))]
+...
   | pub use containers::{LeanHashMap, LeanHashSet, LeanRBMap};
   |                      ^^^^^^^^^^^

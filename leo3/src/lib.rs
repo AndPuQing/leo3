@@ -160,6 +160,7 @@ pub mod prelude {
         LeanString, LeanUInt16, LeanUInt32, LeanUInt64, LeanUInt8, LeanUSize,
     };
     #[cfg(feature = "experimental-containers")]
+    #[cfg(lean_4_22)]
     pub use crate::types::{LeanHashMap, LeanHashSet, LeanRBMap};
 
     #[cfg(feature = "macros")]
