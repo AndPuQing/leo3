@@ -242,12 +242,14 @@ jobs:
 
   compat-runtime-matrix:
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'CI-build-full')
-    continue-on-error: ${{ matrix.os == 'macos-latest' && matrix.lean == 'v4.20.0' }}
     strategy:
       fail-fast: ${{ !contains(github.event.pull_request.labels.*.name, 'CI-no-fail-fast') }}
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         lean: ['stable', 'beta', 'nightly', 'v4.20.0']
+        exclude:
+          - os: macos-latest
+            lean: 'v4.20.0'
     uses: ./.github/workflows/test.yml
     with:
       os: ${{ matrix.os }}
