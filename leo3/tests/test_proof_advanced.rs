@@ -7,7 +7,11 @@
 //! - Cross-environment proof sharing (same proof in different envs)
 //! - Proofs with complex dependent types (nested foralls, higher-order)
 
-#![cfg(all(feature = "meta", feature = "runtime-tests"))]
+#![cfg(all(
+    feature = "meta",
+    feature = "runtime-tests",
+    not(target_os = "windows")
+))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

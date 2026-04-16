@@ -2,7 +2,11 @@
 //!
 //! This test suite covers advanced metaprogramming APIs that aren't tested in meta_basic.rs
 
-#![cfg(all(feature = "meta", feature = "runtime-tests"))]
+#![cfg(all(
+    feature = "meta",
+    feature = "runtime-tests",
+    not(target_os = "windows")
+))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

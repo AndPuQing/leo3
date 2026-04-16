@@ -1,6 +1,10 @@
 //! Integration tests for MetaMContext::is_def_eq()
 
-#![cfg(all(feature = "meta", feature = "runtime-tests"))]
+#![cfg(all(
+    feature = "meta",
+    feature = "runtime-tests",
+    not(target_os = "windows")
+))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

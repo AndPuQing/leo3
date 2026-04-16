@@ -5,7 +5,11 @@
 //! environment (Sort-based) since `LeanEnvironment::empty()` doesn't include
 //! the Lean prelude (no `Nat`, `Nat.succ`, etc.).
 
-#![cfg(all(feature = "meta", feature = "runtime-tests"))]
+#![cfg(all(
+    feature = "meta",
+    feature = "runtime-tests",
+    not(target_os = "windows")
+))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

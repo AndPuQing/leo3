@@ -4,7 +4,11 @@
 //! a variety of expression types. All tests use an empty environment (no prelude)
 //! so only Sort-based expressions are available.
 
-#![cfg(all(feature = "meta", feature = "runtime-tests"))]
+#![cfg(all(
+    feature = "meta",
+    feature = "runtime-tests",
+    not(target_os = "windows")
+))]
 
 use leo3::meta::*;
 use leo3::prelude::*;

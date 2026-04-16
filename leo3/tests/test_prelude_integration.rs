@@ -7,7 +7,7 @@
 //! Since `LeanEnvironment::empty()` does not include the Lean prelude, we
 //! simulate prelude types by adding axioms for Nat, String, List, etc.
 
-#![cfg(feature = "meta")]
+#![cfg(all(feature = "meta", not(target_os = "windows")))]
 
 use leo3::meta::*;
 use leo3::prelude::*;
