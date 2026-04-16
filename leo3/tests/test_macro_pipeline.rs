@@ -61,6 +61,17 @@ fn test_macro_pipeline_rust_and_metadata_surface() {
         macro_pipeline::__leo3_metadata_banner().name,
         "macro_pipeline_banner"
     );
+    let module_metadata = macro_pipeline::__leo3_module_metadata();
+    let export_names: Vec<_> = module_metadata
+        .exports
+        .iter()
+        .map(|item| item.name)
+        .collect();
+    assert_eq!(module_metadata.name, "MacroPipeline");
+    assert_eq!(
+        export_names,
+        vec!["macro_pipeline_add", "macro_pipeline_banner"]
+    );
 
     let _init_fn: unsafe extern "C" fn(u8, *mut std::ffi::c_void) -> *mut std::ffi::c_void =
         initialize_MacroPipeline;

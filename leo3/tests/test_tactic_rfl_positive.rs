@@ -24,8 +24,12 @@ fn add_eq_axioms<'l>(
     let alpha2 = LeanExpr::bvar(lean, 2)?;
     let eq_body = LeanExpr::forall(rhs_name, alpha0.clone(), prop, BinderInfo::Default)?;
     let eq_body = LeanExpr::forall(lhs_name, alpha1, eq_body, BinderInfo::Default)?;
-    let eq_type =
-        LeanExpr::forall(alpha_name.clone(), sort_u.clone(), eq_body, BinderInfo::Implicit)?;
+    let eq_type = LeanExpr::forall(
+        alpha_name.clone(),
+        sort_u.clone(),
+        eq_body,
+        BinderInfo::Implicit,
+    )?;
 
     let eq_decl = LeanDeclaration::axiom(
         lean,

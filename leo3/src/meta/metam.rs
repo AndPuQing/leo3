@@ -235,69 +235,70 @@ impl<'l> MetaMContext<'l> {
         let core_ctx_ptr = core_ctx.into_ptr();
         let core_state_ptr = core_state.into_ptr();
 
-        let (result, new_meta_state, new_core_state) = crate::runtime::with_worker(move || unsafe {
-            #[cfg(not(lean_4_26))]
-            let (core_state_ref, world2) = {
-                let world = ffi::lean_box(0);
-                let ref_result = ffi::lean_st_mk_ref(core_state_ptr, world);
-                let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
-                let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
-                ffi::lean_inc(core_state_ref);
-                ffi::lean_inc(world2);
-                ffi::lean_dec(ref_result);
-                (core_state_ref, world2)
-            };
+        let (result, new_meta_state, new_core_state) =
+            crate::runtime::with_worker(move || unsafe {
+                #[cfg(not(lean_4_26))]
+                let (core_state_ref, world2) = {
+                    let world = ffi::lean_box(0);
+                    let ref_result = ffi::lean_st_mk_ref(core_state_ptr, world);
+                    let core_state_ref = ffi::lean_ctor_get(ref_result, 0) as *mut ffi::lean_object;
+                    let world2 = ffi::lean_ctor_get(ref_result, 1) as *mut ffi::lean_object;
+                    ffi::lean_inc(core_state_ref);
+                    ffi::lean_inc(world2);
+                    ffi::lean_dec(ref_result);
+                    (core_state_ref, world2)
+                };
 
-            #[cfg(lean_4_26)]
-            let (core_state_ref, world2) = {
-                let core_state_ref = ffi::lean_st_mk_ref(core_state_ptr, ffi::lean_box(0));
-                let world2 = ffi::lean_box(0);
-                (core_state_ref, world2)
-            };
+                #[cfg(lean_4_26)]
+                let (core_state_ref, world2) = {
+                    let core_state_ref = ffi::lean_st_mk_ref(core_state_ptr, ffi::lean_box(0));
+                    let world2 = ffi::lean_box(0);
+                    (core_state_ref, world2)
+                };
 
-            let result = ffi::meta::lean_meta_metam_run_state(
-                computation_ptr,
-                meta_ctx_ptr,
-                meta_state_ptr,
-                core_ctx_ptr,
-                core_state_ref,
-                world2,
-            );
+                let result = ffi::meta::lean_meta_metam_run_state(
+                    computation_ptr,
+                    meta_ctx_ptr,
+                    meta_state_ptr,
+                    core_ctx_ptr,
+                    core_state_ref,
+                    world2,
+                );
 
-            let pair = handle_eio_result(result)?;
-            let value_ptr = ffi::lean_ctor_get(pair, 0) as *mut ffi::lean_object;
-            let meta_state_ptr = ffi::lean_ctor_get(pair, 1) as *mut ffi::lean_object;
-            ffi::lean_inc(value_ptr);
-            ffi::lean_inc(meta_state_ptr);
-            ffi::lean_dec(pair);
+                let pair = handle_eio_result(result)?;
+                let value_ptr = ffi::lean_ctor_get(pair, 0) as *mut ffi::lean_object;
+                let meta_state_ptr = ffi::lean_ctor_get(pair, 1) as *mut ffi::lean_object;
+                ffi::lean_inc(value_ptr);
+                ffi::lean_inc(meta_state_ptr);
+                ffi::lean_dec(pair);
 
-            #[cfg(not(lean_4_26))]
-            let core_state_ptr = {
-                let get_result = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
-                let value = ffi::lean_ctor_get(get_result, 0) as *mut ffi::lean_object;
-                ffi::lean_inc(value);
-                ffi::lean_dec(get_result);
-                value
-            };
+                #[cfg(not(lean_4_26))]
+                let core_state_ptr = {
+                    let get_result = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
+                    let value = ffi::lean_ctor_get(get_result, 0) as *mut ffi::lean_object;
+                    ffi::lean_inc(value);
+                    ffi::lean_dec(get_result);
+                    value
+                };
 
-            #[cfg(lean_4_26)]
-            let core_state_ptr = {
-                let value = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
-                ffi::lean_inc(value);
-                value
-            };
+                #[cfg(lean_4_26)]
+                let core_state_ptr = {
+                    let value = ffi::lean_st_ref_get(core_state_ref, ffi::lean_box(0));
+                    ffi::lean_inc(value);
+                    value
+                };
 
-            ffi::lean_dec(core_state_ref);
+                ffi::lean_dec(core_state_ref);
 
-            Ok::<
-                (
-                    *mut ffi::lean_object,
-                    *mut ffi::lean_object,
-                    *mut ffi::lean_object,
-                ),
-                LeanError,
-            >((value_ptr, meta_state_ptr, core_state_ptr))
-        })?;
+                Ok::<
+                    (
+                        *mut ffi::lean_object,
+                        *mut ffi::lean_object,
+                        *mut ffi::lean_object,
+                    ),
+                    LeanError,
+                >((value_ptr, meta_state_ptr, core_state_ptr))
+            })?;
 
         unsafe {
             self.meta_state =
@@ -368,7 +369,10 @@ impl<'l> MetaMContext<'l> {
     }
 
     /// Create a fresh metavariable goal in the current local context.
-    pub fn mk_goal(&mut self, type_: &LeanBound<'l, LeanExpr>) -> LeanResult<LeanBound<'l, LeanExpr>> {
+    pub fn mk_goal(
+        &mut self,
+        type_: &LeanBound<'l, LeanExpr>,
+    ) -> LeanResult<LeanBound<'l, LeanExpr>> {
         let user_name = LeanName::anonymous(self.lean)?;
         self.mk_fresh_expr_mvar(type_, &user_name)
     }
@@ -471,21 +475,15 @@ impl<'l> MetaMContext<'l> {
                     "unexpected MetavarDecl layout: expected >= 5 object fields, got {num_objs}"
                 )));
             }
-            let lctx = LeanBound::<LeanAny>::from_borrowed_ptr(
-                self.lean,
-                ffi::lean_ctor_get(decl_ptr, 1),
-            )
-            .cast();
-            let type_ = LeanBound::<LeanAny>::from_borrowed_ptr(
-                self.lean,
-                ffi::lean_ctor_get(decl_ptr, 2),
-            )
-            .cast();
-            let local_instances = LeanBound::<LeanAny>::from_borrowed_ptr(
-                self.lean,
-                ffi::lean_ctor_get(decl_ptr, 4),
-            )
-            .cast();
+            let lctx =
+                LeanBound::<LeanAny>::from_borrowed_ptr(self.lean, ffi::lean_ctor_get(decl_ptr, 1))
+                    .cast();
+            let type_ =
+                LeanBound::<LeanAny>::from_borrowed_ptr(self.lean, ffi::lean_ctor_get(decl_ptr, 2))
+                    .cast();
+            let local_instances =
+                LeanBound::<LeanAny>::from_borrowed_ptr(self.lean, ffi::lean_ctor_get(decl_ptr, 4))
+                    .cast();
 
             Ok(MVarDeclParts {
                 lctx,
@@ -495,7 +493,6 @@ impl<'l> MetaMContext<'l> {
         }
     }
 
-
     /// Look up a local hypothesis by its user-facing name in a goal's local context.
     pub fn goal_hypothesis(
         &mut self,
@@ -504,8 +501,10 @@ impl<'l> MetaMContext<'l> {
     ) -> LeanResult<LeanBound<'l, LeanExpr>> {
         let decl = self.get_mvar_decl(goal)?;
         unsafe {
-            let raw =
-                ffi::meta::lean_local_ctx_find_from_user_name(decl.lctx.as_ptr(), user_name.as_ptr());
+            let raw = ffi::meta::lean_local_ctx_find_from_user_name(
+                decl.lctx.as_ptr(),
+                user_name.as_ptr(),
+            );
             if ffi::inline::lean_is_scalar(raw) {
                 return Err(LeanError::other(
                     "goal_hypothesis: no local declaration with that user name",

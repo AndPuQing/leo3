@@ -436,9 +436,11 @@ pub fn intro<'l>(
             Ok(r) => r,
             Err(e) => return TacticResult::Failure(e),
         };
-        let new_mvar_id =
-            LeanBound::<crate::instance::LeanAny>::from_borrowed_ptr(metam.lean(), ffi::lean_ctor_get(result.as_ptr(), 1))
-                .cast();
+        let new_mvar_id = LeanBound::<crate::instance::LeanAny>::from_borrowed_ptr(
+            metam.lean(),
+            ffi::lean_ctor_get(result.as_ptr(), 1),
+        )
+        .cast();
         match LeanExpr::mvar(metam.lean(), new_mvar_id) {
             Ok(m) => m,
             Err(e) => return TacticResult::Failure(e),
@@ -489,12 +491,13 @@ pub fn apply<'l>(
         Err(e) => return TacticResult::Failure(e),
     };
     // Infer the type of the expression being applied
-    let mut expr_ty = match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
-        m.infer_type(expr)
-    }) {
-        Ok(ty) => ty,
-        Err(e) => return TacticResult::Failure(e),
-    };
+    let mut expr_ty =
+        match metam.with_local_context(&goal_decl.lctx, &goal_decl.local_instances, |m| {
+            m.infer_type(expr)
+        }) {
+            Ok(ty) => ty,
+            Err(e) => return TacticResult::Failure(e),
+        };
 
     // Peel off forall binders, creating fresh mvars for each argument
     let mut app_expr = expr.clone();

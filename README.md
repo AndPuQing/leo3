@@ -48,7 +48,7 @@ closures, thunks, and synchronization helpers are always available.
 | Feature | Enables |
 |---------|---------|
 | _default (none)_ | Core runtime/token APIs, conversions, closures, thunks, sync helpers, Lean type wrappers |
-| `experimental-containers` | Placeholder wrappers for `HashMap`, `HashSet`, `RBMap`; intentionally gated because semantics are incomplete |
+| `experimental-containers` | Experimental container wrappers for `HashMap`, `HashSet`, `RBMap`; still gated because semantics are incomplete |
 | `macros` | `#[leanfn]`, `#[leanclass]`, `#[leanmodule]`, `#[derive(IntoLean, FromLean)]` |
 | `meta` | `leo3::meta::*` metaprogramming APIs |
 | `io` | `leo3::io::*` IO / filesystem / process / environment helpers |
@@ -104,7 +104,7 @@ Rules behind that table:
 
 - `FromLean` is not implemented for `&str`; round-trips use `String`.
 - `Vec<u8>` does not use a specialized trait impl on stable Rust. The optimized `ByteArray` path is exposed through helper functions and the `to_lean!` / `from_lean!` macros.
-- `FromLean` for `T: ExternalClass + Clone` is clone-based extraction, not borrowing. Borrow-based access goes through `LeanExternal<T>::get_ref()` / `get_mut()`.
+- `FromLean` for `T: ExternalClass + Clone` is clone-based extraction, not borrowing. Borrow-first access goes through `LeanExternal<T>::borrow()`, `try_get_mut()`, and `try_take_inner()` (with `get_ref()` / `get_mut()` still available as lower-level APIs).
 - User-defined types can extend the matrix with manual impls or `#[derive(IntoLean, FromLean)]`.
 
 ### Experimental Container Wrappers (`experimental-containers`)
@@ -186,6 +186,11 @@ the Lean side still needs a matching type name in scope.
 
 `#[derive(IntoLean)]` / `#[derive(FromLean)]` — Automatic conversion derive macros.
 
+`#[leanmodule]` now has an explicit module-registration story too: Leo3 treats
+inline `#[leanfn]` items inside the annotated module as the module's implicit
+export set, and generates `__leo3_module_metadata()` so downstream Rust code can
+inspect the chosen Lean-visible names.
+
 For a single runnable example that combines module initialization, exported
 functions, and an external class, run:
 
@@ -247,7 +252,8 @@ leo3/
 
 ## Development
 
-See `TESTING.md` for the full tiered CI map and exact contributor workflows. Common local commands:
+See `TESTING.md` for the full tiered CI map, [architecture notes](docs/architecture.md),
+and the [contributor guide](docs/contributing.md). Common local commands:
 
 ```bash
 LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib

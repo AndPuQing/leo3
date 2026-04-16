@@ -10,6 +10,40 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Token};
 
+fn is_leanfn_attr(attr: &syn::Attribute) -> bool {
+    attr.path()
+        .segments
+        .last()
+        .is_some_and(|segment| segment.ident == "leanfn")
+}
+
+fn collect_module_exports(items: &[syn::Item]) -> syn::Result<Vec<String>> {
+    let mut exports = Vec::new();
+
+    for item in items {
+        let syn::Item::Fn(function) = item else {
+            continue;
+        };
+
+        for attr in &function.attrs {
+            if !is_leanfn_attr(attr) {
+                continue;
+            }
+
+            let options = attr.parse_args::<LeanFunctionOptions>()?;
+            let name = options
+                .common
+                .name
+                .as_ref()
+                .map(|value| value.value())
+                .unwrap_or_else(|| function.sig.ident.to_string());
+            exports.push(name);
+        }
+    }
+
+    Ok(exports)
+}
+
 /// A proc macro used to expose Rust functions to Lean4.
 ///
 /// # Example
@@ -235,7 +269,7 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// - `#[leanmodule(crate = my::leo3)]` changes the crate path used in generated code
 #[proc_macro_attribute]
 pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let item_mod = parse_macro_input!(input as syn::ItemMod);
+    let mut item_mod = parse_macro_input!(input as syn::ItemMod);
     let options = parse_macro_input!(attr as LeanModuleOptions);
 
     let module_name = options.name.unwrap_or_else(|| item_mod.ident.to_string());
@@ -248,6 +282,37 @@ pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
         &format!("initialize_{}", module_name),
         proc_macro2::Span::call_site(),
     );
+
+    let export_names = match item_mod.content.as_ref() {
+        Some((_, items)) => match collect_module_exports(items) {
+            Ok(exports) => exports,
+            Err(error) => return error.into_compile_error().into(),
+        },
+        None => Vec::new(),
+    };
+
+    if let Some((_, items)) = &mut item_mod.content {
+        let export_entries: Vec<_> = export_names
+            .iter()
+            .map(|name| {
+                quote! {
+                    #leo3_crate::LeanFunctionMetadata { name: #name }
+                }
+            })
+            .collect();
+
+        let metadata_item: syn::Item = syn::parse_quote! {
+            #[doc(hidden)]
+            pub fn __leo3_module_metadata() -> #leo3_crate::LeanModuleMetadata {
+                const EXPORTS: &[#leo3_crate::LeanFunctionMetadata] = &[#(#export_entries),*];
+                #leo3_crate::LeanModuleMetadata {
+                    name: #module_name,
+                    exports: EXPORTS,
+                }
+            }
+        };
+        items.push(metadata_item);
+    }
 
     let expanded = quote! {
         #item_mod

@@ -193,6 +193,16 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
         }
     }
 
+    /// Borrow the wrapped Rust value without cloning.
+    pub fn borrow(&self) -> &T {
+        self.get_ref()
+    }
+
+    /// Check whether the underlying Lean object is exclusively owned.
+    pub fn is_exclusive(&self) -> bool {
+        unsafe { ffi::object::lean_is_exclusive(self.as_ptr()) }
+    }
+
     /// Get a mutable reference to the wrapped Rust value.
     ///
     /// # Safety
@@ -210,6 +220,15 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
     pub unsafe fn get_mut(&mut self) -> &mut T {
         let data_ptr = ffi::lean_get_external_data(self.as_ptr());
         &mut *(data_ptr as *mut T)
+    }
+
+    /// Borrow the wrapped Rust value mutably when the Lean object is exclusive.
+    pub fn try_get_mut(&mut self) -> Option<&mut T> {
+        if self.is_exclusive() {
+            Some(unsafe { self.get_mut() })
+        } else {
+            None
+        }
     }
 
     /// Take the inner value out of an exclusively-owned external object.
@@ -237,6 +256,15 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
         // Free the Box allocation (without running T's destructor).
         std::alloc::dealloc(data_ptr as *mut u8, std::alloc::Layout::new::<T>());
         value
+    }
+
+    /// Move the wrapped Rust value out when the Lean object is exclusively owned.
+    pub fn try_take_inner(&mut self) -> Option<T> {
+        let data_ptr = unsafe { ffi::lean_get_external_data(self.as_ptr()) };
+        if data_ptr.is_null() || !self.is_exclusive() {
+            return None;
+        }
+        Some(unsafe { self.take_inner() })
     }
 
     /// Check if this external object is of the correct type.
@@ -430,6 +458,32 @@ mod tests {
 
             assert_eq!(retrieved.name, "Test");
             assert_eq!(retrieved.count, 123);
+
+            Ok::<_, LeanError>(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_external_borrow_first_helpers() {
+        crate::prepare_freethreaded_lean();
+
+        crate::with_lean(|lean| {
+            let mut external = LeanExternal::new(lean, TestCounter { value: 10 }).unwrap();
+
+            assert!(external.is_exclusive());
+            assert_eq!(external.borrow().value, 10);
+
+            external
+                .try_get_mut()
+                .expect("fresh external should be exclusive")
+                .value += 5;
+            assert_eq!(external.borrow().value, 15);
+
+            let taken = external
+                .try_take_inner()
+                .expect("fresh external should support non-cloning take");
+            assert_eq!(taken.value, 15);
 
             Ok::<_, LeanError>(())
         })

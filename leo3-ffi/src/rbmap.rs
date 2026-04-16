@@ -54,6 +54,14 @@ extern "C" {
     /// Signature: RBMap.depth (m : RBMap α β) : Nat
     pub fn l_Lean_RBMap_depth(m: b_lean_obj_arg) -> lean_obj_res;
 
+    /// Get the size of the tree.
+    /// Signature: RBMap.size (m : RBMap α β) : Nat
+    pub fn l_Lean_RBMap_size(m: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Check whether the map is empty.
+    /// Signature: RBMap.isEmpty (m : RBMap α β) : Bool
+    pub fn l_Lean_RBMap_isEmpty(m: b_lean_obj_arg) -> u8;
+
     // ========================================================================
     // RBMap Modification
     // ========================================================================
@@ -149,6 +157,14 @@ extern "C" {
     /// Convert RBMap to List (in sorted order)
     /// Signature: RBMap.toList (m : RBMap α β) : List (α × β)
     pub fn l_Lean_RBMap_toList(m: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the minimum key/value pair.
+    /// Signature: RBMap.min (m : RBMap α β) : Option (α × β)
+    pub fn l_Lean_RBMap_min(m: b_lean_obj_arg) -> lean_obj_res;
+
+    /// Get the maximum key/value pair.
+    /// Signature: RBMap.max (m : RBMap α β) : Option (α × β)
+    pub fn l_Lean_RBMap_max(m: b_lean_obj_arg) -> lean_obj_res;
 
     /// Convert RBMap to Array (in sorted order)
     /// Signature: RBMap.toArray (m : RBMap α β) : Array (α × β)

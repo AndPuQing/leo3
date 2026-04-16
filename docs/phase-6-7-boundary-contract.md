@@ -22,9 +22,10 @@ Leo3's built-in conversion rules are:
 
 Formal rules:
 
-- `FromLean` for external objects is intentionally clone-based. Borrow-based
-  access is a separate API surface: `LeanExternal<T>::get_ref()`,
-  `LeanExternal<T>::get_mut()`, and `take_inner()`.
+- `FromLean` for external objects is intentionally clone-based. Borrow-first
+  access is a separate API surface: `LeanExternal<T>::borrow()`,
+  `try_get_mut()`, and `try_take_inner()` for the safe/high-level path, plus
+  `get_ref()`, `get_mut()`, and `take_inner()` for lower-level control.
 - `Vec<u8>` uses helper functions instead of trait specialization on stable
   Rust. The optimized path is `vec_u8_into_lean`, `slice_u8_into_lean`,
   `vec_u8_from_lean`, `to_lean!(..., Vec<u8>)`, `to_lean!(..., &[u8])`, and

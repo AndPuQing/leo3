@@ -2,6 +2,9 @@
 
 Leo3 CI is split into small, named tiers so failures are easier to localize and contributors can run the same commands locally.
 
+For the higher-level maintenance workflow, pair this guide with
+`docs/architecture.md` and `docs/contributing.md`.
+
 ## CI Tiers
 
 | Tier | Purpose | Typical jobs | Default trigger |
@@ -65,6 +68,7 @@ cargo test --locked -p leo3 --features "macros,runtime-tests" \
   --test test_leanfn_macro \
   --test test_lean_instance \
   --test test_leanmodule \
+  --test test_leanmodule_loading \
   --test test_macro_pipeline \
   --example macro_pipeline
 
@@ -141,6 +145,7 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
 - `leo3/tests/test_macro_pipeline.rs` + `leo3/examples/macro_pipeline.rs`: end-to-end macro golden path covering `#[leanmodule]`, `#[leanfn]`, and `#[leanclass]`.
+- `leo3/tests/test_leanmodule_loading.rs`: builds a real `cdylib` fixture so the module-loading path is exercised against a downstream-style artifact.
 - `leo3-ffi-check/`: bindgen-backed FFI layout validation.
 
 ## Troubleshooting

@@ -73,6 +73,15 @@ extern "C" {
         a: b_lean_obj_arg,
     ) -> u8;
 
+    /// Get the equal element from the set, if present.
+    /// Signature: HashSet.get? (m : HashSet α) (a : α) : Option α
+    pub fn l_Std_HashSet_get_x3f(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: b_lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Get the size of the HashSet
     /// Signature: HashSet.size (m : HashSet α) : Nat
     pub fn l_Std_HashSet_size(m: b_lean_obj_arg) -> lean_obj_res;

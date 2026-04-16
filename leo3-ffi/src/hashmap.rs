@@ -10,10 +10,6 @@ extern "C" {
     // HashMap Creation
     // ========================================================================
 
-    /// Create an empty HashMap with default capacity
-    /// Signature: HashMap.empty [BEq α] [Hashable α] : HashMap α β
-    pub fn l_Std_HashMap_empty(beq: lean_obj_arg, hashable: lean_obj_arg) -> lean_obj_res;
-
     /// Create an empty HashMap with specified capacity
     /// Signature: HashMap.emptyWithCapacity [BEq α] [Hashable α] (capacity := 8) : HashMap α β
     pub fn l_Std_HashMap_emptyWithCapacity(
@@ -35,13 +31,22 @@ extern "C" {
         a: b_lean_obj_arg,
     ) -> u8;
 
+    /// Get the value for a key, if present.
+    /// Signature: HashMap.get? (m : HashMap α β) (a : α) : Option β
+    pub fn l_Std_HashMap_get_x3f(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: b_lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
     /// Get the size of the HashMap
     /// Signature: HashMap.size (m : HashMap α β) : Nat
-    pub fn l_Std_DHashMap_size(m: b_lean_obj_arg) -> lean_obj_res;
+    pub fn l_Std_HashMap_size(m: b_lean_obj_arg) -> lean_obj_res;
 
     /// Check if the HashMap is empty
     /// Signature: HashMap.isEmpty (m : HashMap α β) : Bool
-    pub fn l_Std_DHashMap_isEmpty(m: b_lean_obj_arg) -> u8;
+    pub fn l_Std_HashMap_isEmpty(m: b_lean_obj_arg) -> u8;
 
     // ========================================================================
     // HashMap Modification
@@ -49,7 +54,7 @@ extern "C" {
 
     /// Insert a key-value pair into the HashMap (replaces if exists)
     /// Signature: HashMap.insert (m : HashMap α β) (a : α) (b : β) : HashMap α β
-    pub fn l_Std_DHashMap_insert(
+    pub fn l_Std_HashMap_insert(
         beq: lean_obj_arg,
         hashable: lean_obj_arg,
         m: lean_obj_arg,
@@ -59,7 +64,7 @@ extern "C" {
 
     /// Insert a key-value pair only if the key doesn't exist
     /// Signature: HashMap.insertIfNew (m : HashMap α β) (a : α) (b : β) : HashMap α β
-    pub fn l_Std_DHashMap_insertIfNew(
+    pub fn l_Std_HashMap_insertIfNew(
         beq: lean_obj_arg,
         hashable: lean_obj_arg,
         m: lean_obj_arg,
@@ -153,7 +158,7 @@ extern "C" {
 
     /// Convert HashMap to List
     /// Signature: HashMap.toList (m : HashMap α β) : List (α × β)
-    pub fn l_Std_DHashMap_toList(m: b_lean_obj_arg) -> lean_obj_res;
+    pub fn l_Std_HashMap_toList(m: b_lean_obj_arg) -> lean_obj_res;
 
     /// Convert HashMap to Array
     /// Signature: HashMap.toArray (m : HashMap α β) : Array (α × β)

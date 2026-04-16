@@ -163,15 +163,16 @@ fn test_init_function_signature() {
 // Test that module can contain leanfn-annotated functions
 // (In real usage, these would have #[leanfn] attribute)
 #[leanmodule(name = "FunctionModule")]
+#[allow(unused_imports)]
 mod function_module {
-    // This would typically have #[leanfn], but for this test
-    // we just verify the module structure works
-    #[allow(dead_code)]
+    use leo3::prelude::leanfn;
+
+    #[leanfn(name = "function_module_add")]
     pub fn exported_add(a: u64, b: u64) -> u64 {
         a + b
     }
 
-    #[allow(dead_code)]
+    #[leanfn(name = "function_module_sub")]
     pub fn exported_sub(a: u64, b: u64) -> u64 {
         a.saturating_sub(b)
     }
@@ -182,4 +183,16 @@ fn test_function_module() {
     assert_eq!(function_module::exported_add(10, 5), 15);
     assert_eq!(function_module::exported_sub(10, 5), 5);
     assert_eq!(function_module::exported_sub(5, 10), 0); // saturating
+}
+
+#[test]
+fn test_module_metadata_tracks_leanfn_exports() {
+    let metadata = function_module::__leo3_module_metadata();
+    let export_names: Vec<_> = metadata.exports.iter().map(|item| item.name).collect();
+
+    assert_eq!(metadata.name, "FunctionModule");
+    assert_eq!(
+        export_names,
+        vec!["function_module_add", "function_module_sub"]
+    );
 }
