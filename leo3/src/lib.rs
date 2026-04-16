@@ -66,9 +66,10 @@
 //! token, smart pointers, type wrappers/conversions, closures, thunks, and
 //! synchronization helpers. Optional subsystems are enabled explicitly:
 //!
-//! - **`experimental-containers`**: placeholder wrappers for `HashMap`,
-//!   `HashSet`, and `RBMap`; these APIs are intentionally gated because they do
-//!   not yet provide full Lean container semantics
+//! - **`experimental-containers`**: experimental wrappers for `HashMap`,
+//!   `HashSet`, and `RBMap`; all three now use real Lean runtime semantics for
+//!   a narrow key matrix, but remain feature-gated while that support matrix is
+//!   intentionally conservative
 //! - **`macros`**: Procedural macros (`#[leanfn]`, `#[leanclass]`, `#[leanmodule]`)
 //! - **`meta`**: `leo3::meta` metaprogramming APIs
 //! - **`io`**: `leo3::io` helpers for Lean IO / filesystem / process utilities

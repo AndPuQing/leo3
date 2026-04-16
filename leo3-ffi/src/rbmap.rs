@@ -9,6 +9,61 @@ use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 
 extern "C" {
     // ========================================================================
+    // RBMap Reduced-Arity Entry Points
+    // ========================================================================
+
+    /// Create an empty RBMap.
+    ///
+    /// The exported full symbol ignores the comparator argument, but keeping the
+    /// full-arity declaration lets wrapper code use the same symbol name as Lean.
+    ///
+    /// Reduced-arity operations below take the compare closure directly.
+
+    /// Check whether the map is empty.
+    pub fn l_Lean_RBMap_isEmpty___redArg(m: b_lean_obj_arg) -> u8;
+
+    /// Get the size of the tree.
+    pub fn l_Lean_RBMap_size___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Convert RBMap to List (in sorted order).
+    pub fn l_Lean_RBMap_toList___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Get the minimum key/value pair.
+    pub fn l_Lean_RBMap_min___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Get the maximum key/value pair.
+    pub fn l_Lean_RBMap_max___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Check if a key is present in the RBMap.
+    pub fn l_Lean_RBMap_contains___redArg(
+        cmp: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> u8;
+
+    /// Find a value by key (returns Option).
+    pub fn l_Lean_RBMap_find_x3f___redArg(
+        cmp: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Insert a key-value pair into the RBMap.
+    pub fn l_Lean_RBMap_insert___redArg(
+        cmp: lean_obj_arg,
+        m: lean_obj_arg,
+        a: lean_obj_arg,
+        b: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Erase a key from the RBMap.
+    pub fn l_Lean_RBMap_erase___redArg(
+        cmp: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    // ========================================================================
     // RBMap Creation
     // ========================================================================
 

@@ -7,6 +7,52 @@ use crate::object::{b_lean_obj_arg, lean_obj_arg, lean_obj_res};
 
 extern "C" {
     // ========================================================================
+    // HashMap Reduced-Arity Entry Points
+    // ========================================================================
+
+    /// Create an empty HashMap with specified capacity.
+    pub fn l_Std_HashMap_emptyWithCapacity___redArg(capacity: lean_obj_arg) -> lean_obj_res;
+
+    /// Check if a key is present in the HashMap.
+    pub fn l_Std_HashMap_contains___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> u8;
+
+    /// Get the value for a key, if present.
+    pub fn l_Std_HashMap_get_x3f___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Get the size of the HashMap.
+    pub fn l_Std_HashMap_size___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Insert a key-value pair into the HashMap.
+    pub fn l_Std_HashMap_insert___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: lean_obj_arg,
+        b: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Erase a key from the HashMap.
+    pub fn l_Std_HashMap_erase___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Convert HashMap to List.
+    pub fn l_Std_HashMap_toList___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    // ========================================================================
     // HashMap Creation
     // ========================================================================
 

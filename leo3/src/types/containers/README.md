@@ -2,13 +2,15 @@
 
 ## Current Status
 
-The container types (HashMap, HashSet, RBMap) in `leo3/src/types/containers/`
-currently have **placeholder implementations**. These types compile and provide
-a type-safe API, but do not implement the actual Lean container behavior.
+The container wrappers are still exposed only behind the
+`experimental-containers` Cargo feature, but they are no longer all in the same
+state as earlier placeholder code:
 
-Because of that, they are exposed only behind the
-`experimental-containers` Cargo feature. They should not be treated as part of
-Leo3's stable public surface until their semantics are real.
+- `HashMap`, `HashSet`, and `RBMap` now all use Lean's real runtime
+  representation and real container operations.
+- the supported key matrix is still intentionally narrow and explicit
+- the whole surface remains feature-gated while that narrow implementation is
+  validated and potentially widened
 
 ## FFI Bindings
 
@@ -19,14 +21,14 @@ We have created FFI bindings for Lean's container functions in `leo3-ffi/src/`:
 
 These bindings declare the functions available in Lean's shared library (e.g., `l_Std_HashMap_insert`, `l_Std_HashSet_contains`, etc.).
 
-## The Challenge: Typeclass Instances
+## The Challenge: Runtime Instance Sources
 
-Using these FFI functions requires passing Lean typeclass instances:
+Using these FFI functions requires passing Lean runtime comparison/hash objects:
 - `HashMap` requires `BEq α` and `Hashable α` instances
 - `HashSet` requires `BEq α` and `Hashable α` instances
-- `RBMap` requires `Ord α` instance
+- `RBMap` requires a compare closure `α → α → Ordering`
 
-These instances are Lean objects that must be obtained at runtime. There are several approaches to solve this:
+These objects must be obtained at runtime. There are several approaches to solve this:
 
 ### Approach 1: Lean-side Wrappers (Recommended)
 
@@ -71,15 +73,59 @@ pub struct TypeclassInstances {
 }
 ```
 
+## What Landed
+
+### `RBMap`
+
+`leo3/src/types/containers/rbmap.rs` now uses Lean's real runtime ABI:
+
+- `empty` uses `l_Lean_RBMap_empty`
+- `insert`, `find?`, `contains`, and `erase` use the `_redArg` entry points
+- read-only queries clone the map pointer first because Lean's traversal helpers
+  consume the tree argument during traversal
+- `to_list`, `min`, `max`, and `size` now reflect real Lean behavior
+
+Current supported key matrix:
+
+- `LeanNat`
+- `LeanInt`
+- `LeanString`
+- `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
+
+The implementation uses exported compare closures such as `l_instOrdNat` and
+`l_String_instOrd`. This is intentionally narrow but real.
+
+### `HashMap` / `HashSet`
+
+`leo3/src/types/containers/hashmap.rs` and
+`leo3/src/types/containers/hashset.rs` now use Lean's real runtime ABI too:
+
+- empty construction uses reduced-arity `emptyWithCapacity` entry points
+- insert / contains / get / erase use reduced-arity wrappers that accept a
+  `BEq` closure and a `Hashable` closure directly
+- Leo3 constructs the `BEq` closure from exported boxed `DecidableEq` functions
+  such as `l_instDecidableEqNat___boxed`
+- Leo3 reuses exported `Hashable` closures such as `l_instHashableNat`
+- read-only queries clone the map/set pointer first because the Lean runtime
+  helpers consume the structure argument during traversal
+
+Current supported key matrix:
+
+- `LeanNat`
+- `LeanInt`
+- `LeanString`
+- `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
+
 ## Recommended Next Steps
 
 1. **For specific use cases**: Use Approach 1 - create Lean wrappers for the exact container types you need
 
 2. **For general library support**: Implement Approach 3 - create a typeclass instance registry for common types
 
-3. **Current implementation**: The placeholder implementations are useful for
-   API exploration and internal iteration, but they should remain explicitly
-   experimental until they are backed by real Lean behavior.
+3. **Current implementation**:
+   - all three container families now have narrow real implementations
+   - widening the supported matrix should happen only when the instance source
+     remains explicit and testable
 
 ## Available FFI Functions
 

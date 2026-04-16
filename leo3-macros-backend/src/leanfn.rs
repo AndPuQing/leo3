@@ -103,7 +103,7 @@ fn generate_param_conversions(
             quote! {
                 let #name = {
                     let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    <#ty as #leo3_crate::conversion::FromLean>::from_lean(&bound)
+                    #leo3_crate::from_lean!(&bound, #ty)
                         .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
                             "Failed to convert `{}` from Lean to Rust: {}",
                             stringify!(#name),
@@ -128,7 +128,7 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
     } else {
         quote! {
             {
-                let lean_result = <#return_type as #leo3_crate::conversion::IntoLean>::into_lean(result, lean)
+                let lean_result = #leo3_crate::to_lean!(result, lean, #return_type)
                     .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
                         "Failed to convert Rust result to Lean: {}",
                         e

@@ -168,7 +168,7 @@ impl LeanByteArray {
     ///
     /// # Safety
     /// The returned slice is only valid while the LeanBound object is alive.
-    pub unsafe fn as_slice<'a, 'l>(obj: &'a LeanBound<'l, Self>) -> &'a [u8] {
+    pub unsafe fn as_slice<'l>(obj: &LeanBound<'l, Self>) -> &'l [u8] {
         let size = Self::size(obj);
         let ptr = ffi::inline::lean_sarray_cptr(obj.as_ptr());
         std::slice::from_raw_parts(ptr, size)

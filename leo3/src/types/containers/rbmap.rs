@@ -1,20 +1,16 @@
-//! Red-Black Map (RBMap) type for Lean4's `Std.RBMap`.
+//! Red-black map wrapper for Lean's real `Lean.RBMap` runtime representation.
 #![allow(missing_docs)]
 //!
-//! This module provides a Rust wrapper for Lean's RBMap type, which is
-//! a balanced binary search tree implementation that maintains sorted order.
-//!
-//! **IMPORTANT**: This is currently a **placeholder implementation** with a simplified
-//! tree structure. It does not use the actual Lean RBMap implementation.
-//!
-//! For the real Lean RBMap FFI bindings, see `leo3_ffi::rbmap`.
-//! See `containers/README.md` for information on how to properly implement these using FFI.
+//! `LeanRBMap` is the first experimental container wrapper in Leo3 that uses
+//! Lean's real runtime semantics instead of a placeholder structure. The
+//! current support matrix is intentionally narrow: only key families with a
+//! known exported compare closure are supported.
 
 use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::LeanList;
+use crate::types::{LeanInt, LeanISize, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption, LeanProd, LeanString};
 use std::marker::PhantomData;
 
 pub struct LeanRBMapType<K, V> {
@@ -23,11 +19,88 @@ pub struct LeanRBMapType<K, V> {
 
 pub type LeanRBMap<'l, K, V> = LeanBound<'l, LeanRBMapType<K, V>>;
 
-impl<'l, K, V> LeanRBMap<'l, K, V> {
+/// Key families currently supported by the real `RBMap` wrapper.
+pub trait LeanRBMapKey {
+    #[doc(hidden)]
+    unsafe fn compare_closure() -> *mut ffi::lean_object;
+}
+
+unsafe extern "C" {
+    static mut l_instOrdNat: *mut ffi::lean_object;
+    static mut l_instOrdInt: *mut ffi::lean_object;
+    static mut l_String_instOrd: *mut ffi::lean_object;
+    static mut l_Int8_instOrd: *mut ffi::lean_object;
+    static mut l_Int16_instOrd: *mut ffi::lean_object;
+    static mut l_Int32_instOrd: *mut ffi::lean_object;
+    static mut l_Int64_instOrd: *mut ffi::lean_object;
+    static mut l_ISize_instOrd: *mut ffi::lean_object;
+}
+
+impl LeanRBMapKey for LeanNat {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_instOrdNat
+    }
+}
+
+impl LeanRBMapKey for LeanInt {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_instOrdInt
+    }
+}
+
+impl LeanRBMapKey for LeanString {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_String_instOrd
+    }
+}
+
+impl LeanRBMapKey for LeanInt8 {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_Int8_instOrd
+    }
+}
+
+impl LeanRBMapKey for LeanInt16 {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_Int16_instOrd
+    }
+}
+
+impl LeanRBMapKey for LeanInt32 {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_Int32_instOrd
+    }
+}
+
+impl LeanRBMapKey for LeanInt64 {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_Int64_instOrd
+    }
+}
+
+impl LeanRBMapKey for LeanISize {
+    unsafe fn compare_closure() -> *mut ffi::lean_object {
+        l_ISize_instOrd
+    }
+}
+
+#[inline]
+unsafe fn borrowed_cmp<K: LeanRBMapKey>() -> *mut ffi::lean_object {
+    K::compare_closure()
+}
+
+#[inline]
+unsafe fn owned_view<T>(obj: &LeanBound<'_, T>) -> *mut ffi::lean_object {
+    let ptr = obj.as_ptr();
+    ffi::lean_inc(ptr);
+    ptr
+}
+
+impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     pub fn empty(lean: Lean<'l>) -> LeanResult<Self> {
         unsafe {
-            let empty = ffi::lean_alloc_ctor(0, 0, 0);
-            Ok(LeanBound::from_owned_ptr(lean, empty))
+            let ptr = ffi::rbmap::l_Lean_RBMap_empty(borrowed_cmp::<K>());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
 
@@ -38,97 +111,77 @@ impl<'l, K, V> LeanRBMap<'l, K, V> {
         value: LeanBound<'l, V>,
     ) -> LeanResult<Self> {
         unsafe {
-            let node = ffi::lean_alloc_ctor(1, 4, 0);
-            ffi::object::lean_ctor_set(node, 0, key.into_ptr());
-            ffi::object::lean_ctor_set(node, 1, value.into_ptr());
-            let empty_left = ffi::lean_alloc_ctor(0, 0, 0);
-            let empty_right = ffi::lean_alloc_ctor(0, 0, 0);
-            ffi::object::lean_ctor_set(node, 2, empty_left);
-            ffi::object::lean_ctor_set(node, 3, empty_right);
-            Ok(LeanBound::from_owned_ptr(lean, node))
+            let ptr = ffi::rbmap::l_Lean_RBMap_insert___redArg(
+                borrowed_cmp::<K>(),
+                self.into_ptr(),
+                key.into_ptr(),
+                value.into_ptr(),
+            );
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
 
     pub fn find(
         &self,
-        _lean: Lean<'l>,
-        _key: &LeanBound<'l, K>,
+        lean: Lean<'l>,
+        key: &LeanBound<'l, K>,
     ) -> LeanResult<Option<LeanBound<'l, V>>> {
-        Ok(None)
+        unsafe {
+            let ptr =
+                ffi::rbmap::l_Lean_RBMap_find_x3f___redArg(borrowed_cmp::<K>(), owned_view(self), key.as_ptr());
+            let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
+            Ok(LeanOption::get(&opt).map(|value| value.cast()))
+        }
     }
 
-    pub fn contains(&self, lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<bool> {
-        Ok(self.find(lean, key)?.is_some())
+    pub fn contains(&self, _lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<bool> {
+        let contains = unsafe {
+            ffi::rbmap::l_Lean_RBMap_contains___redArg(borrowed_cmp::<K>(), owned_view(self), key.as_ptr())
+        };
+        Ok(contains != 0)
+    }
+
+    pub fn erase(self, lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<Self> {
+        unsafe {
+            let ptr =
+                ffi::rbmap::l_Lean_RBMap_erase___redArg(borrowed_cmp::<K>(), self.into_ptr(), key.as_ptr());
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
     }
 
     pub fn is_empty(&self) -> bool {
-        unsafe { ffi::object::lean_obj_tag(self.as_ptr()) == 0 }
+        unsafe { ffi::rbmap::l_Lean_RBMap_isEmpty___redArg(self.as_ptr()) != 0 }
     }
 
     pub fn size(&self) -> LeanResult<usize> {
-        self.count_nodes(self.as_ptr())
-    }
-
-    #[allow(clippy::only_used_in_recursion)]
-    fn count_nodes(&self, node: *mut ffi::lean_object) -> LeanResult<usize> {
+        let lean = self.lean_token();
         unsafe {
-            let tag = ffi::object::lean_obj_tag(node);
-            if tag == 0 {
-                Ok(0)
-            } else {
-                let left = ffi::object::lean_ctor_get(node, 2) as *mut ffi::lean_object;
-                let right = ffi::object::lean_ctor_get(node, 3) as *mut ffi::lean_object;
-                Ok(1 + self.count_nodes(left)? + self.count_nodes(right)?)
-            }
+            let ptr = ffi::rbmap::l_Lean_RBMap_size___redArg(owned_view(self));
+            let size = LeanBound::<LeanNat>::from_owned_ptr(lean, ptr);
+            LeanNat::to_usize(&size)
         }
-    }
-
-    pub fn min(&self, lean: Lean<'l>) -> LeanResult<Option<LeanBound<'l, K>>> {
-        if self.is_empty() {
-            return Ok(None);
-        }
-
-        let mut current = self.as_ptr();
-        unsafe {
-            while ffi::object::lean_obj_tag(current) != 0 {
-                let left = ffi::object::lean_ctor_get(current, 2) as *mut ffi::lean_object;
-                if ffi::object::lean_obj_tag(left) == 0 {
-                    let key_ptr = ffi::object::lean_ctor_get(current, 0) as *mut ffi::lean_object;
-                    ffi::object::lean_inc(key_ptr);
-                    return Ok(Some(LeanBound::from_owned_ptr(lean, key_ptr)));
-                }
-                current = left;
-            }
-        }
-
-        Ok(None)
-    }
-
-    pub fn max(&self, lean: Lean<'l>) -> LeanResult<Option<LeanBound<'l, K>>> {
-        if self.is_empty() {
-            return Ok(None);
-        }
-
-        let mut current = self.as_ptr();
-        unsafe {
-            while ffi::object::lean_obj_tag(current) != 0 {
-                let right = ffi::object::lean_ctor_get(current, 3) as *mut ffi::lean_object;
-                if ffi::object::lean_obj_tag(right) == 0 {
-                    let key_ptr = ffi::object::lean_ctor_get(current, 0) as *mut ffi::lean_object;
-                    ffi::object::lean_inc(key_ptr);
-                    return Ok(Some(LeanBound::from_owned_ptr(lean, key_ptr)));
-                }
-                current = right;
-            }
-        }
-
-        Ok(None)
     }
 
     pub fn to_list(&self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, LeanList>> {
         unsafe {
-            let nil = ffi::lean_alloc_ctor(0, 0, 0);
-            Ok(LeanBound::from_owned_ptr(lean, nil))
+            let ptr = ffi::rbmap::l_Lean_RBMap_toList___redArg(owned_view(self));
+            Ok(LeanBound::from_owned_ptr(lean, ptr))
+        }
+    }
+
+    pub fn min_entry(&self, lean: Lean<'l>) -> LeanResult<Option<LeanBound<'l, LeanProd>>> {
+        unsafe {
+            let ptr = ffi::rbmap::l_Lean_RBMap_min___redArg(owned_view(self));
+            let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
+            Ok(LeanOption::get(&opt).map(|value| value.cast()))
+        }
+    }
+
+    pub fn max_entry(&self, lean: Lean<'l>) -> LeanResult<Option<LeanBound<'l, LeanProd>>> {
+        unsafe {
+            let ptr = ffi::rbmap::l_Lean_RBMap_max___redArg(owned_view(self));
+            let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
+            Ok(LeanOption::get(&opt).map(|value| value.cast()))
         }
     }
 }

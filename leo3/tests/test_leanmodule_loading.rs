@@ -7,6 +7,7 @@
 ))]
 
 use leo3::module::LeanModule;
+use leo3::prelude::*;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -72,4 +73,41 @@ fn test_dynamic_module_fixture_builds() {
     );
 
     let _typecheck = |path: &Path, name: &str| LeanModule::load(path, name);
+}
+
+#[test]
+#[ignore = "Known blocker: loading the built fixture currently aborts during Lean plugin initialization after end_initialization"]
+fn test_dynamic_module_fixture_loads_and_calls_exports() {
+    let dylib = build_fixture();
+    assert!(
+        dylib.is_file(),
+        "expected built fixture at {}",
+        dylib.display()
+    );
+
+    let module = LeanModule::load(&dylib, "FixtureModule")
+        .unwrap_or_else(|err| panic!("failed to load fixture {}: {err}", dylib.display()));
+
+    assert_eq!(module.name(), "FixtureModule");
+
+    leo3::with_lean(|lean| {
+        let add = module
+            .get_function("fixture_add", 2)
+            .expect("fixture_add should be exported");
+        let sum: u64 = add
+            .call2(lean, 20_u64, 22_u64)
+            .expect("fixture_add should execute successfully");
+        assert_eq!(sum, 42);
+
+        let banner = module
+            .get_function("fixture_banner", 2)
+            .expect("fixture_banner should be exported");
+        let message: String = banner
+            .call2(lean, String::from("orbiter"), 7_i32)
+            .expect("fixture_banner should execute successfully");
+        assert_eq!(message, "orbiter has 7 ticks");
+
+        Ok::<_, LeanError>(())
+    })
+    .unwrap();
 }

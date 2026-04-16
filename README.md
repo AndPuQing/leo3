@@ -48,7 +48,7 @@ closures, thunks, and synchronization helpers are always available.
 | Feature | Enables |
 |---------|---------|
 | _default (none)_ | Core runtime/token APIs, conversions, closures, thunks, sync helpers, Lean type wrappers |
-| `experimental-containers` | Experimental container wrappers for `HashMap`, `HashSet`, `RBMap`; still gated because semantics are incomplete |
+| `experimental-containers` | Experimental container wrappers for `HashMap`, `HashSet`, `RBMap`; all three now use real Lean runtime semantics for a narrow key matrix |
 | `macros` | `#[leanfn]`, `#[leanclass]`, `#[leanmodule]`, `#[derive(IntoLean, FromLean)]` |
 | `meta` | `leo3::meta::*` metaprogramming APIs |
 | `io` | `leo3::io::*` IO / filesystem / process / environment helpers |
@@ -112,9 +112,19 @@ Rules behind that table:
 `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` are available only behind the
 `experimental-containers` feature.
 
-These APIs are currently placeholder wrappers and do not yet provide full Lean
-container semantics. They are gated explicitly so the default public surface
-remains semantically honest while container support is being completed.
+These APIs are still gated explicitly so the default public surface remains
+semantically honest while container support is being completed.
+
+Current status:
+
+- `LeanHashMap` now uses Lean's real runtime representation for a narrow key
+  matrix by pairing exported `Hashable` closures with boxed `DecidableEq`
+  closures.
+- `LeanHashSet` now uses the same real runtime path for the same narrow key
+  matrix.
+- `LeanRBMap` now uses Lean's real runtime representation and reduced-arity
+  container entry points for a narrow key matrix (`Nat`, `Int`, `String`, and
+  fixed-width signed integer wrappers).
 
 ### Procedural Macros (`macros`)
 

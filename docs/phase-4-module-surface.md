@@ -49,3 +49,10 @@ discovery is another.
 This is still not the full shared-library registration story from the spec yet,
 but it moves `#[leanmodule]` past "just make an init symbol" and gives Leo3 an
 explicit module authoring model.
+
+One concrete blocker is now known more precisely: attempting the full
+`LeanModule::load(...)` success path against a built downstream fixture currently
+aborts after runtime initialization has completed, with Lean reporting that
+option registration can only happen during initialization. That means the next
+step is not just "add one more assertion"; Leo3's runtime/module-loading
+contract needs to account for Lean's plugin-initialization timing rules.

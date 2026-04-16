@@ -21,6 +21,9 @@ macro_rules! to_lean {
     ($slice:expr, $lean:expr, &[u8]) => {
         $crate::conversion::slice_u8_into_lean($slice, $lean)
     };
+    ($value:expr, $lean:expr, $ty:ty) => {
+        <$ty as $crate::conversion::IntoLean>::into_lean($value, $lean)
+    };
     ($value:expr, $lean:expr) => {
         $crate::conversion::IntoLean::into_lean($value, $lean)
     };
@@ -365,6 +368,14 @@ impl<'l> IntoLean<'l> for &str {
     }
 }
 
+impl<'l> FromLean<'l> for &'l str {
+    type Source = LeanString;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        LeanString::cstr(obj)
+    }
+}
+
 // Vec<T> ↔ LeanArray
 impl<'l, T> IntoLean<'l> for Vec<T>
 where
@@ -420,6 +431,22 @@ where
         }
 
         Ok(result)
+    }
+}
+
+impl<'l> IntoLean<'l> for &'l [u8] {
+    type Target = LeanByteArray;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        slice_u8_into_lean(self, lean)
+    }
+}
+
+impl<'l> FromLean<'l> for &'l [u8] {
+    type Source = LeanByteArray;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        Ok(unsafe { LeanByteArray::as_slice(obj) })
     }
 }
 
@@ -764,5 +791,152 @@ where
         let rust_a = A::from_lean(&typed_a)?;
         let rust_b = B::from_lean(&typed_b)?;
         Ok((rust_a, rust_b))
+    }
+}
+
+impl<'l, A, B, C> IntoLean<'l> for (A, B, C)
+where
+    A: IntoLean<'l> + 'l,
+    B: IntoLean<'l> + 'l,
+    C: IntoLean<'l> + 'l,
+{
+    type Target = LeanProd;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let head = self.0.into_lean(lean)?;
+        let tail = (self.1, self.2).into_lean(lean)?;
+        LeanProd::mk(head.cast(), tail.cast())
+    }
+}
+
+impl<'l, A, B, C> FromLean<'l> for (A, B, C)
+where
+    A: FromLean<'l> + 'l,
+    B: FromLean<'l> + 'l,
+    C: FromLean<'l> + 'l,
+{
+    type Source = LeanProd;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let head: LeanBound<'l, A::Source> = LeanProd::fst(obj).cast();
+        let tail: LeanBound<'l, LeanProd> = LeanProd::snd(obj).cast();
+        let rust_head = A::from_lean(&head)?;
+        let rust_tail = <(B, C) as FromLean>::from_lean(&tail)?;
+        Ok((rust_head, rust_tail.0, rust_tail.1))
+    }
+}
+
+impl<'l, A, B, C, D> IntoLean<'l> for (A, B, C, D)
+where
+    A: IntoLean<'l> + 'l,
+    B: IntoLean<'l> + 'l,
+    C: IntoLean<'l> + 'l,
+    D: IntoLean<'l> + 'l,
+{
+    type Target = LeanProd;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let head = self.0.into_lean(lean)?;
+        let tail = (self.1, self.2, self.3).into_lean(lean)?;
+        LeanProd::mk(head.cast(), tail.cast())
+    }
+}
+
+impl<'l, A, B, C, D> FromLean<'l> for (A, B, C, D)
+where
+    A: FromLean<'l> + 'l,
+    B: FromLean<'l> + 'l,
+    C: FromLean<'l> + 'l,
+    D: FromLean<'l> + 'l,
+{
+    type Source = LeanProd;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let head: LeanBound<'l, A::Source> = LeanProd::fst(obj).cast();
+        let tail: LeanBound<'l, LeanProd> = LeanProd::snd(obj).cast();
+        let rust_head = A::from_lean(&head)?;
+        let rust_tail = <(B, C, D) as FromLean>::from_lean(&tail)?;
+        Ok((rust_head, rust_tail.0, rust_tail.1, rust_tail.2))
+    }
+}
+
+impl<'l, A, B, C, D, E> IntoLean<'l> for (A, B, C, D, E)
+where
+    A: IntoLean<'l> + 'l,
+    B: IntoLean<'l> + 'l,
+    C: IntoLean<'l> + 'l,
+    D: IntoLean<'l> + 'l,
+    E: IntoLean<'l> + 'l,
+{
+    type Target = LeanProd;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let head = self.0.into_lean(lean)?;
+        let tail = (self.1, self.2, self.3, self.4).into_lean(lean)?;
+        LeanProd::mk(head.cast(), tail.cast())
+    }
+}
+
+impl<'l, A, B, C, D, E> FromLean<'l> for (A, B, C, D, E)
+where
+    A: FromLean<'l> + 'l,
+    B: FromLean<'l> + 'l,
+    C: FromLean<'l> + 'l,
+    D: FromLean<'l> + 'l,
+    E: FromLean<'l> + 'l,
+{
+    type Source = LeanProd;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let head: LeanBound<'l, A::Source> = LeanProd::fst(obj).cast();
+        let tail: LeanBound<'l, LeanProd> = LeanProd::snd(obj).cast();
+        let rust_head = A::from_lean(&head)?;
+        let rust_tail = <(B, C, D, E) as FromLean>::from_lean(&tail)?;
+        Ok((rust_head, rust_tail.0, rust_tail.1, rust_tail.2, rust_tail.3))
+    }
+}
+
+impl<'l, A, B, C, D, E, F> IntoLean<'l> for (A, B, C, D, E, F)
+where
+    A: IntoLean<'l> + 'l,
+    B: IntoLean<'l> + 'l,
+    C: IntoLean<'l> + 'l,
+    D: IntoLean<'l> + 'l,
+    E: IntoLean<'l> + 'l,
+    F: IntoLean<'l> + 'l,
+{
+    type Target = LeanProd;
+
+    fn into_lean(self, lean: Lean<'l>) -> LeanResult<LeanBound<'l, Self::Target>> {
+        let head = self.0.into_lean(lean)?;
+        let tail = (self.1, self.2, self.3, self.4, self.5).into_lean(lean)?;
+        LeanProd::mk(head.cast(), tail.cast())
+    }
+}
+
+impl<'l, A, B, C, D, E, F> FromLean<'l> for (A, B, C, D, E, F)
+where
+    A: FromLean<'l> + 'l,
+    B: FromLean<'l> + 'l,
+    C: FromLean<'l> + 'l,
+    D: FromLean<'l> + 'l,
+    E: FromLean<'l> + 'l,
+    F: FromLean<'l> + 'l,
+{
+    type Source = LeanProd;
+
+    fn from_lean(obj: &LeanBound<'l, Self::Source>) -> LeanResult<Self> {
+        let head: LeanBound<'l, A::Source> = LeanProd::fst(obj).cast();
+        let tail: LeanBound<'l, LeanProd> = LeanProd::snd(obj).cast();
+        let rust_head = A::from_lean(&head)?;
+        let rust_tail = <(B, C, D, E, F) as FromLean>::from_lean(&tail)?;
+        Ok((
+            rust_head,
+            rust_tail.0,
+            rust_tail.1,
+            rust_tail.2,
+            rust_tail.3,
+            rust_tail.4,
+        ))
     }
 }

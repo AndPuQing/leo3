@@ -44,6 +44,48 @@ pub unsafe fn lean_hashset_empty(capacity: lean_obj_arg) -> lean_obj_res {
 
 extern "C" {
     // ========================================================================
+    // HashSet Reduced-Arity Entry Points
+    // ========================================================================
+
+    /// Check if an element is present in the HashSet.
+    pub fn l_Std_HashSet_contains___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> u8;
+
+    /// Get the equal element from the set, if present.
+    pub fn l_Std_HashSet_get_x3f___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Get the size of the HashSet.
+    pub fn l_Std_HashSet_size___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    /// Insert an element into the HashSet.
+    pub fn l_Std_HashSet_insert___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Erase an element from the HashSet.
+    pub fn l_Std_HashSet_erase___redArg(
+        beq: lean_obj_arg,
+        hashable: lean_obj_arg,
+        m: lean_obj_arg,
+        a: b_lean_obj_arg,
+    ) -> lean_obj_res;
+
+    /// Convert HashSet to List.
+    pub fn l_Std_HashSet_toList___redArg(m: lean_obj_arg) -> lean_obj_res;
+
+    // ========================================================================
     // HashSet Creation (full-arity)
     // ========================================================================
 

@@ -1,91 +1,172 @@
 # Leo3 Remaining Work Checklist
 
-This file is the post-update snapshot after the current hardening pass.
+Status snapshot as of 2026-04-16.
 
-The old four-item list no longer reflects the codebase accurately:
+This file tracks the maturity gaps that are still meaningfully open after the
+current hardening pass. It is not a re-listing of every future enhancement
+idea, and it should not regress into a stale copy of the older roadmap.
 
-- `#[leanmodule]` now has an explicit metadata-driven export model for inline
-  `#[leanfn]` items.
-- external objects now have a documented borrow-first path via
+## What Changed Since the Old Checklist
+
+The earlier four-item list no longer matches the codebase:
+
+- `#[leanmodule]` now has structured parsing, crate-path-aware generation, and
+  metadata-driven implicit export discovery through
+  `__leo3_module_metadata()`.
+- external objects now have an explicit borrow-first wrapper API through
   `borrow()`, `try_get_mut()`, and `try_take_inner()`.
-- architecture and contributor docs now exist.
+- architecture and contributor docs now exist and are linked from the main
+  maintenance docs.
 
-The main unresolved item is still containers.
+That means the main unresolved work is narrower than before.
 
-## Current Top Priority
+## Active Remaining Work
 
-### P1: Experimental containers still need real Lean semantics
+### P1: Experimental containers still need broader stabilization work
 
 Status:
-- Not complete.
-- Still explicitly experimental.
 
-Why it remains open:
-- The wrappers are still placeholder implementations.
-- The missing piece is not API shape anymore; it is the actual runtime instance
-  and FFI story for `BEq`, `Hashable`, and `Ord`.
+- Narrow implementation completed.
+- Still correctly gated behind `experimental-containers`.
+
+Why this is still the top priority:
+
+- `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` now all have real
+  runtime-backed implementations for a narrow key matrix.
+- The remaining work is no longer "replace placeholders"; it is broader matrix
+  support, durability, and eventual stabilization policy.
 
 Code evidence:
+
 - `leo3/src/types/containers/hashmap.rs`
 - `leo3/src/types/containers/hashset.rs`
 - `leo3/src/types/containers/rbmap.rs`
 - `leo3/src/types/containers/README.md`
+- `leo3-ffi/src/hashmap.rs`
+- `leo3-ffi/src/hashset.rs`
+- `leo3-ffi/src/rbmap.rs`
 
 What is still required:
-1. Pick a concrete instance strategy.
-2. Replace the placeholder ctor/list stand-ins with real Lean container calls.
-3. Add runtime tests for insert, lookup, contains, erase, and list conversion.
-4. Re-evaluate whether the feature stays permanently narrow or becomes
-   partially stabilizable.
+
+1. Decide whether the current narrow supported key matrix is enough to stabilize
+   in part, or whether the feature should stay experimental until widened.
+2. Broaden the supported key matrix only when the runtime instance source stays
+   explicit and testable.
+3. Add more runtime tests around duplicate inserts, replacement semantics,
+   string-key coverage, and cross-family parity.
+4. Keep the container docs aligned with the exact supported matrix instead of
+   drifting back to vague "generic support" language.
+
+Recommended implementation order:
+
+1. Add more supported key families only when their `DecidableEq` / `Hashable` /
+   compare sources are concrete exported closures or boxed functions.
+2. Expand runtime tests before widening public claims.
+3. Re-evaluate whether stabilization should stay intentionally narrow or widen.
 
 Definition of done:
-- Empty construction, insert, lookup, contains, erase, and list conversion
-  reflect real Lean behavior.
-- The docs no longer call the wrappers placeholders.
-- Runtime tests cover at least one supported key matrix end to end.
 
-## What Moved Forward
+- The supported key matrix is documented, tested, and no longer likely to
+  surprise downstream users.
+- The feature-gated surface either stabilizes in a narrow form or has a clearly
+  documented reason to remain experimental.
+- Runtime tests cover the supported paths against actual Lean semantics across
+  all three container families.
 
-### `#[leanmodule]`
+### P2: Real module-loading success-path coverage is still missing
 
 Status:
-- Improved, but not fully complete.
 
-What landed:
-- explicit module metadata via `__leo3_module_metadata()`
-- implicit export registration model for inline `#[leanfn]` items
-- runtime tests for metadata shape
-- real `cdylib` fixture build coverage in `leo3/tests/test_leanmodule_loading.rs`
+- Partially improved, but not complete.
 
-What still remains:
-- true downstream shared-library loading coverage is still limited
-- richer export/registration metadata is still possible if Leo3 grows a fuller
-  plugin/module story
+What already landed:
+
+- `#[leanmodule]` metadata tests cover the implicit export model.
+- runtime tests cover the generated init symbol and thread-attachment behavior.
+- `leo3/tests/test_leanmodule_loading.rs` builds a real downstream `cdylib`
+  fixture.
+
+What is still missing:
+
+- a test that actually loads that built fixture through
+  `leo3::module::LeanModule::load(...)`
+- symbol lookup through `get_function(...)`
+- a successful call into at least one exported `#[leanfn]` wrapper from the
+  loaded module
+
+Current blocker discovered during attempted completion:
+
+- the current `LeanModule::load(...)` success path aborts when the built fixture
+  is loaded after Leo3 has already completed runtime initialization, with Lean
+  reporting `Failed to register option: Options can only be registered during initialization`
+- this is a real runtime / plugin-loading contract gap, not just a missing test
+  assertion
+
+Code evidence:
+
+- `leo3/src/module.rs`
+- `leo3/tests/test_leanmodule.rs`
+- `leo3/tests/test_leanmodule_loading.rs`
+- `leo3/tests/fixtures/leanmodule_runtime_fixture/src/lib.rs`
+
+Definition of done:
+
+- the test fixture is built, loaded, initialized, queried for an exported
+  function, and called successfully through the public module-loading API
+- failures in that flow would clearly localize whether the issue is fixture
+  generation, dynamic loading, symbol naming, or call conversion
+
+## Closed For the Current Policy
 
 ### External objects
 
 Status:
-- Completed for the current conservative policy.
+
+- Closed for the current conservative contract.
 
 What landed:
+
 - borrow-first helper APIs
-- tests for the non-cloning path
-- docs that make the policy explicit: trait-level `FromLean` stays clone-based,
-  wrapper-level extraction is the preferred borrow-first path
+- runtime coverage for the non-cloning wrapper path
+- docs that make the ownership split explicit
+
+What is intentionally not treated as open work right now:
+
+- trait-level `FromLean` remains clone-based
+- borrow-first extraction remains a wrapper-level API, not a trait-level one
+
+Re-open this item only if Leo3 deliberately changes the extraction contract.
 
 ### Architecture and contributor docs
 
 Status:
-- Completed for this phase.
+
+- Closed for this phase.
 
 What landed:
+
 - `docs/architecture.md`
 - `docs/contributing.md`
-- cross-links from README and TESTING
+- cross-links from `README.md` and `TESTING.md`
 
-## Secondary Follow-Ups
+These docs can always deepen later, but their absence is no longer a maturity
+gap.
 
-- add a real shared-library loading success-path test once the module-loading
-  contract is widened enough to support it reliably
-- continue tightening README / TESTING / phase docs when public behavior moves
-- revisit container stabilization only after the FFI instance story is real
+## Future Expansion, Not Current Blockers
+
+- richer module-registration metadata beyond today's implicit inline
+  `#[leanfn]` export set
+- a broader external-object extraction contract, if Leo3 ever decides to widen
+  beyond the current clone-based `FromLean` rule
+- container stabilization for a wider type matrix after one narrow supported
+  path is real
+
+## Maintenance Rule
+
+When one of the active items above moves, update these surfaces together:
+
+- `README.md`
+- `TESTING.md`
+- the relevant phase doc under `docs/`
+- runtime tests or UI tests that define the current contract
+- this checklist
