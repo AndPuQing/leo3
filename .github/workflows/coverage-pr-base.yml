@@ -30,7 +30,7 @@ jobs:
           echo "Merge base: $MERGE_BASE"
 
       - name: Set Codecov PR base
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_commit: ${{ steps.merge-base.outputs.sha }}
