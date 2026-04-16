@@ -167,6 +167,6 @@ When one of the active items above moves, update these surfaces together:
 
 - `README.md`
 - `TESTING.md`
-- the relevant phase doc under `docs/`
+- `docs/contracts.md`
 - runtime tests or UI tests that define the current contract
 - this checklist

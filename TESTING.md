@@ -3,7 +3,7 @@
 Leo3 CI is split into small, named tiers so failures are easier to localize and contributors can run the same commands locally.
 
 For the higher-level maintenance workflow, pair this guide with
-`docs/architecture.md` and `docs/contributing.md`.
+`docs/contracts.md`, `docs/architecture.md`, and `docs/contributing.md`.
 
 ## CI Tiers
 

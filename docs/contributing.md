@@ -8,7 +8,7 @@ When behavior changes, check all of these surfaces together:
 
 - README
 - crate docs / rustdoc examples
-- phase docs under `docs/`
+- `docs/contracts.md`
 - tests or UI snapshots that define the current contract
 
 If a change touches public behavior and only updates code, it is probably
@@ -57,7 +57,7 @@ For those areas, code changes should usually come with:
 Use this rule of thumb:
 
 - README for user-facing feature summaries
-- phase docs for narrower contract decisions
+- `docs/contracts.md` for the current public/runtime/macro contract
 - `docs/architecture.md` for internal model and layering
 - `TESTING.md` for CI/local command truth
 - `docs/remaining-work-checklist.md` for still-open maturity gaps

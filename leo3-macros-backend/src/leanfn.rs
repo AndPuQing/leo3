@@ -1,6 +1,6 @@
 //! Implementation of the `#[leanfn]` macro.
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::parse::Parse;
 
@@ -95,15 +95,24 @@ fn generate_param_conversions(
     params: &[(syn::Ident, syn::Type)],
     leo3_crate: &TokenStream,
 ) -> Vec<TokenStream> {
+    let mut counter = 0usize;
     params
         .iter()
         .enumerate()
         .map(|(i, (name, ty))| {
             let arg_name = format_ident!("arg{}", i);
+            let source_ty = lean_source_type(ty, leo3_crate);
+            let from_expr = generate_from_lean_expr(
+                ty,
+                quote! { bound },
+                leo3_crate,
+                &mut counter,
+            );
             quote! {
                 let #name = {
-                    let bound = #leo3_crate::LeanBound::<_>::from_owned_ptr(lean, #arg_name);
-                    #leo3_crate::from_lean!(&bound, #ty)
+                    let bound: #leo3_crate::LeanBound<'_, #source_ty> =
+                        #leo3_crate::LeanBound::from_owned_ptr(lean, #arg_name);
+                    #from_expr
                         .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
                             "Failed to convert `{}` from Lean to Rust: {}",
                             stringify!(#name),
@@ -126,9 +135,16 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
             })
         }
     } else {
+        let mut counter = 0usize;
+        let into_expr = generate_into_lean_expr(
+            return_type,
+            quote! { result },
+            leo3_crate,
+            &mut counter,
+        );
         quote! {
             {
-                let lean_result = #leo3_crate::to_lean!(result, lean, #return_type)
+                let lean_result = #into_expr
                     .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
                         "Failed to convert Rust result to Lean: {}",
                         e
@@ -137,6 +153,335 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
             }
         }
     }
+}
+
+fn lean_source_type(ty: &syn::Type, leo3_crate: &TokenStream) -> TokenStream {
+    if is_borrowed_str(ty) {
+        quote! { #leo3_crate::types::LeanString }
+    } else if is_borrowed_u8_slice(ty) || is_vec_u8(ty) {
+        quote! { #leo3_crate::types::LeanByteArray }
+    } else if option_inner(ty).is_some() {
+        quote! { #leo3_crate::types::LeanOption }
+    } else if result_parts(ty).is_some() {
+        quote! { #leo3_crate::types::LeanExcept }
+    } else if tuple_items(ty).is_some() {
+        quote! { #leo3_crate::types::LeanProd }
+    } else {
+        quote! { <#ty as #leo3_crate::conversion::FromLean>::Source }
+    }
+}
+
+fn generate_from_lean_expr(
+    ty: &syn::Type,
+    obj_expr: TokenStream,
+    leo3_crate: &TokenStream,
+    counter: &mut usize,
+) -> TokenStream {
+    if is_borrowed_str(ty) {
+        return quote! { #leo3_crate::types::LeanString::cstr(&#obj_expr) };
+    }
+
+    if is_borrowed_u8_slice(ty) {
+        return quote! { Ok(unsafe { #leo3_crate::types::LeanByteArray::as_slice(&#obj_expr) }) };
+    }
+
+    if is_vec_u8(ty) {
+        return quote! { Ok(#leo3_crate::conversion::vec_u8_from_lean(&#obj_expr)) };
+    }
+
+    if let Some(inner) = option_inner(ty) {
+        let any_ident = fresh_ident("any_value", counter);
+        let typed_ident = fresh_ident("typed_value", counter);
+        let value_ident = fresh_ident("rust_value", counter);
+        let inner_source = lean_source_type(inner, leo3_crate);
+        let inner_expr =
+            generate_from_lean_expr(inner, quote! { #typed_ident }, leo3_crate, counter);
+        return quote! {
+            match #leo3_crate::types::LeanOption::get(&#obj_expr) {
+                None => Ok(None),
+                Some(#any_ident) => {
+                    let #typed_ident: #leo3_crate::LeanBound<'_, #inner_source> = #any_ident.cast();
+                    let #value_ident = #inner_expr?;
+                    Ok(Some(#value_ident))
+                }
+            }
+        };
+    }
+
+    if let Some((ok_ty, err_ty)) = result_parts(ty) {
+        let ok_any = fresh_ident("ok_any", counter);
+        let err_any = fresh_ident("err_any", counter);
+        let ok_typed = fresh_ident("ok_typed", counter);
+        let err_typed = fresh_ident("err_typed", counter);
+        let ok_value = fresh_ident("ok_value", counter);
+        let err_value = fresh_ident("err_value", counter);
+        let ok_source = lean_source_type(ok_ty, leo3_crate);
+        let err_source = lean_source_type(err_ty, leo3_crate);
+        let ok_expr = generate_from_lean_expr(ok_ty, quote! { #ok_typed }, leo3_crate, counter);
+        let err_expr = generate_from_lean_expr(err_ty, quote! { #err_typed }, leo3_crate, counter);
+        return quote! {
+            match #leo3_crate::types::LeanExcept::toRustResult(&#obj_expr)? {
+                Err(#err_any) => {
+                    let #err_typed: #leo3_crate::LeanBound<'_, #err_source> = #err_any.cast();
+                    let #err_value = #err_expr?;
+                    Ok(Err(#err_value))
+                }
+                Ok(#ok_any) => {
+                    let #ok_typed: #leo3_crate::LeanBound<'_, #ok_source> = #ok_any.cast();
+                    let #ok_value = #ok_expr?;
+                    Ok(Ok(#ok_value))
+                }
+            }
+        };
+    }
+
+    if let Some(items) = tuple_items(ty) {
+        let head_typed = fresh_ident("head_typed", counter);
+        let tail_typed = fresh_ident("tail_typed", counter);
+        let head_value = fresh_ident("head_value", counter);
+        let tail_value = fresh_ident("tail_value", counter);
+        let head_source = lean_source_type(&items[0], leo3_crate);
+        let head_expr =
+            generate_from_lean_expr(&items[0], quote! { #head_typed }, leo3_crate, counter);
+        if items.len() == 2 {
+            let tail_source = lean_source_type(&items[1], leo3_crate);
+            let tail_expr =
+                generate_from_lean_expr(&items[1], quote! { #tail_typed }, leo3_crate, counter);
+            return quote! {
+                {
+                    let #head_typed: #leo3_crate::LeanBound<'_, #head_source> =
+                        #leo3_crate::types::LeanProd::fst(&#obj_expr).cast();
+                    let #tail_typed: #leo3_crate::LeanBound<'_, #tail_source> =
+                        #leo3_crate::types::LeanProd::snd(&#obj_expr).cast();
+                    let #head_value = #head_expr?;
+                    let #tail_value = #tail_expr?;
+                    Ok((#head_value, #tail_value))
+                }
+            };
+        }
+
+        let tail_ty = tuple_tail_type(items);
+        let tail_source = lean_source_type(&tail_ty, leo3_crate);
+        let tail_expr =
+            generate_from_lean_expr(&tail_ty, quote! { #tail_typed }, leo3_crate, counter);
+        let tuple_unpack = tuple_unpack_tokens(&tail_value, items.len() - 1);
+        return quote! {
+            {
+                let #head_typed: #leo3_crate::LeanBound<'_, #head_source> =
+                    #leo3_crate::types::LeanProd::fst(&#obj_expr).cast();
+                let #tail_typed: #leo3_crate::LeanBound<'_, #tail_source> =
+                    #leo3_crate::types::LeanProd::snd(&#obj_expr).cast();
+                let #head_value = #head_expr?;
+                let #tail_value = #tail_expr?;
+                Ok((#head_value, #tuple_unpack))
+            }
+        };
+    }
+
+    quote! { <#ty as #leo3_crate::conversion::FromLean>::from_lean(&#obj_expr) }
+}
+
+fn generate_into_lean_expr(
+    ty: &syn::Type,
+    value_expr: TokenStream,
+    leo3_crate: &TokenStream,
+    counter: &mut usize,
+) -> TokenStream {
+    if is_borrowed_u8_slice(ty) {
+        return quote! { #leo3_crate::conversion::slice_u8_into_lean(#value_expr, lean) };
+    }
+
+    if is_vec_u8(ty) {
+        return quote! { #leo3_crate::conversion::vec_u8_into_lean(#value_expr, lean) };
+    }
+
+    if let Some(inner) = option_inner(ty) {
+        let some_ident = fresh_ident("some_value", counter);
+        let inner_expr =
+            generate_into_lean_expr(inner, quote! { #some_ident }, leo3_crate, counter);
+        return quote! {
+            match #value_expr {
+                None => #leo3_crate::types::LeanOption::none(lean),
+                Some(#some_ident) => {
+                    let lean_value = #inner_expr?;
+                    let any_value: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
+                        lean_value.cast();
+                    #leo3_crate::types::LeanOption::some(any_value)
+                }
+            }
+        };
+    }
+
+    if let Some((ok_ty, err_ty)) = result_parts(ty) {
+        let ok_ident = fresh_ident("ok_value", counter);
+        let err_ident = fresh_ident("err_value", counter);
+        let ok_expr = generate_into_lean_expr(ok_ty, quote! { #ok_ident }, leo3_crate, counter);
+        let err_expr = generate_into_lean_expr(err_ty, quote! { #err_ident }, leo3_crate, counter);
+        return quote! {
+            match #value_expr {
+                Err(#err_ident) => {
+                    let lean_error = #err_expr?;
+                    let any_error: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
+                        lean_error.cast();
+                    #leo3_crate::types::LeanExcept::error(any_error)
+                }
+                Ok(#ok_ident) => {
+                    let lean_value = #ok_expr?;
+                    let any_value: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
+                        lean_value.cast();
+                    #leo3_crate::types::LeanExcept::ok(any_value)
+                }
+            }
+        };
+    }
+
+    if let Some(items) = tuple_items(ty) {
+        let value_ident = fresh_ident("tuple_value", counter);
+        let head_ident = fresh_ident("tuple_head", counter);
+        let tail_ident = fresh_ident("tuple_tail", counter);
+        let head_expr =
+            generate_into_lean_expr(&items[0], quote! { #head_ident }, leo3_crate, counter);
+        let tail_value = tuple_tail_value_tokens(&value_ident, items.len() - 1);
+        if items.len() == 2 {
+            let tail_expr =
+                generate_into_lean_expr(&items[1], quote! { #tail_ident }, leo3_crate, counter);
+            return quote! {
+                {
+                    let #value_ident = #value_expr;
+                    let (#head_ident, #tail_ident) = #value_ident;
+                    let lean_head = #head_expr?;
+                    let lean_tail = #tail_expr?;
+                    #leo3_crate::types::LeanProd::mk(lean_head.cast(), lean_tail.cast())
+                }
+            };
+        }
+
+        let tail_ty = tuple_tail_type(items);
+        let tail_expr = generate_into_lean_expr(&tail_ty, quote! { #tail_ident }, leo3_crate, counter);
+        return quote! {
+            {
+                let #value_ident = #value_expr;
+                let (#head_ident, #tail_ident) = (#value_ident.0, #tail_value);
+                let lean_head = #head_expr?;
+                let lean_tail = #tail_expr?;
+                #leo3_crate::types::LeanProd::mk(lean_head.cast(), lean_tail.cast())
+            }
+        };
+    }
+
+    quote! { #leo3_crate::to_lean!(#value_expr, lean, #ty) }
+}
+
+fn tuple_items(ty: &syn::Type) -> Option<Vec<syn::Type>> {
+    match ty {
+        syn::Type::Tuple(tuple) if tuple.elems.len() >= 2 => Some(tuple.elems.iter().cloned().collect()),
+        _ => None,
+    }
+}
+
+fn tuple_tail_type(items: &[syn::Type]) -> syn::Type {
+    let tail = &items[1..];
+    syn::parse_quote! { (#(#tail),*) }
+}
+
+fn tuple_unpack_tokens(value_ident: &syn::Ident, count: usize) -> TokenStream {
+    let indexes = (0..count).map(syn::Index::from).collect::<Vec<_>>();
+    quote! { #(#value_ident.#indexes),* }
+}
+
+fn tuple_tail_value_tokens(value_ident: &syn::Ident, count: usize) -> TokenStream {
+    let indexes = (1..=count).map(syn::Index::from).collect::<Vec<_>>();
+    quote! { (#(#value_ident.#indexes),*) }
+}
+
+fn fresh_ident(prefix: &str, counter: &mut usize) -> syn::Ident {
+    let ident = syn::Ident::new(&format!("{prefix}_{counter}"), Span::call_site());
+    *counter += 1;
+    ident
+}
+
+fn option_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+    let last = type_path.path.segments.last()?;
+    if last.ident != "Option" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        syn::GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
+}
+
+fn result_parts(ty: &syn::Type) -> Option<(&syn::Type, &syn::Type)> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+    let last = type_path.path.segments.last()?;
+    if last.ident != "Result" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    let mut type_args = args.args.iter().filter_map(|arg| match arg {
+        syn::GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    });
+    Some((type_args.next()?, type_args.next()?))
+}
+
+fn vec_inner(ty: &syn::Type) -> Option<&syn::Type> {
+    let syn::Type::Path(type_path) = ty else {
+        return None;
+    };
+    let last = type_path.path.segments.last()?;
+    if last.ident != "Vec" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        syn::GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
+}
+
+fn is_vec_u8(ty: &syn::Type) -> bool {
+    matches!(vec_inner(ty), Some(inner) if is_u8_type(inner))
+}
+
+fn is_borrowed_u8_slice(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Reference(reference) if reference.mutability.is_none() => {
+            matches!(&*reference.elem, syn::Type::Slice(slice) if is_u8_type(&slice.elem))
+        }
+        _ => false,
+    }
+}
+
+fn is_borrowed_str(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Reference(reference) if reference.mutability.is_none() => {
+            matches!(&*reference.elem, syn::Type::Path(type_path) if path_is_simple_ident(type_path, "str"))
+        }
+        _ => false,
+    }
+}
+
+fn is_u8_type(ty: &syn::Type) -> bool {
+    matches!(ty, syn::Type::Path(type_path) if path_is_simple_ident(type_path, "u8"))
+}
+
+fn path_is_simple_ident(type_path: &syn::TypePath, ident: &str) -> bool {
+    type_path.qself.is_none()
+        && type_path.path.segments.len() == 1
+        && type_path.path.segments.first().map(|segment| segment.ident == ident).unwrap_or(false)
 }
 
 /// Generate the FFI wrapper function with panic boundary

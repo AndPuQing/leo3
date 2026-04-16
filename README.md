@@ -262,7 +262,8 @@ leo3/
 
 ## Development
 
-See `TESTING.md` for the full tiered CI map, [architecture notes](docs/architecture.md),
+See `TESTING.md` for the full tiered CI map, the
+[current contract notes](docs/contracts.md), [architecture notes](docs/architecture.md),
 and the [contributor guide](docs/contributing.md). Common local commands:
 
 ```bash
