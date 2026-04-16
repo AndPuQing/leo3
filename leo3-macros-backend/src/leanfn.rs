@@ -211,18 +211,19 @@ fn generate_from_lean_expr(
         let ok_expr = generate_from_lean_expr(ok_ty, quote! { #ok_typed }, leo3_crate, counter);
         let err_expr = generate_from_lean_expr(err_ty, quote! { #err_typed }, leo3_crate, counter);
         return quote! {
-            match #leo3_crate::types::LeanExcept::toRustResult(&#obj_expr)? {
+            ::std::result::Result::<#ty, #leo3_crate::LeanError>::Ok(
+                match #leo3_crate::types::LeanExcept::toRustResult(&#obj_expr)? {
                 Err(#err_any) => {
                     let #err_typed: #leo3_crate::LeanBound<'_, #err_source> = #err_any.cast();
                     let #err_value = #err_expr?;
-                    Ok(Err(#err_value))
+                    Err(#err_value)
                 }
                 Ok(#ok_any) => {
                     let #ok_typed: #leo3_crate::LeanBound<'_, #ok_source> = #ok_any.cast();
                     let #ok_value = #ok_expr?;
-                    Ok(Ok(#ok_value))
+                    Ok(#ok_value)
                 }
-            }
+            })
         };
     }
 

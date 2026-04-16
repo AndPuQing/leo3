@@ -194,6 +194,7 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
     }
 
     /// Borrow the wrapped Rust value without cloning.
+    #[allow(clippy::should_implement_trait)]
     pub fn borrow(&self) -> &T {
         self.get_ref()
     }
@@ -302,6 +303,12 @@ impl<'l, T: ExternalClass> LeanExternal<'l, T> {
         } else {
             None
         }
+    }
+}
+
+impl<'l, T: ExternalClass> std::borrow::Borrow<T> for LeanExternal<'l, T> {
+    fn borrow(&self) -> &T {
+        self.get_ref()
     }
 }
 

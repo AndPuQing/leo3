@@ -150,7 +150,7 @@ fn test_unit_conversion() {
     leo3::with_lean(|lean| -> LeanResult<()> {
         let lean_val = ().into_lean(lean)?;
         let result: () = FromLean::from_lean(&lean_val)?;
-        let _ = result;
+        assert_eq!(result, ());
         Ok(())
     })
     .expect("test failed");
