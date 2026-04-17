@@ -50,3 +50,4 @@ build/
 examples/*/target/
 
 CLAUDE.md
+.cache/
