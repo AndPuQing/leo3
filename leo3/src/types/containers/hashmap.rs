@@ -25,6 +25,7 @@ pub trait LeanHashKey {
     unsafe fn hash_closure() -> *mut ffi::lean_object;
 }
 
+#[cfg(not(target_os = "windows"))]
 unsafe extern "C" {
     static mut l_instHashableNat: *mut ffi::lean_object;
     static mut l_instHashableInt: *mut ffi::lean_object;
@@ -69,77 +70,90 @@ unsafe extern "C" {
     ) -> *mut ffi::lean_object;
 }
 
-impl LeanHashKey for LeanNat {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqNat___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableNat
-    }
+macro_rules! impl_hash_key {
+    ($ty:ty, $eq_fn:ident, $eq_name:literal, $hash_sym:ident, $hash_name:literal) => {
+        impl LeanHashKey for $ty {
+            unsafe fn decidable_eq_boxed() -> *mut c_void {
+                #[cfg(not(target_os = "windows"))]
+                {
+                    $eq_fn as *mut c_void
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    super::symbols::required_function($eq_name)
+                }
+            }
+
+            unsafe fn hash_closure() -> *mut ffi::lean_object {
+                #[cfg(not(target_os = "windows"))]
+                {
+                    $hash_sym
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    super::symbols::required_bss_global($hash_name)
+                }
+            }
+        }
+    };
 }
 
-impl LeanHashKey for LeanInt {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqInt___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableInt
-    }
-}
-
-impl LeanHashKey for LeanString {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqString___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableString
-    }
-}
-
-impl LeanHashKey for LeanInt8 {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqInt8___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableInt8
-    }
-}
-
-impl LeanHashKey for LeanInt16 {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqInt16___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableInt16
-    }
-}
-
-impl LeanHashKey for LeanInt32 {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqInt32___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableInt32
-    }
-}
-
-impl LeanHashKey for LeanInt64 {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqInt64___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableInt64
-    }
-}
-
-impl LeanHashKey for LeanISize {
-    unsafe fn decidable_eq_boxed() -> *mut c_void {
-        l_instDecidableEqISize___boxed as *mut c_void
-    }
-    unsafe fn hash_closure() -> *mut ffi::lean_object {
-        l_instHashableISize
-    }
-}
+impl_hash_key!(
+    LeanNat,
+    l_instDecidableEqNat___boxed,
+    "l_instDecidableEqNat___boxed",
+    l_instHashableNat,
+    "l_instHashableNat"
+);
+impl_hash_key!(
+    LeanInt,
+    l_instDecidableEqInt___boxed,
+    "l_instDecidableEqInt___boxed",
+    l_instHashableInt,
+    "l_instHashableInt"
+);
+impl_hash_key!(
+    LeanString,
+    l_instDecidableEqString___boxed,
+    "l_instDecidableEqString___boxed",
+    l_instHashableString,
+    "l_instHashableString"
+);
+impl_hash_key!(
+    LeanInt8,
+    l_instDecidableEqInt8___boxed,
+    "l_instDecidableEqInt8___boxed",
+    l_instHashableInt8,
+    "l_instHashableInt8"
+);
+impl_hash_key!(
+    LeanInt16,
+    l_instDecidableEqInt16___boxed,
+    "l_instDecidableEqInt16___boxed",
+    l_instHashableInt16,
+    "l_instHashableInt16"
+);
+impl_hash_key!(
+    LeanInt32,
+    l_instDecidableEqInt32___boxed,
+    "l_instDecidableEqInt32___boxed",
+    l_instHashableInt32,
+    "l_instHashableInt32"
+);
+impl_hash_key!(
+    LeanInt64,
+    l_instDecidableEqInt64___boxed,
+    "l_instDecidableEqInt64___boxed",
+    l_instHashableInt64,
+    "l_instHashableInt64"
+);
+impl_hash_key!(
+    LeanISize,
+    l_instDecidableEqISize___boxed,
+    "l_instDecidableEqISize___boxed",
+    l_instHashableISize,
+    "l_instHashableISize"
+);
 
 #[inline]
 unsafe fn beq_closure<K: LeanHashKey>() -> *mut ffi::lean_object {

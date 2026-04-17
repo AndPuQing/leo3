@@ -10,6 +10,7 @@
 pub mod hashmap;
 pub mod hashset;
 pub mod rbmap;
+mod symbols;
 
 pub use hashmap::LeanHashMap;
 pub use hashset::LeanHashSet;

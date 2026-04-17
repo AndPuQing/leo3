@@ -28,6 +28,7 @@ pub trait LeanRBMapKey {
     unsafe fn compare_closure() -> *mut ffi::lean_object;
 }
 
+#[cfg(not(target_os = "windows"))]
 unsafe extern "C" {
     static mut l_instOrdNat: *mut ffi::lean_object;
     static mut l_instOrdInt: *mut ffi::lean_object;
@@ -39,53 +40,31 @@ unsafe extern "C" {
     static mut l_ISize_instOrd: *mut ffi::lean_object;
 }
 
-impl LeanRBMapKey for LeanNat {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_instOrdNat
-    }
+macro_rules! impl_rbmap_key {
+    ($ty:ty, $sym:ident, $sym_name:literal) => {
+        impl LeanRBMapKey for $ty {
+            unsafe fn compare_closure() -> *mut ffi::lean_object {
+                #[cfg(not(target_os = "windows"))]
+                {
+                    $sym
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    super::symbols::required_bss_global($sym_name)
+                }
+            }
+        }
+    };
 }
 
-impl LeanRBMapKey for LeanInt {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_instOrdInt
-    }
-}
-
-impl LeanRBMapKey for LeanString {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_String_instOrd
-    }
-}
-
-impl LeanRBMapKey for LeanInt8 {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_Int8_instOrd
-    }
-}
-
-impl LeanRBMapKey for LeanInt16 {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_Int16_instOrd
-    }
-}
-
-impl LeanRBMapKey for LeanInt32 {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_Int32_instOrd
-    }
-}
-
-impl LeanRBMapKey for LeanInt64 {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_Int64_instOrd
-    }
-}
-
-impl LeanRBMapKey for LeanISize {
-    unsafe fn compare_closure() -> *mut ffi::lean_object {
-        l_ISize_instOrd
-    }
-}
+impl_rbmap_key!(LeanNat, l_instOrdNat, "l_instOrdNat");
+impl_rbmap_key!(LeanInt, l_instOrdInt, "l_instOrdInt");
+impl_rbmap_key!(LeanString, l_String_instOrd, "l_String_instOrd");
+impl_rbmap_key!(LeanInt8, l_Int8_instOrd, "l_Int8_instOrd");
+impl_rbmap_key!(LeanInt16, l_Int16_instOrd, "l_Int16_instOrd");
+impl_rbmap_key!(LeanInt32, l_Int32_instOrd, "l_Int32_instOrd");
+impl_rbmap_key!(LeanInt64, l_Int64_instOrd, "l_Int64_instOrd");
+impl_rbmap_key!(LeanISize, l_ISize_instOrd, "l_ISize_instOrd");
 
 #[inline]
 unsafe fn borrowed_cmp<K: LeanRBMapKey>() -> *mut ffi::lean_object {
