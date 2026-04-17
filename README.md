@@ -14,7 +14,7 @@ Requires Lean 4.25.2 (install via [elan](https://github.com/leanprover/elan)).
 
 ```toml
 [dependencies]
-leo3 = "0.2.1"
+leo3 = "0.2.2"
 ```
 
 ```rust,no_run
@@ -61,13 +61,13 @@ Example dependency declarations:
 
 ```toml
 # Minimal core surface
-leo3 = "0.2.1"
+leo3 = "0.2.2"
 
 # Opt into specific subsystems
-leo3 = { version = "0.2.1", features = ["macros", "meta", "task"] }
+leo3 = { version = "0.2.2", features = ["macros", "meta", "task"] }
 
 # Opt into currently experimental container wrappers
-leo3 = { version = "0.2.1", features = ["experimental-containers"] }
+leo3 = { version = "0.2.2", features = ["experimental-containers"] }
 ```
 
 ## Lean Discovery
