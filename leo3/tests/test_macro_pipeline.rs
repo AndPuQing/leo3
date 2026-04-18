@@ -57,6 +57,23 @@ fn test_macro_pipeline_rust_and_metadata_surface() {
         macro_pipeline::__leo3_metadata_add().name,
         "macro_pipeline_add"
     );
+    let add_metadata = macro_pipeline::__leo3_metadata_add();
+    assert_eq!(
+        add_metadata.schema_version,
+        leo3::LEO3_BINDING_SCHEMA_VERSION
+    );
+    assert_eq!(add_metadata.rust_name, "add");
+    assert_eq!(add_metadata.ffi_symbol, "macro_pipeline_add");
+    assert_eq!(add_metadata.receiver, leo3::LeanBindingReceiver::None);
+    assert_eq!(add_metadata.params.len(), 2);
+    assert_eq!(add_metadata.params[0].name, "a");
+    assert_eq!(add_metadata.params[0].ty.lean, Some("UInt64"));
+    assert_eq!(
+        add_metadata.params[0].passing,
+        leo3::LeanPassingStyle::Owned
+    );
+    assert_eq!(add_metadata.return_type.lean, Some("UInt64"));
+    assert_eq!(add_metadata.semantics, leo3::LeanBindingSemantics::Value);
     assert_eq!(
         macro_pipeline::__leo3_metadata_banner().name,
         "macro_pipeline_banner"
@@ -67,11 +84,44 @@ fn test_macro_pipeline_rust_and_metadata_surface() {
         .iter()
         .map(|item| item.name)
         .collect();
+    assert_eq!(
+        module_metadata.schema_version,
+        leo3::LEO3_BINDING_SCHEMA_VERSION
+    );
     assert_eq!(module_metadata.name, "MacroPipeline");
     assert_eq!(
         export_names,
         vec!["macro_pipeline_add", "macro_pipeline_banner"]
     );
+    assert_eq!(module_metadata.exports[1].params[0].ty.lean, Some("String"));
+    assert_eq!(module_metadata.exports[1].params[1].ty.lean, Some("Int32"));
+    assert_eq!(module_metadata.exports[1].return_type.lean, Some("String"));
+
+    let class_metadata = __leo3_class_metadata_PipelineCounter();
+    assert_eq!(
+        class_metadata.schema_version,
+        leo3::LEO3_BINDING_SCHEMA_VERSION
+    );
+    assert_eq!(class_metadata.rust_name, "PipelineCounter");
+    assert_eq!(class_metadata.lean_name, "PipelineCounter");
+    assert_eq!(class_metadata.opaque_decl, "opaque PipelineCounter : Type");
+    assert!(class_metadata
+        .methods_decl
+        .contains("PipelineCounter.increment"));
+    assert_eq!(class_metadata.methods.len(), 3);
+    assert_eq!(
+        class_metadata.methods[1].receiver,
+        leo3::LeanBindingReceiver::MutRef
+    );
+    assert_eq!(
+        class_metadata.methods[1].semantics,
+        leo3::LeanBindingSemantics::MutatesSelf
+    );
+    assert_eq!(
+        class_metadata.methods[2].receiver,
+        leo3::LeanBindingReceiver::Ref
+    );
+    assert_eq!(class_metadata.methods[2].return_type.lean, Some("Int32"));
 
     let _init_fn: unsafe extern "C" fn(u8, *mut std::ffi::c_void) -> *mut std::ffi::c_void =
         initialize_MacroPipeline;

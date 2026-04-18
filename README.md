@@ -205,7 +205,10 @@ the Lean side still needs a matching type name in scope.
 `#[leanmodule]` now has an explicit module-registration story too: Leo3 treats
 inline `#[leanfn]` items inside the annotated module as the module's implicit
 export set, and generates `__leo3_module_metadata()` so downstream Rust code can
-inspect the chosen Lean-visible names.
+inspect the chosen Lean-visible names plus the shared structured binding schema
+for each export. `#[leanfn]` emits the same schema through the generated
+`__leo3_metadata_*()` accessors, and `#[leanclass]` now has matching
+`__leo3_class_metadata_*()` accessors for class/method semantics.
 
 For a single runnable example that combines module initialization, exported
 functions, and an external class, run:
@@ -242,6 +245,7 @@ leo3/
 ├── leo3/                   # Safe high-level abstractions
 ├── leo3-ffi/               # Raw FFI bindings to Lean4's C API
 ├── leo3-build-config/      # Build-time Lean4 detection and configuration
+├── leo3-binding-ir/        # Shared semantic IR/analyzers for binding producers
 ├── leo3-macros/            # Procedural macro entry points
 ├── leo3-macros-backend/    # Procedural macro implementations
 └── leo3-ffi-check/         # FFI layout validation (à la pyo3-ffi-check)

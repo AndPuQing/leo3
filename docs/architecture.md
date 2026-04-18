@@ -5,6 +5,7 @@ responsibilities:
 
 - `leo3-ffi`: raw C ABI bindings and inline runtime helpers
 - `leo3-build-config`: Lean discovery and build-time config propagation
+- `leo3-binding-ir`: shared semantic IR/analyzer crate for macro producers and downstream tooling
 - `leo3-macros` + `leo3-macros-backend`: proc-macro entry points and expansion logic
 - `leo3`: the safe user-facing runtime/token/conversion surface
 
@@ -40,9 +41,10 @@ trait magic when ownership rules would otherwise get fuzzy.
 
 The macros generate Rust shims, not a hidden second runtime:
 
-- `#[leanfn]` builds FFI wrappers and function metadata
-- `#[leanclass]` builds external-object shims plus Lean declaration metadata
-- `#[leanmodule]` builds the module init entry point and module metadata
+- `leo3-binding-ir` owns the shared binding semantics model and AST analysis
+- `#[leanfn]` builds FFI wrappers and structured function metadata from that model
+- `#[leanclass]` builds external-object shims plus declaration and method metadata from that model
+- `#[leanmodule]` builds the module init entry point and module export metadata from that model
 
 The macros rely on public `leo3` APIs instead of reaching into crate-private
  internals wherever practical. That keeps the runtime contract visible and makes
@@ -54,7 +56,8 @@ Leo3's current module story has two parts:
 
 - initialization: `#[leanmodule]` generates `initialize_*`
 - export discovery: inline `#[leanfn]` items become the module's implicit export
-  set, exposed through `__leo3_module_metadata()`
+  set, exposed through `__leo3_module_metadata()` with the same per-binding
+  schema used by standalone `#[leanfn]` accessors
 
 That is more explicit than the earlier "just generate init" phase, but it is
 not yet a full shared-library registration system.

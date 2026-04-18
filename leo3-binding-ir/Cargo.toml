@@ -1,23 +1,19 @@
 [package]
-name = "leo3-macros-backend"
+name = "leo3-binding-ir"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Implementation detail of Leo3 procedural macros"
-keywords = ["lean", "lean4", "macros"]
-categories = ["development-tools::procedural-macro-helpers"]
+description = "Shared semantic IR and analyzers for Leo3 binding macros"
+keywords = ["lean", "lean4", "bindings", "macros"]
+categories = ["development-tools"]
 
 [dependencies]
-leo3-binding-ir = { workspace = true }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
-
-[features]
-default = []
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docsrs"]

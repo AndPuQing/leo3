@@ -89,7 +89,27 @@ Current module contract:
 - inline `#[leanfn]` items inside the annotated module are treated as the
   module's implicit export set
 - the macro generates `__leo3_module_metadata()` so downstream Rust code can
-  inspect the chosen Lean-visible export names
+  inspect the chosen Lean-visible export names and structured binding metadata
+
+### Structured binding metadata
+
+Leo3 macro producers now share one metadata schema:
+
+- semantic analysis lives in the workspace crate `leo3-binding-ir`
+- `#[leanfn]` generates `__leo3_metadata_*()` with structured parameter,
+  receiver, return-type, FFI-symbol, and semantics metadata
+- `#[leanmodule]` exports that same function metadata through
+  `__leo3_module_metadata().exports`
+- `#[leanclass]` keeps the declaration-string constants and also generates
+  `__leo3_class_metadata_*()` with structured method semantics
+
+Current schema rules:
+
+- every generated metadata root carries `LEO3_BINDING_SCHEMA_VERSION`
+- type metadata is honest about precision: `lean` is present when the producer
+  can state the Lean-visible type exactly, and absent instead of guessing
+- no consumer is expected to reconstruct `&mut self` / `Prod Self R` semantics
+  from strings; that behavior is explicit in metadata
 
 Known boundary:
 

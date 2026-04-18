@@ -41,6 +41,7 @@ LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --test test_sur
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features experimental-containers --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --no-default-features --features "experimental-containers,macros,meta,io,module-loading,tokio" --test test_features
 LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_compile_error
+LEO3_NO_LEAN=1 cargo test --locked -p leo3 --features macros --test test_binding_metadata
 LEO3_NO_LEAN=1 RUSTDOCFLAGS="-D warnings --cfg docsrs" cargo +nightly doc --locked --workspace --no-deps --all-features
 ```
 
@@ -153,6 +154,7 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 - `leo3/tests/container_family_parity.rs`: cross-family parity checks for the supported string-key matrix.
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
+- `leo3/tests/test_binding_metadata.rs`: no-Lean structured metadata contract for `#[leanfn]`, `#[leanmodule]`, and `#[leanclass]`.
 - `leo3/tests/test_macro_pipeline.rs` + `leo3/examples/macro_pipeline.rs`: end-to-end macro golden path covering `#[leanmodule]`, `#[leanfn]`, and `#[leanclass]`.
 - `leo3/tests/test_leanmodule_loading.rs`: builds a real `cdylib` fixture so the module-loading path is exercised against a downstream-style artifact.
 - `leo3-ffi-check/`: bindgen-backed FFI layout validation.

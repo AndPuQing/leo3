@@ -7,7 +7,11 @@
 //! and `@[extern]`-annotated function signatures) that can be embedded into
 //! `.lean` files.
 
-use proc_macro2::{Span, TokenStream};
+use leo3_binding_ir::{
+    analyze_lean_class_impl, analyze_lean_class_struct, quote_runtime_class_metadata,
+    quote_runtime_function_metadata, ClassImplBinding, ClassTypeBinding, FunctionBinding,
+};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::Parse;
 
@@ -36,7 +40,6 @@ struct StructInfo {
 /// Information about a method
 struct MethodInfo {
     name: syn::Ident,
-    lean_name: String,
     receiver: MethodReceiver,
     params: Vec<(syn::Ident, syn::Type)>,
     return_type: syn::Type,
@@ -57,6 +60,7 @@ pub fn build_lean_class_struct(
     options: LeanClassOptions,
 ) -> syn::Result<TokenStream> {
     let leo3_crate = get_leo3_crate(options.common.krate.as_ref());
+    let class_binding = analyze_lean_class_struct(item)?;
 
     let struct_info = StructInfo {
         name: item.ident.clone(),
@@ -76,7 +80,7 @@ pub fn build_lean_class_struct(
     let external_class_impl = generate_external_class_impl(&struct_info, &leo3_crate)?;
 
     // Generate Lean code metadata
-    let lean_code_gen = generate_lean_code_metadata(&struct_info, &[], &leo3_crate);
+    let lean_code_gen = generate_lean_code_metadata(&class_binding);
 
     // Keep original struct
     let original_struct = quote! { #item };
@@ -94,6 +98,7 @@ pub fn build_lean_class_impl(
     options: LeanClassOptions,
 ) -> syn::Result<TokenStream> {
     let leo3_crate = get_leo3_crate(options.common.krate.as_ref());
+    let impl_binding = analyze_lean_class_impl(item)?;
 
     // Extract the struct name from the impl
     let struct_name = match &*item.self_ty {
@@ -134,14 +139,19 @@ pub fn build_lean_class_impl(
 
     // Generate FFI wrapper functions for each method
     let mut ffi_functions = Vec::new();
-    for method in &methods {
-        let ffi_fn = generate_method_ffi_wrapper(method, &struct_name, &leo3_crate)?;
+    for (method, binding) in methods.iter().zip(impl_binding.methods.iter()) {
+        let ffi_fn = generate_method_ffi_wrapper(method, binding, &struct_name, &leo3_crate)?;
         ffi_functions.push(ffi_fn);
     }
 
     // Generate Lean code metadata
+    let class_binding = ClassTypeBinding {
+        rust_name: struct_name.to_string(),
+        lean_name: struct_name.to_string(),
+        opaque_decl: format!("opaque {} : Type", struct_name),
+    };
     let lean_code_gen =
-        generate_lean_code_metadata_for_methods(&struct_name, &methods, &leo3_crate)?;
+        generate_lean_code_metadata_for_methods(&class_binding, &impl_binding, &leo3_crate)?;
 
     // Keep original impl
     let original_impl = quote! { #item };
@@ -154,11 +164,8 @@ pub fn build_lean_class_impl(
 }
 
 /// Analyze a method signature and extract relevant information
-fn analyze_method(method: &syn::ImplItemFn, struct_name: &syn::Ident) -> syn::Result<MethodInfo> {
+fn analyze_method(method: &syn::ImplItemFn, _struct_name: &syn::Ident) -> syn::Result<MethodInfo> {
     let method_name = method.sig.ident.clone();
-
-    // Determine lean name: StructName.method_name
-    let lean_name = format!("{}.{}", struct_name, method_name);
 
     // Determine receiver type
     let mut receiver = MethodReceiver::None;
@@ -216,7 +223,6 @@ fn analyze_method(method: &syn::ImplItemFn, struct_name: &syn::Ident) -> syn::Re
 
     Ok(MethodInfo {
         name: method_name,
-        lean_name,
         receiver,
         params,
         return_type,
@@ -243,11 +249,11 @@ fn generate_external_class_impl(
 /// Generate FFI wrapper for a method
 fn generate_method_ffi_wrapper(
     method: &MethodInfo,
+    binding: &FunctionBinding,
     struct_name: &syn::Ident,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
     let method_name = &method.name;
-    let lean_name = &method.lean_name;
     let ffi_name = format_ident!("__lean_ffi_{}_{}", struct_name, method_name);
     let try_name = format_ident!("__leo3_try_{}_{}", struct_name, method_name);
 
@@ -256,10 +262,10 @@ fn generate_method_ffi_wrapper(
             // Static method
             generate_static_method_wrapper(
                 method,
+                binding,
                 struct_name,
                 &ffi_name,
                 &try_name,
-                lean_name,
                 leo3_crate,
             )
         }
@@ -267,10 +273,10 @@ fn generate_method_ffi_wrapper(
             // &self method
             generate_ref_method_wrapper(
                 method,
+                binding,
                 struct_name,
                 &ffi_name,
                 &try_name,
-                lean_name,
                 leo3_crate,
             )
         }
@@ -278,10 +284,10 @@ fn generate_method_ffi_wrapper(
             // &mut self method - needs special handling for Lean's pure functional semantics
             generate_mut_ref_method_wrapper(
                 method,
+                binding,
                 struct_name,
                 &ffi_name,
                 &try_name,
-                lean_name,
                 leo3_crate,
             )
         }
@@ -289,10 +295,10 @@ fn generate_method_ffi_wrapper(
             // self method (consuming)
             generate_owned_method_wrapper(
                 method,
+                binding,
                 struct_name,
                 &ffi_name,
                 &try_name,
-                lean_name,
                 leo3_crate,
             )
         }
@@ -342,10 +348,10 @@ fn generate_object_ffi_wrapper(
 /// Generate wrapper for static methods (no self)
 fn generate_static_method_wrapper(
     method: &MethodInfo,
+    binding: &FunctionBinding,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
     try_name: &syn::Ident,
-    lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
     let method_name = &method.name;
@@ -409,6 +415,7 @@ fn generate_static_method_wrapper(
         &wrapper_call_args,
         leo3_crate,
     );
+    let metadata = quote_runtime_function_metadata(binding, leo3_crate);
 
     Ok(quote! {
         #ffi_wrapper
@@ -430,9 +437,7 @@ fn generate_static_method_wrapper(
             #[link_section = "__DATA,__lean_metadata"]
             #[used]
             static __LEAN_METADATA: #leo3_crate::LeanFunctionMetadata =
-                #leo3_crate::LeanFunctionMetadata {
-                    name: #lean_name,
-                };
+                #metadata;
         };
     })
 }
@@ -440,10 +445,10 @@ fn generate_static_method_wrapper(
 /// Generate wrapper for &self methods
 fn generate_ref_method_wrapper(
     method: &MethodInfo,
+    binding: &FunctionBinding,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
     try_name: &syn::Ident,
-    lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
     let method_name = &method.name;
@@ -501,6 +506,7 @@ fn generate_ref_method_wrapper(
         &wrapper_call_args,
         leo3_crate,
     );
+    let metadata = quote_runtime_function_metadata(binding, leo3_crate);
 
     Ok(quote! {
         #ffi_wrapper
@@ -523,9 +529,7 @@ fn generate_ref_method_wrapper(
             #[link_section = "__DATA,__lean_metadata"]
             #[used]
             static __LEAN_METADATA: #leo3_crate::LeanFunctionMetadata =
-                #leo3_crate::LeanFunctionMetadata {
-                    name: #lean_name,
-                };
+                #metadata;
         };
     })
 }
@@ -534,10 +538,10 @@ fn generate_ref_method_wrapper(
 /// In Lean (pure functional), this must return a new instance
 fn generate_mut_ref_method_wrapper(
     method: &MethodInfo,
+    binding: &FunctionBinding,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
     try_name: &syn::Ident,
-    lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
     let method_name = &method.name;
@@ -618,6 +622,7 @@ fn generate_mut_ref_method_wrapper(
         &wrapper_call_args,
         leo3_crate,
     );
+    let metadata = quote_runtime_function_metadata(binding, leo3_crate);
 
     Ok(quote! {
         #ffi_wrapper
@@ -640,9 +645,7 @@ fn generate_mut_ref_method_wrapper(
             #[link_section = "__DATA,__lean_metadata"]
             #[used]
             static __LEAN_METADATA: #leo3_crate::LeanFunctionMetadata =
-                #leo3_crate::LeanFunctionMetadata {
-                    name: #lean_name,
-                };
+                #metadata;
         };
     })
 }
@@ -650,10 +653,10 @@ fn generate_mut_ref_method_wrapper(
 /// Generate wrapper for self methods (consuming)
 fn generate_owned_method_wrapper(
     method: &MethodInfo,
+    binding: &FunctionBinding,
     struct_name: &syn::Ident,
     ffi_name: &syn::Ident,
     try_name: &syn::Ident,
-    lean_name: &str,
     leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
     let method_name = &method.name;
@@ -720,6 +723,7 @@ fn generate_owned_method_wrapper(
         &wrapper_call_args,
         leo3_crate,
     );
+    let metadata = quote_runtime_function_metadata(binding, leo3_crate);
 
     Ok(quote! {
         #ffi_wrapper
@@ -742,9 +746,7 @@ fn generate_owned_method_wrapper(
             #[link_section = "__DATA,__lean_metadata"]
             #[used]
             static __LEAN_METADATA: #leo3_crate::LeanFunctionMetadata =
-                #leo3_crate::LeanFunctionMetadata {
-                    name: #lean_name,
-                };
+                #metadata;
         };
     })
 }
@@ -755,14 +757,9 @@ fn generate_owned_method_wrapper(
 /// ```ignore
 /// pub const FOO_LEAN_CLASS_DECL: &str = "opaque Foo : Type";
 /// ```
-fn generate_lean_code_metadata(
-    struct_info: &StructInfo,
-    _methods: &[MethodInfo],
-    _leo3_crate: &TokenStream,
-) -> TokenStream {
-    let struct_name_str = struct_info.name.to_string();
-    let const_name = format_ident!("{}_LEAN_CLASS_DECL", struct_name_str.to_uppercase());
-    let lean_code = format!("opaque {} : Type", struct_name_str);
+fn generate_lean_code_metadata(class_binding: &ClassTypeBinding) -> TokenStream {
+    let const_name = format_ident!("{}_LEAN_CLASS_DECL", class_binding.rust_name.to_uppercase());
+    let lean_code = &class_binding.opaque_decl;
 
     quote! {
         pub const #const_name: &str = #lean_code;
@@ -781,229 +778,26 @@ fn generate_lean_code_metadata(
 /// - `&mut self` with `()` return → return type becomes the struct
 /// - `&mut self` with non-unit return → return type becomes `Prod Struct Return`
 fn generate_lean_code_metadata_for_methods(
-    struct_name: &syn::Ident,
-    methods: &[MethodInfo],
-    _leo3_crate: &TokenStream,
+    class_binding: &ClassTypeBinding,
+    impl_binding: &ClassImplBinding,
+    leo3_crate: &TokenStream,
 ) -> syn::Result<TokenStream> {
-    let struct_name_str = struct_name.to_string();
-    let const_name = format_ident!("{}_LEAN_METHODS_DECL", struct_name_str.to_uppercase());
-
-    let mut lean_lines = Vec::new();
-
-    for method in methods {
-        let ffi_name = format!("__lean_ffi_{}_{}", struct_name, method.name);
-        let lean_name = &method.lean_name;
-
-        // Build the type signature parts
-        let mut type_parts: Vec<String> = Vec::new();
-
-        // Add self parameter if applicable
-        match &method.receiver {
-            MethodReceiver::Ref | MethodReceiver::MutRef | MethodReceiver::Owned => {
-                type_parts.push(struct_name_str.clone());
-            }
-            MethodReceiver::None => {}
-        }
-
-        // Add regular parameters
-        for (_name, ty) in &method.params {
-            type_parts.push(rust_type_to_lean(ty, &struct_name_str)?);
-        }
-
-        // Determine return type
-        // For &mut self, the FFI returns the modified struct. If the method
-        // also produces a value, the result is `Prod Struct Return`.
-        let return_lean_type = match &method.receiver {
-            MethodReceiver::MutRef if is_unit_type(&method.return_type) => struct_name_str.clone(),
-            MethodReceiver::MutRef => {
-                let return_ty = rust_type_to_lean(&method.return_type, &struct_name_str)?;
-                format!("Prod {} {}", struct_name_str, lean_type_arg(&return_ty))
-            }
-            _ => rust_type_to_lean(&method.return_type, &struct_name_str)?,
-        };
-        type_parts.push(return_lean_type);
-
-        let type_sig = type_parts.join(" \u{2192} ");
-
-        lean_lines.push(format!(
-            "@[extern \"{}\"] opaque {} : {}",
-            ffi_name, lean_name, type_sig
-        ));
-    }
-
-    let lean_code = lean_lines.join("\n");
+    let const_name = format_ident!(
+        "{}_LEAN_METHODS_DECL",
+        class_binding.rust_name.to_uppercase()
+    );
+    let lean_code = &impl_binding.methods_decl;
+    let class_metadata = quote_runtime_class_metadata(class_binding, impl_binding, leo3_crate);
+    let class_metadata_fn = format_ident!("__leo3_class_metadata_{}", class_binding.rust_name);
 
     Ok(quote! {
         pub const #const_name: &str = #lean_code;
+
+        #[doc(hidden)]
+        pub fn #class_metadata_fn() -> #leo3_crate::LeanClassMetadata {
+            #class_metadata
+        }
     })
-}
-
-/// Map a Rust type to its Lean equivalent string
-fn rust_type_to_lean(ty: &syn::Type, struct_name: &str) -> syn::Result<String> {
-    match ty {
-        syn::Type::Paren(paren) => rust_type_to_lean(&paren.elem, struct_name),
-        syn::Type::Group(group) => rust_type_to_lean(&group.elem, struct_name),
-        syn::Type::Path(type_path) => {
-            if let Some(segment) = type_path.path.segments.last() {
-                rust_path_segment_to_lean(segment, struct_name)
-            } else {
-                Err(syn::Error::new_spanned(
-                    ty,
-                    "cannot determine Lean type for an empty path",
-                ))
-            }
-        }
-        syn::Type::Tuple(tuple) if tuple.elems.is_empty() => Ok("Unit".to_string()),
-        syn::Type::Tuple(tuple) if tuple.elems.len() == 2 => {
-            let left = rust_type_to_lean(&tuple.elems[0], struct_name)?;
-            let right = rust_type_to_lean(&tuple.elems[1], struct_name)?;
-            Ok(format!("Prod {} {}", left, right))
-        }
-        syn::Type::Tuple(_) => Err(syn::Error::new_spanned(
-            ty,
-            "tuple Lean declarations currently support only unit `()` or pairs `(A, B)`",
-        )),
-        syn::Type::Reference(_) => Err(syn::Error::new_spanned(
-            ty,
-            "reference types are not supported in generated Lean declarations; use owned types instead",
-        )),
-        other => Err(syn::Error::new_spanned(
-            other,
-            "unsupported Rust type in generated Lean declaration",
-        )),
-    }
-}
-
-fn rust_path_segment_to_lean(segment: &syn::PathSegment, struct_name: &str) -> syn::Result<String> {
-    let ident = segment.ident.to_string();
-    match ident.as_str() {
-        "i8" => Ok("Int8".to_string()),
-        "i16" => Ok("Int16".to_string()),
-        "i32" => Ok("Int32".to_string()),
-        "i64" => Ok("Int64".to_string()),
-        "isize" => Ok("ISize".to_string()),
-        "u8" => Ok("UInt8".to_string()),
-        "u16" => Ok("UInt16".to_string()),
-        "u32" => Ok("UInt32".to_string()),
-        "u64" => Ok("UInt64".to_string()),
-        "usize" => Ok("USize".to_string()),
-        "f32" => Ok("Float32".to_string()),
-        "f64" => Ok("Float".to_string()),
-        "String" => Ok("String".to_string()),
-        "bool" => Ok("Bool".to_string()),
-        "char" => Ok("Char".to_string()),
-        "Self" => Ok(struct_name.to_string()),
-        other if other == struct_name => Ok(struct_name.to_string()),
-        "Vec" => {
-            let elem = expect_single_type_arg(segment, "Vec")?;
-            let elem_ty = rust_type_to_lean(elem, struct_name)?;
-            Ok(format!("Array {}", lean_type_arg(&elem_ty)))
-        }
-        "Option" => {
-            let elem = expect_single_type_arg(segment, "Option")?;
-            let elem_ty = rust_type_to_lean(elem, struct_name)?;
-            Ok(format!("Option {}", lean_type_arg(&elem_ty)))
-        }
-        "Result" => {
-            let (ok_ty, err_ty) = expect_two_type_args(segment, "Result")?;
-            let ok_ty = rust_type_to_lean(ok_ty, struct_name)?;
-            let err_ty = rust_type_to_lean(err_ty, struct_name)?;
-            Ok(format!(
-                "Except {} {}",
-                lean_type_arg(&err_ty),
-                lean_type_arg(&ok_ty)
-            ))
-        }
-        _ => match &segment.arguments {
-            syn::PathArguments::None => Ok(ident),
-            syn::PathArguments::AngleBracketed(_) => Err(syn::Error::new_spanned(
-                segment,
-                format!(
-                    "generic type `{}` is not supported in generated Lean declarations; only Vec<T>, Option<T>, Result<T, E>, and pairs `(A, B)` are currently supported",
-                    ident
-                ),
-            )),
-            syn::PathArguments::Parenthesized(_) => Err(syn::Error::new(
-                Span::call_site(),
-                "function-trait-style path arguments are not supported in generated Lean declarations",
-            )),
-        },
-    }
-}
-
-fn lean_type_arg(ty: &str) -> String {
-    if ty.contains(' ') {
-        format!("({})", ty)
-    } else {
-        ty.to_string()
-    }
-}
-
-fn expect_single_type_arg<'a>(
-    segment: &'a syn::PathSegment,
-    type_name: &str,
-) -> syn::Result<&'a syn::Type> {
-    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
-        return Err(syn::Error::new_spanned(
-            segment,
-            format!("{type_name} requires one type argument in generated Lean declarations"),
-        ));
-    };
-
-    let mut tys = args.args.iter().filter_map(|arg| match arg {
-        syn::GenericArgument::Type(ty) => Some(ty),
-        _ => None,
-    });
-
-    let first = tys.next().ok_or_else(|| {
-        syn::Error::new_spanned(
-            segment,
-            format!("{type_name} requires one type argument in generated Lean declarations"),
-        )
-    })?;
-
-    if tys.next().is_some() {
-        return Err(syn::Error::new_spanned(
-            segment,
-            format!(
-                "{type_name} requires exactly one type argument in generated Lean declarations"
-            ),
-        ));
-    }
-
-    Ok(first)
-}
-
-fn expect_two_type_args<'a>(
-    segment: &'a syn::PathSegment,
-    type_name: &str,
-) -> syn::Result<(&'a syn::Type, &'a syn::Type)> {
-    let syn::PathArguments::AngleBracketed(args) = &segment.arguments else {
-        return Err(syn::Error::new_spanned(
-            segment,
-            format!("{type_name} requires two type arguments in generated Lean declarations"),
-        ));
-    };
-
-    let tys = args
-        .args
-        .iter()
-        .filter_map(|arg| match arg {
-            syn::GenericArgument::Type(ty) => Some(ty),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    if tys.len() != 2 {
-        return Err(syn::Error::new_spanned(
-            segment,
-            format!(
-                "{type_name} requires exactly two type arguments in generated Lean declarations"
-            ),
-        ));
-    }
-
-    Ok((tys[0], tys[1]))
 }
 
 /// Check if a type is unit ()

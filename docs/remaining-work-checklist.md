@@ -13,6 +13,8 @@ The earlier four-item list no longer matches the codebase:
 - `#[leanmodule]` now has structured parsing, crate-path-aware generation, and
   metadata-driven implicit export discovery through
   `__leo3_module_metadata()`.
+- macro producers now share a real workspace semantic IR/analyzer crate
+  (`leo3-binding-ir`) instead of ad hoc name-only metadata.
 - external objects now have an explicit borrow-first wrapper API through
   `borrow()`, `try_get_mut()`, and `try_take_inner()`.
 - architecture and contributor docs now exist and are linked from the main

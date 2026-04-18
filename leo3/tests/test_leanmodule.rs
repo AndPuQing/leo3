@@ -190,9 +190,19 @@ fn test_module_metadata_tracks_leanfn_exports() {
     let metadata = function_module::__leo3_module_metadata();
     let export_names: Vec<_> = metadata.exports.iter().map(|item| item.name).collect();
 
+    assert_eq!(metadata.schema_version, leo3::LEO3_BINDING_SCHEMA_VERSION);
     assert_eq!(metadata.name, "FunctionModule");
     assert_eq!(
         export_names,
         vec!["function_module_add", "function_module_sub"]
+    );
+    assert_eq!(metadata.exports[0].rust_name, "exported_add");
+    assert_eq!(metadata.exports[0].ffi_symbol, "function_module_add");
+    assert_eq!(metadata.exports[0].params.len(), 2);
+    assert_eq!(metadata.exports[0].params[0].ty.lean, Some("UInt64"));
+    assert_eq!(metadata.exports[0].return_type.lean, Some("UInt64"));
+    assert_eq!(
+        metadata.exports[0].receiver,
+        leo3::LeanBindingReceiver::None
     );
 }

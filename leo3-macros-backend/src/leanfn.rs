@@ -1,5 +1,8 @@
 //! Implementation of the `#[leanfn]` macro.
 
+use leo3_binding_ir::{
+    analyze_lean_function, quote_runtime_function_metadata, FunctionBinding, FunctionOptions,
+};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::parse::Parse;
@@ -652,17 +655,16 @@ fn generate_conversion_wrapper(info: &FunctionInfo, leo3_crate: &TokenStream) ->
 }
 
 /// Generate metadata
-fn generate_metadata(info: &FunctionInfo, leo3_crate: &TokenStream) -> TokenStream {
-    let lean_name = &info.lean_name;
+fn generate_metadata(binding: &FunctionBinding, leo3_crate: &TokenStream) -> TokenStream {
+    let lean_name = &binding.lean_name;
+    let metadata = quote_runtime_function_metadata(binding, leo3_crate);
 
     quote! {
         pub const LEAN_NAME: &str = #lean_name;
 
         #[doc(hidden)]
         pub fn __leo3_metadata() -> #leo3_crate::LeanFunctionMetadata {
-            #leo3_crate::LeanFunctionMetadata {
-                name: LEAN_NAME,
-            }
+            #metadata
         }
     }
 }
@@ -677,6 +679,12 @@ pub fn build_lean_function(
     func: &mut syn::ItemFn,
     options: LeanFunctionOptions,
 ) -> syn::Result<TokenStream> {
+    let binding = analyze_lean_function(
+        func,
+        FunctionOptions {
+            lean_name: options.common.name.as_ref().map(|value| value.value()),
+        },
+    )?;
     let info = analyze_function(func, &options)?;
     let leo3_crate = get_leo3_crate(options.common.krate.as_ref());
 
@@ -688,7 +696,7 @@ pub fn build_lean_function(
     // Generate wrapper components
     let ffi_wrapper = generate_ffi_wrapper(&info, &leo3_crate);
     let conversion_wrapper = generate_conversion_wrapper(&info, &leo3_crate);
-    let metadata = generate_metadata(&info, &leo3_crate);
+    let metadata = generate_metadata(&binding, &leo3_crate);
 
     // Only re-export FFI function if the lean name is different from rust name
     let internal_ffi_name = format_ident!("__ffi_{}", &info.lean_name);
