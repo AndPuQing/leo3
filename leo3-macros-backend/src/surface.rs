@@ -350,10 +350,7 @@ fn render_param_type(
 
             match &*reference.elem {
                 Type::Path(path) if path_is_str(path) => Ok("String".into()),
-                Type::Path(path) if path_is_string(path) => Err(
-                    "unsupported leo3 borrowed type `&String`; use borrowed `&str` or owned `String`"
-                        .into(),
-                ),
+                Type::Path(path) if path_is_string(path) => Ok("String".into()),
                 Type::Slice(slice) if is_u8_type(&slice.elem) => Ok("ByteArray".into()),
                 Type::Slice(slice) => {
                     let inner = render_value_type(&slice.elem, self_type, custom_types)?;
@@ -363,12 +360,20 @@ fn render_param_type(
                     let inner = render_value_type(&array.elem, self_type, custom_types)?;
                     Ok(format!("Array {}", lean_type_arg(&inner)))
                 }
-                Type::Path(path) if path_simple_name(path).as_deref() == Some("Vec") => Err(format!(
-                    "unsupported leo3 borrowed type `{}`; borrowed Vec containers are not supported, use `&[u8]` for borrowed bytes or owned `Vec<T>`",
-                    render_rust_type(ty)
-                )),
+                Type::Path(path) if path_simple_name(path).as_deref() == Some("Vec") => {
+                    let last = path.path.segments.last().ok_or_else(|| {
+                        format!("unsupported leo3 borrowed type `{}`", render_rust_type(ty))
+                    })?;
+                    let args = extract_type_args(last, 1)?;
+                    if is_u8_type(args[0]) {
+                        Ok("ByteArray".into())
+                    } else {
+                        let inner = render_value_type(args[0], self_type, custom_types)?;
+                        Ok(format!("Array {}", lean_type_arg(&inner)))
+                    }
+                }
                 _ => Err(format!(
-                    "unsupported leo3 borrowed type `{}`; currently supported borrowed shapes are `&str`, borrowed slices/arrays like `&[T]`/`&[T; N]`, and borrowed bytes `&[u8]`",
+                    "unsupported leo3 borrowed type `{}`; currently supported borrowed shapes are `&str`, `&String`, borrowed Vec containers like `&Vec<T>`, borrowed slices/arrays like `&[T]`/`&[T; N]`, and borrowed bytes `&[u8]`",
                     render_rust_type(ty)
                 )),
             }
@@ -648,5 +653,247 @@ fn lean_type_arg(ty: &str) -> String {
         format!("({ty})")
     } else {
         ty.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_items(source: &str) -> Vec<Item> {
+        syn::parse_file(source).expect("source should parse").items
+    }
+
+    #[test]
+    fn scan_items_accepts_borrowed_owned_container_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn borrowed_string_len(value: &String) -> usize {
+    value.len()
+}
+
+#[leanfn]
+fn borrowed_vec_u8_len(values: &Vec<u8>) -> usize {
+    values.len()
+}
+
+#[leanfn]
+fn borrowed_vec_u64_len(values: &Vec<u64>) -> usize {
+    values.len()
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque borrowed_string_len : String → USize")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque borrowed_vec_u8_len : ByteArray → USize")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque borrowed_vec_u64_len : Array UInt64 → USize")
+        }));
+    }
+
+    #[test]
+    fn scan_items_accepts_option_of_borrowed_owned_container_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn maybe_name(value: Option<&String>) -> Option<String> {
+    value.cloned()
+}
+
+#[leanfn]
+fn maybe_bytes(value: Option<&Vec<u8>>) -> u64 {
+    value.map(|bytes| bytes.len() as u64).unwrap_or(0)
+}
+
+#[leanfn]
+fn maybe_words(value: Option<&Vec<u64>>) -> u64 {
+    value.map(|words| words.iter().sum()).unwrap_or(0)
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque maybe_name : Option String → Option String")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque maybe_bytes : Option ByteArray → UInt64")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque maybe_words : Option (Array UInt64) → UInt64")
+        }));
+    }
+
+    #[test]
+    fn scan_items_accepts_result_of_borrowed_owned_container_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn result_name(value: Result<&String, &String>) -> u64 {
+    match value {
+        Ok(name) => name.len() as u64,
+        Err(err) => err.len() as u64,
+    }
+}
+
+#[leanfn]
+fn result_bytes(value: Result<&Vec<u8>, &String>) -> u64 {
+    match value {
+        Ok(bytes) => bytes.len() as u64,
+        Err(err) => err.len() as u64,
+    }
+}
+
+#[leanfn]
+fn result_words(value: Result<&Vec<u64>, &String>) -> u64 {
+    match value {
+        Ok(words) => words.iter().sum(),
+        Err(err) => err.len() as u64,
+    }
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque result_name : Except String String → UInt64")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque result_bytes : Except String ByteArray → UInt64")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque result_words : Except String (Array UInt64) → UInt64")
+        }));
+    }
+
+    #[test]
+    fn scan_items_accepts_tuple_of_borrowed_owned_container_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn tuple_aliases(value: (&String, &Vec<u8>, &Vec<u64>)) -> u64 {
+    value.0.len() as u64 + value.1.len() as u64 + value.2.iter().sum::<u64>()
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block.lines.iter().any(|line| {
+                line
+                    == "opaque tuple_aliases : Prod String (Prod ByteArray (Array UInt64)) → UInt64"
+            })
+        }));
+    }
+
+    #[test]
+    fn scan_items_accepts_nested_tuple_of_borrowed_owned_container_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn nested_tuple_aliases(value: ((&String, &Vec<u8>), &Vec<u64>)) -> u64 {
+    value.0.0.len() as u64 + value.0.1.len() as u64 + value.1.iter().sum::<u64>()
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block.lines.iter().any(|line| {
+                line
+                    == "opaque nested_tuple_aliases : Prod (Prod String ByteArray) (Array UInt64) → UInt64"
+            })
+        }));
+    }
+
+    #[test]
+    fn scan_items_accepts_option_of_result_borrowed_aliases() {
+        let scan = scan_items(&parse_items(
+            r#"
+#[leanfn]
+fn nested_names(value: Option<Result<&String, &String>>) -> u64 {
+    match value {
+        Some(Ok(name)) => name.len() as u64,
+        Some(Err(err)) => err.len() as u64,
+        None => 0,
+    }
+}
+
+#[leanfn]
+fn nested_bytes(value: Option<Result<&Vec<u8>, &String>>) -> u64 {
+    match value {
+        Some(Ok(bytes)) => bytes.len() as u64,
+        Some(Err(err)) => err.len() as u64,
+        None => 0,
+    }
+}
+
+#[leanfn]
+fn nested_words(value: Option<Result<Vec<u64>, &String>>) -> u64 {
+    match value {
+        Some(Ok(words)) => words.iter().sum(),
+        Some(Err(err)) => err.len() as u64,
+        None => 0,
+    }
+}
+"#,
+        ));
+
+        assert!(scan.skipped.is_empty());
+        assert!(scan.diagnostics.is_empty());
+        assert!(scan.declarations.iter().any(|block| {
+            block
+                .lines
+                .iter()
+                .any(|line| line == "opaque nested_names : Option (Except String String) → UInt64")
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block.lines.iter().any(|line| {
+                line == "opaque nested_bytes : Option (Except String ByteArray) → UInt64"
+            })
+        }));
+        assert!(scan.declarations.iter().any(|block| {
+            block.lines.iter().any(|line| {
+                line == "opaque nested_words : Option (Except String (Array UInt64)) → UInt64"
+            })
+        }));
     }
 }

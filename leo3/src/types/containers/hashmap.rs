@@ -5,10 +5,7 @@ use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::{
-    LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption,
-    LeanProd, LeanString,
-};
+use crate::types::{LeanInt, LeanList, LeanNat, LeanOption, LeanProd, LeanString};
 use std::ffi::c_void;
 use std::marker::PhantomData;
 
@@ -30,17 +27,12 @@ unsafe extern "C" {
     static mut l_instHashableNat: *mut ffi::lean_object;
     static mut l_instHashableInt: *mut ffi::lean_object;
     static mut l_instHashableString: *mut ffi::lean_object;
-    static mut l_instHashableInt8: *mut ffi::lean_object;
-    static mut l_instHashableInt16: *mut ffi::lean_object;
-    static mut l_instHashableInt32: *mut ffi::lean_object;
-    static mut l_instHashableInt64: *mut ffi::lean_object;
-    static mut l_instHashableISize: *mut ffi::lean_object;
 
     fn l_instDecidableEqNat___boxed(
         a: *mut ffi::lean_object,
         b: *mut ffi::lean_object,
     ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt___boxed(
+    fn l_Int_decEq___boxed(
         a: *mut ffi::lean_object,
         b: *mut ffi::lean_object,
     ) -> *mut ffi::lean_object;
@@ -48,26 +40,8 @@ unsafe extern "C" {
         a: *mut ffi::lean_object,
         b: *mut ffi::lean_object,
     ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt8___boxed(
-        a: *mut ffi::lean_object,
-        b: *mut ffi::lean_object,
-    ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt16___boxed(
-        a: *mut ffi::lean_object,
-        b: *mut ffi::lean_object,
-    ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt32___boxed(
-        a: *mut ffi::lean_object,
-        b: *mut ffi::lean_object,
-    ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqInt64___boxed(
-        a: *mut ffi::lean_object,
-        b: *mut ffi::lean_object,
-    ) -> *mut ffi::lean_object;
-    fn l_instDecidableEqISize___boxed(
-        a: *mut ffi::lean_object,
-        b: *mut ffi::lean_object,
-    ) -> *mut ffi::lean_object;
+
+    fn l_instBEqOfDecidableEq___redArg(dec_eq: *mut ffi::lean_object) -> *mut ffi::lean_object;
 }
 
 macro_rules! impl_hash_key {
@@ -107,8 +81,8 @@ impl_hash_key!(
 );
 impl_hash_key!(
     LeanInt,
-    l_instDecidableEqInt___boxed,
-    "l_instDecidableEqInt___boxed",
+    l_Int_decEq___boxed,
+    "l_Int_decEq___boxed",
     l_instHashableInt,
     "l_instHashableInt"
 );
@@ -119,50 +93,32 @@ impl_hash_key!(
     l_instHashableString,
     "l_instHashableString"
 );
-impl_hash_key!(
-    LeanInt8,
-    l_instDecidableEqInt8___boxed,
-    "l_instDecidableEqInt8___boxed",
-    l_instHashableInt8,
-    "l_instHashableInt8"
-);
-impl_hash_key!(
-    LeanInt16,
-    l_instDecidableEqInt16___boxed,
-    "l_instDecidableEqInt16___boxed",
-    l_instHashableInt16,
-    "l_instHashableInt16"
-);
-impl_hash_key!(
-    LeanInt32,
-    l_instDecidableEqInt32___boxed,
-    "l_instDecidableEqInt32___boxed",
-    l_instHashableInt32,
-    "l_instHashableInt32"
-);
-impl_hash_key!(
-    LeanInt64,
-    l_instDecidableEqInt64___boxed,
-    "l_instDecidableEqInt64___boxed",
-    l_instHashableInt64,
-    "l_instHashableInt64"
-);
-impl_hash_key!(
-    LeanISize,
-    l_instDecidableEqISize___boxed,
-    "l_instDecidableEqISize___boxed",
-    l_instHashableISize,
-    "l_instHashableISize"
-);
 
 #[inline]
-unsafe fn beq_closure<K: LeanHashKey>() -> *mut ffi::lean_object {
-    ffi::inline::lean_alloc_closure(K::decidable_eq_boxed(), 2, 0)
+pub(super) unsafe fn beq_closure<K: LeanHashKey>() -> *mut ffi::lean_object {
+    let dec_eq = ffi::inline::lean_alloc_closure(K::decidable_eq_boxed(), 2, 0);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        l_instBEqOfDecidableEq___redArg(dec_eq)
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let beq_of_decidable_eq: unsafe extern "C" fn(
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object = std::mem::transmute(super::symbols::required_function(
+            "l_instBEqOfDecidableEq___redArg",
+        ));
+        beq_of_decidable_eq(dec_eq)
+    }
 }
 
 #[inline]
-unsafe fn borrowed_hash<K: LeanHashKey>() -> *mut ffi::lean_object {
-    K::hash_closure()
+unsafe fn owned_hash<K: LeanHashKey>() -> *mut ffi::lean_object {
+    let ptr = K::hash_closure();
+    ffi::lean_inc(ptr);
+    ptr
 }
 
 #[inline]
@@ -191,7 +147,7 @@ impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
             let beq = beq_closure::<K>();
             let ptr = ffi::hashmap::l_Std_HashMap_insert___redArg(
                 beq,
-                borrowed_hash::<K>(),
+                owned_hash::<K>(),
                 self.into_ptr(),
                 key.into_ptr(),
                 value.into_ptr(),
@@ -209,9 +165,9 @@ impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
             let beq = beq_closure::<K>();
             let ptr = ffi::hashmap::l_Std_HashMap_get_x3f___redArg(
                 beq,
-                borrowed_hash::<K>(),
+                owned_hash::<K>(),
                 owned_view(self),
-                key.as_ptr(),
+                owned_view(key),
             );
             let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
             Ok(LeanOption::get(&opt).map(|value| value.cast()))
@@ -223,9 +179,9 @@ impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
             let beq = beq_closure::<K>();
             ffi::hashmap::l_Std_HashMap_contains___redArg(
                 beq,
-                borrowed_hash::<K>(),
+                owned_hash::<K>(),
                 owned_view(self),
-                key.as_ptr(),
+                owned_view(key),
             )
         };
         Ok(contains != 0)
@@ -236,9 +192,9 @@ impl<'l, K: LeanHashKey, V> LeanHashMap<'l, K, V> {
             let beq = beq_closure::<K>();
             let ptr = ffi::hashmap::l_Std_HashMap_erase___redArg(
                 beq,
-                borrowed_hash::<K>(),
+                owned_hash::<K>(),
                 self.into_ptr(),
-                key.as_ptr(),
+                owned_view(key),
             );
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }

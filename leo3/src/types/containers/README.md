@@ -90,7 +90,6 @@ Current supported key matrix:
 - `LeanNat`
 - `LeanInt`
 - `LeanString`
-- `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
 
 Runtime coverage now includes:
 
@@ -111,8 +110,12 @@ The implementation uses exported compare closures such as `l_instOrdNat` and
 - insert / contains / get / erase use reduced-arity wrappers that accept a
   `BEq` closure and a `Hashable` closure directly
 - Leo3 constructs the `BEq` closure from exported boxed `DecidableEq` functions
-  such as `l_instDecidableEqNat___boxed`
-- Leo3 reuses exported `Hashable` closures such as `l_instHashableNat`
+  such as `l_instDecidableEqNat___boxed` through Lean's
+  `l_instBEqOfDecidableEq___redArg` helper, matching the compiler-generated
+  runtime representation for `BEq.ofDecidableEq`
+- Leo3 passes owned references to exported `Hashable` closures such as
+  `l_instHashableNat`, matching the C ABI ownership contract for
+  `lean_obj_arg`
 - read-only queries clone the map/set pointer first because the Lean runtime
   helpers consume the structure argument during traversal
 
@@ -121,13 +124,20 @@ Current supported key matrix:
 - `LeanNat`
 - `LeanInt`
 - `LeanString`
-- `LeanInt8`, `LeanInt16`, `LeanInt32`, `LeanInt64`, `LeanISize`
+
+Fixed-width signed wrappers such as `LeanInt8` are intentionally not listed
+here: their current wrapper representation is heap-object based, while Lean's
+container typeclass instances for those types use unboxed scalar ABI. They need
+separate representation work before they can be exposed as honest container key
+families.
 
 Current runtime tests exercise:
 
 - duplicate insert behavior for `HashSet`
 - replacement semantics for `HashMap` / `RBMap`
 - string-key support across all three families
+- `HashSet<String>` duplicate-insert coverage as a normal runtime test, not an
+  ignored one
 - parity checks for equivalent final states across `HashMap`, `HashSet`, and
   `RBMap`
 

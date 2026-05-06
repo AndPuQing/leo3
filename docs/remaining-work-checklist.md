@@ -1,6 +1,6 @@
 # Leo3 Remaining Work Checklist
 
-Status snapshot as of 2026-04-16.
+Status snapshot as of 2026-05-01.
 
 This file tracks the maturity gaps that are still meaningfully open after the
 current hardening pass. It is not a re-listing of every future enhancement
@@ -20,23 +20,35 @@ The earlier four-item list no longer matches the codebase:
 - architecture and contributor docs now exist and are linked from the main
   maintenance docs.
 
-That means the main unresolved work is narrower than before.
+That means the old broad unresolved list is closed for the current conservative
+policy. Remaining items below are future expansion, not blockers for the
+current hardening pass.
 
 ## Active Remaining Work
 
-### P1: Experimental containers still need broader stabilization work
+No active maturity gaps are tracked for the current hardening pass.
+
+## Closed For The Current Policy
+
+### Experimental containers
 
 Status:
 
-- Narrow implementation completed.
-- Still correctly gated behind `experimental-containers`.
+- Closed for the current conservative contract.
 
-Why this is still the top priority:
+What landed:
 
 - `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` now all have real
   runtime-backed implementations for a narrow key matrix.
-- The remaining work is no longer "replace placeholders"; it is broader matrix
-  support, durability, and eventual stabilization policy.
+- the supported key matrix is explicit: `LeanNat`, `LeanInt`, and `LeanString`.
+- runtime tests cover supported paths across `HashMap`, `HashSet`, and `RBMap`.
+- The covered string-key paths now include `HashSet<String>` duplicate inserts
+  as a normal runtime test; this is no longer hidden behind `#[ignore]`.
+- Fixed-width signed wrappers are deliberately excluded from the supported
+  container key matrix until their wrapper representation matches Lean's
+  unboxed scalar ABI for those typeclass instances.
+- The surface remains correctly gated behind `experimental-containers` while
+  the matrix is intentionally narrow.
 
 Code evidence:
 
@@ -44,63 +56,51 @@ Code evidence:
 - `leo3/src/types/containers/hashset.rs`
 - `leo3/src/types/containers/rbmap.rs`
 - `leo3/src/types/containers/README.md`
-- `leo3-ffi/src/hashmap.rs`
-- `leo3-ffi/src/hashset.rs`
-- `leo3-ffi/src/rbmap.rs`
-
-What is still required:
-
-1. Decide whether the current narrow supported key matrix is enough to stabilize
-   in part, or whether the feature should stay experimental until widened.
-2. Broaden the supported key matrix only when the runtime instance source stays
-   explicit and testable.
-3. Keep the container docs aligned with the exact supported matrix instead of
-   drifting back to vague "generic support" language.
-
-Recommended implementation order:
-
-1. Add more supported key families only when their `DecidableEq` / `Hashable` /
-   compare sources are concrete exported closures or boxed functions.
-2. Expand runtime tests before widening public claims.
-3. Re-evaluate whether stabilization should stay intentionally narrow or widen.
+- `leo3/tests/hash_containers_ops.rs`
+- `leo3/tests/hashset_nat_ops.rs`
+- `leo3/tests/hashset_string_ops.rs`
+- `leo3/tests/rbmap_ops.rs`
+- `leo3/tests/rbmap_string_ops.rs`
+- `leo3/tests/container_key_matrix_ops.rs`
+- `leo3/tests/container_family_parity.rs`
 
 Definition of done:
 
 - The supported key matrix is documented, tested, and no longer likely to
   surprise downstream users.
-- The feature-gated surface either stabilizes in a narrow form or has a clearly
-  documented reason to remain experimental.
+- The feature-gated surface has a clearly documented reason to remain
+  experimental.
 - Runtime tests cover the supported paths against actual Lean semantics across
   all three container families.
 
-### P2: Real module-loading success-path coverage is still missing
+Re-open this item only if Leo3 deliberately widens the key matrix or changes the
+fixed-width integer wrapper representation.
+
+### Real module-loading success-path coverage
 
 Status:
 
-- Partially improved, but not complete.
+- Closed for the current module-loading contract.
 
-What already landed:
+What landed:
 
 - `#[leanmodule]` metadata tests cover the implicit export model.
-- runtime tests cover the generated init symbol and thread-attachment behavior.
+- runtime tests cover the generated init symbol without reinitializing a
+  downstream `cdylib`'s separate Rust `leo3` static state.
 - `leo3/tests/test_leanmodule_loading.rs` builds a real downstream `cdylib`
-  fixture.
-
-What is still missing:
-
-- a test that actually loads that built fixture through
-  `leo3::module::LeanModule::load(...)`
-- symbol lookup through `get_function(...)`
-- a successful call into at least one exported `#[leanfn]` wrapper from the
-  loaded module
-
-Current blocker discovered during attempted completion:
-
-- the current `LeanModule::load(...)` success path aborts when the built fixture
-  is loaded after Leo3 has already completed runtime initialization, with Lean
-  reporting `Failed to register option: Options can only be registered during initialization`
-- this is a real runtime / plugin-loading contract gap, not just a missing test
-  assertion
+  fixture and loads it through `leo3::module::LeanModule::load(...)`.
+- the fixture uses its own `build.rs` plus `leo3-build-config`, so the
+  final shared library carries Lean's runtime search path like a real
+  downstream artifact should.
+- `LeanModule::load(...)` temporarily opens Lean's importing window around
+  dynamic loading and module initialization, matching Lean's plugin-loading
+  requirement for option / environment-extension registration after
+  `IO.initializing` has ended.
+- `LeanFunction::callN(...)` calls exported `#[leanfn]` C ABI wrappers directly,
+  so loaded-module calls exercise the actual exported symbols rather than a
+  closure-returning proxy assumption.
+- the success-path test resolves `fixture_add` and `fixture_banner`, calls both,
+  and verifies converted Rust results.
 
 Code evidence:
 
@@ -112,11 +112,9 @@ Code evidence:
 Definition of done:
 
 - the test fixture is built, loaded, initialized, queried for an exported
-  function, and called successfully through the public module-loading API
-- failures in that flow would clearly localize whether the issue is fixture
-  generation, dynamic loading, symbol naming, or call conversion
-
-## Closed For The Current Policy
+  function, and called successfully through the public module-loading API.
+- failures in that flow localize whether the issue is fixture generation,
+  dynamic loading, symbol naming, init return shape, or call conversion.
 
 ### External objects
 

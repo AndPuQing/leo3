@@ -47,8 +47,8 @@ The macros generate Rust shims, not a hidden second runtime:
 - `#[leanmodule]` builds the module init entry point and module export metadata from that model
 
 The macros rely on public `leo3` APIs instead of reaching into crate-private
- internals wherever practical. That keeps the runtime contract visible and makes
- the generated behavior easier to audit in tests.
+internals wherever practical. That keeps the runtime contract visible and makes
+the generated behavior easier to audit in tests.
 
 ## Module Model
 
@@ -58,9 +58,14 @@ Leo3's current module story has two parts:
 - export discovery: inline `#[leanfn]` items become the module's implicit export
   set, exposed through `__leo3_module_metadata()` with the same per-binding
   schema used by standalone `#[leanfn]` accessors
+- host loading: `LeanModule::load(...)` attaches the caller thread, temporarily
+  opens Lean's importing window, calls the generated init symbol, and then
+  resolves exported `#[leanfn]` C ABI wrappers through arity-checked
+  `LeanFunction::callN(...)` helpers
 
-That is more explicit than the earlier "just generate init" phase, but it is
-not yet a full shared-library registration system.
+That is more explicit than the earlier "just generate init" phase and now has a
+runtime-tested shared-library success path. Richer registration metadata beyond
+today's implicit inline export set remains future expansion.
 
 ## Experimental Areas
 

@@ -118,13 +118,12 @@ semantically honest while container support is being completed.
 Current status:
 
 - `LeanHashMap` now uses Lean's real runtime representation for a narrow key
-  matrix by pairing exported `Hashable` closures with boxed `DecidableEq`
-  closures.
+  matrix by pairing exported `Hashable` closures with real `BEq` closures
+  derived from boxed `DecidableEq` functions.
 - `LeanHashSet` now uses the same real runtime path for the same narrow key
   matrix.
 - `LeanRBMap` now uses Lean's real runtime representation and reduced-arity
-  container entry points for a narrow key matrix (`Nat`, `Int`, `String`, and
-  fixed-width signed integer wrappers).
+  container entry points for a narrow key matrix (`Nat`, `Int`, and `String`).
 - runtime tests now cover duplicate inserts, replacement semantics, string-key
   support, and cross-family parity for the supported paths.
 
@@ -147,6 +146,14 @@ fn add(a: u64, b: u64) -> u64 {
 }
 # }
 ```
+
+`#[leanfn]` wrappers accept a borrow-friendly subset beyond the base trait
+matrix: parameters may use `&str`, `&String`, `&[T]`, `&[T; N]`, `&Vec<T>`,
+and byte-oriented `&[u8]` / `&Vec<u8>` shapes. Those borrowed shapes are also
+supported in the common wrapper containers `Option<T>`, `Result<T, E>`, tuples,
+and `Option<Result<T, E>>` where the borrowed value is copied into wrapper-local
+storage before the Rust function is called. Borrowed return values for the same
+string/vector/slice family are converted back to owned Lean values.
 
 `#[leanclass]` — Expose Rust structs as Lean external classes with auto-generated FFI wrappers and Lean source declarations:
 
@@ -238,6 +245,27 @@ Full access to Lean's kernel and elaborator:
 - `tokio`: async bridge for Lean tasks
 - Core (always available): `LeanClosure` and `LeanThunk`
 
+`LeanModule::load(...)` handles the host-side runtime attachment, opens Lean's
+plugin importing window while loading and initializing the module, and exposes
+arity-checked `get_function(...).callN(...)` helpers for exported `#[leanfn]`
+symbols.
+
+Downstream `cdylib` crates that expect to be loaded through
+`leo3::module::LeanModule` should run `leo3-build-config` in their own
+`build.rs`, so the final shared library carries Lean's runtime link search
+path:
+
+```toml
+[build-dependencies]
+leo3-build-config = "0.2.2"
+```
+
+```rust,ignore
+fn main() {
+    leo3_build_config::use_leo3_cfgs();
+}
+```
+
 ## Architecture
 
 ```text
@@ -266,15 +294,19 @@ leo3/
 |------|------|
 | `Python<'py>` | `Lean<'l>` |
 | `Bound<'py, T>` | `LeanBound<'l, T>` |
-| `Py<T>` | `LeanRef<T>` |
+| `Py<T>` | `LeanRef<T>` / `LeanUnbound<T>` |
+| `FromPyObject` / `IntoPyObject` | `FromLean` / `IntoLean` |
 | `#[pyfunction]` | `#[leanfn]` |
+| `#[pymodule]` | `#[leanmodule]` |
 | `#[pyclass]` | `#[leanclass]` |
+| `#[derive(FromPyObject)]` | `#[derive(IntoLean, FromLean)]` |
 
 ## Development
 
 See `TESTING.md` for the full tiered CI map, the
 [current contract notes](docs/contracts.md), [architecture notes](docs/architecture.md),
-and the [contributor guide](docs/contributing.md). Common local commands:
+the [PyO3 alignment notes](docs/pyo3-alignment.md), and the
+[contributor guide](docs/contributing.md). Common local commands:
 
 ```bash
 LEO3_NO_LEAN=1 cargo test --locked --workspace --exclude leo3 --lib

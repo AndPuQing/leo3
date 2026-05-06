@@ -221,6 +221,15 @@ extern "C" {
     /// Initialize the library C++ module (full)
     #[link_name = "_ZN4lean25initialize_library_moduleEv"]
     pub fn initialize_library_module();
+
+    /// Lean's private importing flag used by `Lean.initializing`.
+    ///
+    /// This is not part of Lean's public C API, but it is the runtime flag used
+    /// by Lean's own `withImporting` wrapper when loading plugins whose
+    /// initializers register options or environment extensions after
+    /// `IO.initializing` has ended.
+    #[link_name = "l___private_Lean_ImportingFlag_0__Lean_importingRef"]
+    pub static mut lean_importing_ref: *mut lean_object;
 }
 
 // ============================================================================

@@ -225,8 +225,8 @@ pub fn leanclass(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// This generates a module initialization function `initialize_MyRustLib` that
 /// can be called from Lean4 to initialize the module. The generated entry point
-/// aligns with Leo3's runtime model instead of calling Lean initialization
-/// primitives directly on the caller thread.
+/// follows Lean's plugin contract: the host runtime is responsible for Lean
+/// initialization before the module initializer is invoked.
 ///
 /// Supported options:
 ///
@@ -284,17 +284,12 @@ pub fn leanmodule(attr: TokenStream, input: TokenStream) -> TokenStream {
         /// This function is called by Lean when loading the module.
         #[no_mangle]
         pub unsafe extern "C" fn #init_fn_name(
-            builtin: u8,
+            _builtin: u8,
             _world: *mut ::std::ffi::c_void,
         ) -> *mut ::std::ffi::c_void {
-            if builtin == 0 {
-                #leo3_crate::prepare_freethreaded_lean();
-            }
-            #leo3_crate::sync::ensure_lean_thread();
-
             // Return IO.ok ()
             let unit = #leo3_crate::ffi::lean_mk_unit();
-            let io_ok = #leo3_crate::ffi::lean_except_ok(unit);
+            let io_ok = #leo3_crate::ffi::io::lean_io_result_mk_ok(unit);
             io_ok as *mut ::std::ffi::c_void
         }
     };

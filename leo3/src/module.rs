@@ -12,6 +12,13 @@ use crate::{LeanBound, LeanError};
 use libloading::{Library, Symbol};
 use std::path::Path;
 
+unsafe fn set_importing_flag(importing: bool) {
+    let value = ffi::inline::lean_box(importing as usize);
+    let world = ffi::io::lean_io_mk_world();
+    let result = ffi::lean_st_ref_set(ffi::lean_importing_ref, value, world);
+    ffi::lean_dec(result);
+}
+
 unsafe fn try_decode_error_string<'l>(
     lean: Lean<'l>,
     ptr: *mut ffi::lean_object,
@@ -48,8 +55,10 @@ impl LeanModule {
     /// Load a Lean module from a shared library file
     ///
     /// This method aligns module loading with Leo3's safe caller-thread entry
-    /// path: it ensures the runtime worker exists and attaches the current
-    /// thread before constructing IO worlds or invoking module initialization.
+    /// path and temporarily enables Lean's importing mode while the shared
+    /// library is loaded. Lean plugin/static initializers may register options
+    /// after `IO.initializing` has ended, and Lean's own plugin loader permits
+    /// that work through the same importing flag.
     ///
     /// # Safety
     /// - The library must be a valid Lean4 compiled shared library
@@ -63,17 +72,29 @@ impl LeanModule {
     /// ```
     pub fn load<P: AsRef<Path>>(path: P, module_name: &str) -> LeanResult<Self> {
         unsafe {
-            // Align module loading with the same safe caller-thread entry path
-            // used by `with_lean()`: make sure the runtime worker exists and the
-            // current thread is attached before constructing worlds or invoking
-            // module initialization code.
-            crate::sync::ensure_lean_thread();
-
             let path = path.as_ref();
 
-            // Load the library
-            let library =
-                Library::new(path).map_err(|e| LeanError::module_load(path, e.to_string()))?;
+            // Align module initialization with the same safe caller-thread
+            // entry path used by `with_lean()`: make sure the runtime worker
+            // exists and the current thread is attached before constructing
+            // worlds or invoking module initialization code.
+            crate::sync::ensure_lean_thread();
+
+            // Match Lean's `withImporting` behavior around plugin loading so
+            // load-time initializers can register options and environment
+            // extensions even though Leo3's core runtime has completed
+            // `IO.initializing`.
+            set_importing_flag(true);
+            let library = match Library::new(path) {
+                Ok(library) => {
+                    set_importing_flag(false);
+                    library
+                }
+                Err(error) => {
+                    set_importing_flag(false);
+                    return Err(LeanError::module_load(path, error.to_string()));
+                }
+            };
 
             // Call the module's initialize function
             let init_fn_name = format!("initialize_{}", module_name);
@@ -83,9 +104,13 @@ impl LeanModule {
                 .get(init_fn_name.as_bytes())
                 .map_err(|e| LeanError::symbol_lookup(&init_fn_name, e.to_string()))?;
 
-            // Call initialize function (builtin=0, world token)
+            // Call initialize function (builtin=0, world token). Keep the same
+            // importing window open for module initializers declared with
+            // Lean's `initialize` command.
             let world = ffi::io::lean_io_mk_world();
+            set_importing_flag(true);
             let result = init_fn(0, world as *mut std::ffi::c_void);
+            set_importing_flag(false);
 
             // Check if initialization was successful
             let result_ptr = result as *mut ffi::lean_object;
@@ -202,9 +227,9 @@ impl<'lib> LeanFunction<'lib> {
 
         unsafe {
             let arg_obj = arg.into_lean(lean)?;
-            let func: unsafe extern "C" fn() -> *mut ffi::lean_object = *self.symbol;
-            let func_ptr = func();
-            let result_ptr = ffi::closure::lean_apply_1(func_ptr, arg_obj.into_ptr());
+            let func: unsafe extern "C" fn(*mut ffi::lean_object) -> *mut ffi::lean_object =
+                std::mem::transmute(*self.symbol);
+            let result_ptr = func(arg_obj.into_ptr());
             let result_bound: LeanBound<R::Source> = LeanBound::from_owned_ptr(lean, result_ptr);
             R::from_lean(&result_bound)
         }
@@ -222,10 +247,11 @@ impl<'lib> LeanFunction<'lib> {
         unsafe {
             let a_obj = a.into_lean(lean)?;
             let b_obj = b.into_lean(lean)?;
-            let func: unsafe extern "C" fn() -> *mut ffi::lean_object = *self.symbol;
-            let func_ptr = func();
-            let result_ptr =
-                ffi::closure::lean_apply_2(func_ptr, a_obj.into_ptr(), b_obj.into_ptr());
+            let func: unsafe extern "C" fn(
+                *mut ffi::lean_object,
+                *mut ffi::lean_object,
+            ) -> *mut ffi::lean_object = std::mem::transmute(*self.symbol);
+            let result_ptr = func(a_obj.into_ptr(), b_obj.into_ptr());
             let result_bound: LeanBound<R::Source> = LeanBound::from_owned_ptr(lean, result_ptr);
             R::from_lean(&result_bound)
         }
@@ -237,9 +263,9 @@ macro_rules! impl_call_n {
     (
         $method_name:ident,
         $arity:literal,
-        $apply_fn:ident,
         [$($ty:ident),+],
-        [$($arg:ident),+]
+        [$($arg:ident),+],
+        $fn_ty:ty
     ) => {
         #[doc = concat!("Call a ", stringify!($arity), "-argument Lean function")]
         #[allow(clippy::too_many_arguments)]
@@ -258,13 +284,8 @@ macro_rules! impl_call_n {
                 // Convert arguments
                 $(let $arg = $arg.into_lean(lean)?;)+
 
-                // Get function pointer
-                let func: unsafe extern "C" fn() -> *mut ffi::lean_object = *self.symbol;
-                let func_ptr = func();
-
-                // Call with lean_apply_N
-                let result_ptr = ffi::closure::$apply_fn(
-                    func_ptr,
+                let func: $fn_ty = std::mem::transmute(*self.symbol);
+                let result_ptr = func(
                     $($arg.into_ptr(),)+
                 );
 
@@ -279,28 +300,85 @@ macro_rules! impl_call_n {
 
 // Implement call3..call8 using the macro
 impl<'lib> LeanFunction<'lib> {
-    impl_call_n!(call3, 3, lean_apply_3, [A, B, C], [a, b, c]);
-    impl_call_n!(call4, 4, lean_apply_4, [A, B, C, D], [a, b, c, d]);
-    impl_call_n!(call5, 5, lean_apply_5, [A, B, C, D, E], [a, b, c, d, e]);
+    impl_call_n!(
+        call3,
+        3,
+        [A, B, C],
+        [a, b, c],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
+    );
+    impl_call_n!(
+        call4,
+        4,
+        [A, B, C, D],
+        [a, b, c, d],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
+    );
+    impl_call_n!(
+        call5,
+        5,
+        [A, B, C, D, E],
+        [a, b, c, d, e],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
+    );
     impl_call_n!(
         call6,
         6,
-        lean_apply_6,
         [A, B, C, D, E, F],
-        [a, b, c, d, e, f]
+        [a, b, c, d, e, f],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
     );
     impl_call_n!(
         call7,
         7,
-        lean_apply_7,
         [A, B, C, D, E, F, G],
-        [a, b, c, d, e, f, g]
+        [a, b, c, d, e, f, g],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
     );
     impl_call_n!(
         call8,
         8,
-        lean_apply_8,
         [A, B, C, D, E, F, G, H],
-        [a, b, c, d, e, f, g, h]
+        [a, b, c, d, e, f, g, h],
+        unsafe extern "C" fn(
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+            *mut ffi::lean_object,
+        ) -> *mut ffi::lean_object
     );
 }

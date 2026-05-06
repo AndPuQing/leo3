@@ -2,7 +2,7 @@
 
 ## Status
 
-Current implementation record as of 2026-04-16.
+Current implementation record as of 2026-05-01.
 
 This document replaces the older phase-by-phase maturity notes. It keeps the
 current public/runtime/macro contract in one place, while
@@ -14,6 +14,7 @@ current public/runtime/macro contract in one place, while
 - `TESTING.md`
 - `docs/architecture.md`
 - `docs/contributing.md`
+- `docs/pyo3-alignment.md`
 - `docs/remaining-work-checklist.md`
 
 ## Stable Surface
@@ -55,8 +56,10 @@ Current contract:
   eagerly by `prepare_freethreaded_lean()`
 - a caller thread becomes Leo3-ready by calling `with_lean()` or
   `sync::ensure_lean_thread()`
-- `module::LeanModule::load(...)` is responsible for making the caller thread
-  ready before invoking module init symbols
+- `module::LeanModule::load(...)` is responsible for making the host caller
+  thread ready before invoking module init symbols
+- generated `#[leanmodule]` init symbols follow Lean's plugin contract and do
+  not start a separate Leo3 runtime from inside a downstream `cdylib`
 
 ### Error boundaries
 
@@ -111,12 +114,18 @@ Current schema rules:
 - no consumer is expected to reconstruct `&mut self` / `Prod Self R` semantics
   from strings; that behavior is explicit in metadata
 
-Known boundary:
+Shared-library loading:
 
-- this is still not the full shared-library registration story
-- loading a real downstream fixture through `LeanModule::load(...)` remains an
-  open success-path gap and is tracked in
-  `docs/remaining-work-checklist.md`
+- downstream `cdylib` crates that want Lean runtime search paths in the final
+  shared object should run `leo3-build-config::use_leo3_cfgs()` in their own
+  `build.rs`
+- `LeanModule::load(...)` temporarily enables Lean's importing mode while
+  loading and initializing a module so option / environment-extension
+  registration follows Lean's plugin-loading rules
+- `LeanFunction::callN(...)` calls exported `#[leanfn]` C ABI wrappers directly
+  by arity
+- `leo3/tests/test_leanmodule_loading.rs` builds, loads, initializes, resolves,
+  and calls a real downstream `cdylib` fixture through the public API
 
 ### `#[leanclass]` receiver matrix
 
@@ -164,6 +173,12 @@ Formal rules:
 - `Vec<u8>` uses helper functions instead of trait specialization on stable
   Rust
 - proc-macro-generated wrappers inherit this contract
+- `#[leanfn]` wrappers add borrow-friendly generated storage for common
+  function-boundary aliases: `&str`, `&String`, `&[T]`, `&[T; N]`, `&Vec<T>`,
+  `&[u8]`, and `&Vec<u8>` parameters, including the supported direct
+  `Option<T>`, `Result<T, E>`, tuple, and `Option<Result<T, E>>` wrapper shapes
+  covered by the macro tests; these are wrapper conveniences, not blanket
+  `FromLean` impls for borrowed Rust references
 - `#[derive(IntoLean, FromLean)]` or manual impls can extend the Rust-side
   conversion set, but they do not automatically widen the `#[leanclass]`
   declaration grammar
@@ -201,7 +216,8 @@ Current state:
 
 - `LeanHashMap`, `LeanHashSet`, and `LeanRBMap` all use real Lean runtime
   representations and operations
-- the supported key matrix is still intentionally narrow and explicit
+- the supported key matrix is still intentionally narrow and explicit:
+  `LeanNat`, `LeanInt`, and `LeanString`
 - the whole surface remains feature-gated while that narrow implementation is
   validated and potentially widened
 - runtime tests now cover duplicate inserts, replacement semantics, string-key

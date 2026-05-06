@@ -3,7 +3,8 @@
 Leo3 CI is split into small, named tiers so failures are easier to localize and contributors can run the same commands locally.
 
 For the higher-level maintenance workflow, pair this guide with
-`docs/contracts.md`, `docs/architecture.md`, and `docs/contributing.md`.
+`docs/contracts.md`, `docs/architecture.md`, `docs/pyo3-alignment.md`, and
+`docs/contributing.md`.
 
 ## CI Tiers
 
@@ -146,17 +147,25 @@ Use `LEO3_NO_LEAN=1` whenever you want a compile-only path that should not depen
 - `leo3/tests/test_features.rs`: feature-surface smoke tests.
 - `leo3/tests/test_surface_contract.rs` + `leo3/tests/surface_ui/`: compile-fail guardrails for intentionally hidden default-surface items.
 - `leo3/tests/test_compile_error.rs` + `leo3/tests/ui/`: explicit `trybuild` UI coverage for the compile-fail matrix above.
+- `leo3/tests/test_leanfn_macro.rs`: runtime FFI coverage for `#[leanfn]`,
+  including borrowed string/vector/slice aliases and their supported
+  `Option`/`Result`/tuple wrapper forms.
 - `leo3` doctests: runtime initialization, README quick start, string/nat conversion, and task/tokio docs.
 - `leo3-macros` doctests: compile-check macro usage snippets such as `#[leanfn]`, `#[leanclass]`, and derives.
 - `leo3/tests/basic.rs`, `nat_ops.rs`, `string_ops.rs`, `array_ops.rs`, `test_conversion.rs`, `test_gc.rs`: core runtime path.
 - `leo3/tests/hash_containers_ops.rs`, `leo3/tests/hashset_nat_ops.rs`, `leo3/tests/hashset_string_ops.rs`: real Lean `HashMap` / `HashSet` runtime path under `experimental-containers`, including string-key and duplicate-insert coverage.
 - `leo3/tests/rbmap_ops.rs`, `leo3/tests/rbmap_string_ops.rs`: real Lean `RBMap` runtime path under `experimental-containers`, including string-key replacement coverage.
+- `leo3/tests/container_key_matrix_ops.rs`: runtime coverage for the non-string
+  supported key matrix beyond `Nat`, currently `Int`, across `HashMap`,
+  `HashSet`, and `RBMap`.
 - `leo3/tests/container_family_parity.rs`: cross-family parity checks for the supported string-key matrix.
 - `leo3/tests/test_task_async.rs`, `leo3/tests/test_tokio_bridge.rs`: async/task/tokio runtime path.
 - `leo3/tests/test_lean*.rs`, `test_derive_macros.rs`, `test_conversion_macros.rs`: macro integration path.
 - `leo3/tests/test_binding_metadata.rs`: no-Lean structured metadata contract for `#[leanfn]`, `#[leanmodule]`, and `#[leanclass]`.
 - `leo3/tests/test_macro_pipeline.rs` + `leo3/examples/macro_pipeline.rs`: end-to-end macro golden path covering `#[leanmodule]`, `#[leanfn]`, and `#[leanclass]`.
-- `leo3/tests/test_leanmodule_loading.rs`: builds a real `cdylib` fixture so the module-loading path is exercised against a downstream-style artifact.
+- `leo3/tests/test_leanmodule_loading.rs`: builds a real `cdylib` fixture with
+  its own `build.rs` + `leo3-build-config` wiring, then loads, initializes,
+  resolves symbols from, and calls that downstream-style artifact.
 - `leo3-ffi-check/`: bindgen-backed FFI layout validation.
 
 ## Troubleshooting

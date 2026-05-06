@@ -23,7 +23,6 @@ fn string_hashset_entries<'l>(list: &LeanBound<'l, LeanList>) -> LeanResult<Vec<
 }
 
 #[test]
-#[ignore = "Known unstable HashSet<String> runtime path across CI environments"]
 fn test_hashset_string_keys_deduplicate_duplicate_inserts() {
     leo3::prepare_freethreaded_lean();
 

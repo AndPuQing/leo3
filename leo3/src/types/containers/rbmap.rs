@@ -10,10 +10,7 @@ use crate::err::LeanResult;
 use crate::ffi;
 use crate::instance::LeanBound;
 use crate::marker::Lean;
-use crate::types::{
-    LeanISize, LeanInt, LeanInt16, LeanInt32, LeanInt64, LeanInt8, LeanList, LeanNat, LeanOption,
-    LeanProd, LeanString,
-};
+use crate::types::{LeanInt, LeanList, LeanNat, LeanOption, LeanProd, LeanString};
 use std::marker::PhantomData;
 
 pub struct LeanRBMapType<K, V> {
@@ -33,11 +30,6 @@ unsafe extern "C" {
     static mut l_instOrdNat: *mut ffi::lean_object;
     static mut l_instOrdInt: *mut ffi::lean_object;
     static mut l_String_instOrd: *mut ffi::lean_object;
-    static mut l_Int8_instOrd: *mut ffi::lean_object;
-    static mut l_Int16_instOrd: *mut ffi::lean_object;
-    static mut l_Int32_instOrd: *mut ffi::lean_object;
-    static mut l_Int64_instOrd: *mut ffi::lean_object;
-    static mut l_ISize_instOrd: *mut ffi::lean_object;
 }
 
 macro_rules! impl_rbmap_key {
@@ -60,15 +52,12 @@ macro_rules! impl_rbmap_key {
 impl_rbmap_key!(LeanNat, l_instOrdNat, "l_instOrdNat");
 impl_rbmap_key!(LeanInt, l_instOrdInt, "l_instOrdInt");
 impl_rbmap_key!(LeanString, l_String_instOrd, "l_String_instOrd");
-impl_rbmap_key!(LeanInt8, l_Int8_instOrd, "l_Int8_instOrd");
-impl_rbmap_key!(LeanInt16, l_Int16_instOrd, "l_Int16_instOrd");
-impl_rbmap_key!(LeanInt32, l_Int32_instOrd, "l_Int32_instOrd");
-impl_rbmap_key!(LeanInt64, l_Int64_instOrd, "l_Int64_instOrd");
-impl_rbmap_key!(LeanISize, l_ISize_instOrd, "l_ISize_instOrd");
 
 #[inline]
-unsafe fn borrowed_cmp<K: LeanRBMapKey>() -> *mut ffi::lean_object {
-    K::compare_closure()
+unsafe fn owned_cmp<K: LeanRBMapKey>() -> *mut ffi::lean_object {
+    let ptr = K::compare_closure();
+    ffi::lean_inc(ptr);
+    ptr
 }
 
 #[inline]
@@ -81,7 +70,7 @@ unsafe fn owned_view<T>(obj: &LeanBound<'_, T>) -> *mut ffi::lean_object {
 impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     pub fn empty(lean: Lean<'l>) -> LeanResult<Self> {
         unsafe {
-            let ptr = ffi::rbmap::l_Lean_RBMap_empty(borrowed_cmp::<K>());
+            let ptr = ffi::rbmap::l_Lean_RBMap_empty(owned_cmp::<K>());
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
     }
@@ -94,7 +83,7 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     ) -> LeanResult<Self> {
         unsafe {
             let ptr = ffi::rbmap::l_Lean_RBMap_insert___redArg(
-                borrowed_cmp::<K>(),
+                owned_cmp::<K>(),
                 self.into_ptr(),
                 key.into_ptr(),
                 value.into_ptr(),
@@ -110,9 +99,9 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     ) -> LeanResult<Option<LeanBound<'l, V>>> {
         unsafe {
             let ptr = ffi::rbmap::l_Lean_RBMap_find_x3f___redArg(
-                borrowed_cmp::<K>(),
+                owned_cmp::<K>(),
                 owned_view(self),
-                key.as_ptr(),
+                owned_view(key),
             );
             let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
             Ok(LeanOption::get(&opt).map(|value| value.cast()))
@@ -122,9 +111,9 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     pub fn contains(&self, _lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<bool> {
         let contains = unsafe {
             ffi::rbmap::l_Lean_RBMap_contains___redArg(
-                borrowed_cmp::<K>(),
+                owned_cmp::<K>(),
                 owned_view(self),
-                key.as_ptr(),
+                owned_view(key),
             )
         };
         Ok(contains != 0)
@@ -133,9 +122,9 @@ impl<'l, K: LeanRBMapKey, V> LeanRBMap<'l, K, V> {
     pub fn erase(self, lean: Lean<'l>, key: &LeanBound<'l, K>) -> LeanResult<Self> {
         unsafe {
             let ptr = ffi::rbmap::l_Lean_RBMap_erase___redArg(
-                borrowed_cmp::<K>(),
+                owned_cmp::<K>(),
                 self.into_ptr(),
-                key.as_ptr(),
+                owned_view(key),
             );
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }

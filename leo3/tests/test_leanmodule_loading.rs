@@ -85,7 +85,6 @@ fn test_dynamic_module_fixture_builds() {
 }
 
 #[test]
-#[ignore = "Known blocker: loading the built fixture currently aborts during Lean plugin initialization after end_initialization"]
 fn test_dynamic_module_fixture_loads_and_calls_exports() {
     if address_sanitizer_enabled() {
         return;

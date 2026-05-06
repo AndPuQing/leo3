@@ -81,7 +81,7 @@ fn test_module_initialization_safety() {
 }
 
 #[test]
-fn test_module_initialization_attaches_thread() {
+fn test_module_initialization_does_not_reinitialize_runtime() {
     let handle = std::thread::spawn(|| {
         assert!(!leo3::sync::thread_is_lean_initialized());
 
@@ -91,7 +91,7 @@ fn test_module_initialization_attaches_thread() {
             leo3::ffi::lean_dec(result_ptr);
         }
 
-        assert!(leo3::sync::thread_is_lean_initialized());
+        assert!(!leo3::sync::thread_is_lean_initialized());
 
         leo3::with_lean(|lean| {
             let n = LeanNat::from_usize(lean, 9)?;

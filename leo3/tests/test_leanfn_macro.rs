@@ -3,6 +3,12 @@
 #![cfg(feature = "macros")]
 
 use leo3::prelude::*;
+use leo3::types::LeanExcept;
+use std::sync::LazyLock;
+
+static STATIC_NAME: LazyLock<String> = LazyLock::new(|| "static-name".to_string());
+static STATIC_BYTES: LazyLock<Vec<u8>> = LazyLock::new(|| vec![2, 4, 6, 8]);
+static STATIC_WORDS: LazyLock<Vec<u64>> = LazyLock::new(|| vec![5, 8, 13]);
 
 // Test basic u64 function
 #[leanfn]
@@ -98,6 +104,89 @@ fn sum_borrowed_array(numbers: &[u64; 3]) -> u64 {
 }
 
 #[leanfn]
+fn borrowed_string_len(value: &String) -> u64 {
+    value.len() as u64
+}
+
+#[leanfn]
+fn borrowed_vec_u8_sum(values: &Vec<u8>) -> u64 {
+    values.iter().map(|value| *value as u64).sum()
+}
+
+#[leanfn]
+fn borrowed_vec_u64_sum(values: &Vec<u64>) -> u64 {
+    values.iter().sum()
+}
+
+#[leanfn]
+fn option_borrowed_alias_score(
+    name: Option<&String>,
+    bytes: Option<&Vec<u8>>,
+    words: Option<&Vec<u64>>,
+) -> u64 {
+    name.map(|value| value.len() as u64).unwrap_or(0)
+        + bytes
+            .map(|values| values.iter().map(|value| *value as u64).sum::<u64>())
+            .unwrap_or(0)
+        + words.map(|values| values.iter().sum::<u64>()).unwrap_or(0)
+}
+
+#[leanfn]
+fn result_borrowed_alias_score(
+    name: Result<&String, &String>,
+    bytes: Result<&Vec<u8>, &String>,
+    words: Result<&Vec<u64>, &String>,
+) -> u64 {
+    let name_score = match name {
+        Ok(value) => value.len() as u64,
+        Err(err) => err.len() as u64,
+    };
+    let bytes_score = match bytes {
+        Ok(values) => values.iter().map(|value| *value as u64).sum(),
+        Err(err) => err.len() as u64,
+    };
+    let words_score = match words {
+        Ok(values) => values.iter().sum(),
+        Err(err) => err.len() as u64,
+    };
+    name_score + bytes_score + words_score
+}
+
+#[leanfn]
+fn tuple_borrowed_alias_score(value: (&String, &Vec<u8>, &Vec<u64>)) -> u64 {
+    value.0.len() as u64
+        + value.1.iter().map(|byte| *byte as u64).sum::<u64>()
+        + value.2.iter().sum::<u64>()
+}
+
+#[leanfn]
+fn option_result_borrowed_alias_score(value: Option<Result<&Vec<u64>, &String>>) -> u64 {
+    match value {
+        Some(Ok(values)) => values.iter().sum(),
+        Some(Err(err)) => err.len() as u64,
+        None => 0,
+    }
+}
+
+#[leanfn]
+fn option_borrowed_slice_score(values: Option<&[u64]>) -> u64 {
+    values.map(|values| values.iter().sum()).unwrap_or(0)
+}
+
+#[leanfn]
+fn result_borrowed_slice_score(values: Result<&[u64], &[u64]>) -> u64 {
+    match values {
+        Ok(values) => values.iter().sum(),
+        Err(values) => values.iter().sum::<u64>() * 10,
+    }
+}
+
+#[leanfn]
+fn tuple_borrowed_slice_score(value: (&[u64], &[u64; 3])) -> u64 {
+    value.0.iter().sum::<u64>() + value.1.iter().sum::<u64>()
+}
+
+#[leanfn]
 fn static_word_slice() -> &'static [u64] {
     &[1, 2, 3]
 }
@@ -105,6 +194,21 @@ fn static_word_slice() -> &'static [u64] {
 #[leanfn]
 fn static_word_array() -> &'static [u64; 3] {
     &[4, 5, 6]
+}
+
+#[leanfn]
+fn static_string_ref() -> &'static String {
+    &STATIC_NAME
+}
+
+#[leanfn]
+fn static_vec_u8_ref() -> &'static Vec<u8> {
+    &STATIC_BYTES
+}
+
+#[leanfn]
+fn static_vec_u64_ref() -> &'static Vec<u64> {
+    &STATIC_WORDS
 }
 
 // Test function returning fixed-size arrays
@@ -267,6 +371,18 @@ fn test_rust_side_call() {
     assert_eq!(join_strings(vec!["a".to_string(), "b".to_string()]), "a, b");
     assert_eq!(double_all(vec![1, 2, 3]), vec![2, 4, 6]);
     assert_eq!(sum_large_vec((0..1000).collect()), 499500);
+}
+
+fn lean_u64_array<'l>(
+    lean: Lean<'l>,
+    values: &[u64],
+) -> Result<LeanBound<'l, LeanArray>, Box<dyn std::error::Error>> {
+    let mut arr = LeanArray::empty(lean)?;
+    for value in values {
+        let n = LeanUInt64::mk(lean, *value)?;
+        arr = LeanArray::push(arr, n.cast())?;
+    }
+    Ok(arr)
 }
 
 #[test]
@@ -490,6 +606,183 @@ fn test_leanfn_borrowed_array_sum() {
                 __leo3_leanfn_sum_borrowed_array::__ffi_sum_borrowed_array(arr.into_ptr());
             let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
             assert_eq!(LeanUInt64::to_u64(&result), 24);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_borrowed_owned_alias_params() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        let name = LeanString::mk(lean, "borrowed")?;
+        let bytes = LeanByteArray::from_bytes(lean, &[1, 2, 3, 4])?;
+        let words = lean_u64_array(lean, &[10, 20, 30])?;
+
+        unsafe {
+            let result_ptr =
+                __leo3_leanfn_borrowed_string_len::__ffi_borrowed_string_len(name.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 8);
+
+            let result_ptr =
+                __leo3_leanfn_borrowed_vec_u8_sum::__ffi_borrowed_vec_u8_sum(bytes.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 10);
+
+            let result_ptr =
+                __leo3_leanfn_borrowed_vec_u64_sum::__ffi_borrowed_vec_u64_sum(words.into_ptr());
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 60);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_borrowed_owned_alias_nested_params() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        let name = LeanString::mk(lean, "nested")?;
+        let err = LeanString::mk(lean, "err")?;
+        let bytes = LeanByteArray::from_bytes(lean, &[2, 3, 5])?;
+        let words = lean_u64_array(lean, &[7, 11, 13])?;
+
+        let opt_name = LeanOption::some(name.clone().cast())?;
+        let opt_bytes = LeanOption::some(bytes.clone().cast())?;
+        let opt_words = LeanOption::some(words.clone().cast())?;
+
+        let result_name = LeanExcept::ok(name.clone().cast())?;
+        let result_bytes = LeanExcept::ok(bytes.clone().cast())?;
+        let result_words = LeanExcept::ok(words.clone().cast())?;
+
+        let pair_tail = LeanProd::mk(bytes.clone().cast(), words.clone().cast())?;
+        let tuple = LeanProd::mk(name.clone().cast(), pair_tail.cast())?;
+
+        let nested_ok = LeanExcept::ok(words.clone().cast())?;
+        let nested_some = LeanOption::some(nested_ok.cast())?;
+        let nested_err = LeanExcept::error(err.clone().cast())?;
+        let nested_err_some = LeanOption::some(nested_err.cast())?;
+        let nested_none = LeanOption::none(lean)?;
+        let slice_values = lean_u64_array(lean, &[3, 4, 5])?;
+        let slice_error_values = lean_u64_array(lean, &[1, 2])?;
+        let opt_slice_values = LeanOption::some(slice_values.clone().cast())?;
+        let result_slice_values = LeanExcept::ok(slice_values.clone().cast())?;
+        let result_slice_error_values = LeanExcept::error(slice_error_values.cast())?;
+        let fixed_array_values = lean_u64_array(lean, &[6, 7, 8])?;
+        let tuple_slices = LeanProd::mk(slice_values.clone().cast(), fixed_array_values.cast())?;
+
+        unsafe {
+            let result_ptr =
+                __leo3_leanfn_option_borrowed_alias_score::__ffi_option_borrowed_alias_score(
+                    opt_name.into_ptr(),
+                    opt_bytes.into_ptr(),
+                    opt_words.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 6 + 10 + 31);
+
+            let result_ptr =
+                __leo3_leanfn_result_borrowed_alias_score::__ffi_result_borrowed_alias_score(
+                    result_name.into_ptr(),
+                    result_bytes.into_ptr(),
+                    result_words.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 6 + 10 + 31);
+
+            let result_ptr =
+                __leo3_leanfn_tuple_borrowed_alias_score::__ffi_tuple_borrowed_alias_score(
+                    tuple.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 6 + 10 + 31);
+
+            let result_ptr =
+                __leo3_leanfn_option_result_borrowed_alias_score::__ffi_option_result_borrowed_alias_score(
+                    nested_some.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 31);
+
+            let result_ptr =
+                __leo3_leanfn_option_result_borrowed_alias_score::__ffi_option_result_borrowed_alias_score(
+                    nested_err_some.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 3);
+
+            let result_ptr =
+                __leo3_leanfn_option_result_borrowed_alias_score::__ffi_option_result_borrowed_alias_score(
+                    nested_none.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 0);
+
+            let result_ptr =
+                __leo3_leanfn_option_borrowed_slice_score::__ffi_option_borrowed_slice_score(
+                    opt_slice_values.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 12);
+
+            let result_ptr =
+                __leo3_leanfn_result_borrowed_slice_score::__ffi_result_borrowed_slice_score(
+                    result_slice_values.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 12);
+
+            let result_ptr =
+                __leo3_leanfn_result_borrowed_slice_score::__ffi_result_borrowed_slice_score(
+                    result_slice_error_values.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 30);
+
+            let result_ptr =
+                __leo3_leanfn_tuple_borrowed_slice_score::__ffi_tuple_borrowed_slice_score(
+                    tuple_slices.into_ptr(),
+                );
+            let result: LeanBound<LeanUInt64> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanUInt64::to_u64(&result), 33);
+        }
+
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
+#[cfg_attr(not(feature = "runtime-tests"), ignore = "Requires Lean4 runtime")]
+fn test_leanfn_borrowed_owned_alias_returns() {
+    leo3::prepare_freethreaded_lean();
+
+    leo3::with_lean(|lean| -> Result<(), Box<dyn std::error::Error>> {
+        unsafe {
+            let result_ptr = __leo3_leanfn_static_string_ref::__ffi_static_string_ref();
+            let result: LeanBound<LeanString> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanString::cstr(&result)?, "static-name");
+
+            let result_ptr = __leo3_leanfn_static_vec_u8_ref::__ffi_static_vec_u8_ref();
+            let result: LeanBound<LeanByteArray> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanByteArray::to_vec(&result), vec![2, 4, 6, 8]);
+
+            let result_ptr = __leo3_leanfn_static_vec_u64_ref::__ffi_static_vec_u64_ref();
+            let result: LeanBound<LeanArray> = LeanBound::from_owned_ptr(lean, result_ptr);
+            assert_eq!(LeanArray::size(&result), 3);
+            for (index, expected) in [5_u64, 8, 13].into_iter().enumerate() {
+                let item: LeanBound<LeanUInt64> = LeanArray::get(&result, index).unwrap().cast();
+                assert_eq!(LeanUInt64::to_u64(&item), expected);
+            }
         }
 
         Ok(())

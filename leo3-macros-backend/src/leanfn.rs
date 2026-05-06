@@ -7,6 +7,11 @@ use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::parse::Parse;
 
+use crate::conversion_plan::{
+    borrowed_non_u8_slice_inner, borrowed_vec_inner, is_borrowed_fixed_array, is_borrowed_str,
+    is_borrowed_string, is_borrowed_u8_slice, is_borrowed_vec_u8, is_vec_u8, option_inner,
+    render_return_plan, result_parts,
+};
 use crate::{get_leo3_crate, CommonOptions};
 
 /// Options for the `#[leanfn]` attribute
@@ -105,37 +110,17 @@ fn generate_param_conversions(
         .map(|(i, (name, ty))| {
             let arg_name = format_ident!("arg{}", i);
             let source_ty = lean_source_type(ty, leo3_crate);
-            if let Some(inner) = borrowed_fixed_array_inner(ty) {
-                let storage_name = format_ident!("__{}_array_storage", name);
-                return quote! {
-                    let #storage_name = {
-                        let bound: #leo3_crate::LeanBound<'_, #source_ty> =
-                            #leo3_crate::LeanBound::from_owned_ptr(lean, #arg_name);
-                        <#inner as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                            .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
-                                "Failed to convert `{}` from Lean to Rust: {}",
-                                stringify!(#name),
-                                e
-                            )))?
-                    };
-                    let #name = &#storage_name;
-                };
-            }
-            if let Some(inner) = borrowed_non_u8_slice_inner(ty) {
-                let storage_name = format_ident!("__{}_slice_storage", name);
-                return quote! {
-                    let #storage_name = {
-                        let bound: #leo3_crate::LeanBound<'_, #source_ty> =
-                            #leo3_crate::LeanBound::from_owned_ptr(lean, #arg_name);
-                        <Vec<#inner> as #leo3_crate::conversion::FromLean>::from_lean(&bound)
-                            .map_err(|e| #leo3_crate::LeanError::conversion(&format!(
-                                "Failed to convert `{}` from Lean to Rust: {}",
-                                stringify!(#name),
-                                e
-                            )))?
-                    };
-                    let #name = #storage_name.as_slice();
-                };
+            if let Some(plan) = crate::conversion_plan::build_storage_plan(ty) {
+                return crate::conversion_plan::render_storage_plan_binding(
+                    name,
+                    &arg_name,
+                    &source_ty,
+                    &plan,
+                    leo3_crate,
+                    &mut counter,
+                    lean_source_type,
+                    generate_from_lean_expr,
+                );
             }
             let from_expr = generate_from_lean_expr(ty, quote! { bound }, leo3_crate, &mut counter);
             quote! {
@@ -184,9 +169,14 @@ fn generate_result_conversion(return_type: &syn::Type, leo3_crate: &TokenStream)
 fn lean_source_type(ty: &syn::Type, leo3_crate: &TokenStream) -> TokenStream {
     if is_borrowed_str(ty) {
         quote! { #leo3_crate::types::LeanString }
-    } else if is_borrowed_u8_slice(ty) || is_vec_u8(ty) {
+    } else if is_borrowed_string(ty) {
+        quote! { #leo3_crate::types::LeanString }
+    } else if is_borrowed_u8_slice(ty) || is_vec_u8(ty) || is_borrowed_vec_u8(ty) {
         quote! { #leo3_crate::types::LeanByteArray }
-    } else if is_borrowed_fixed_array(ty) || borrowed_non_u8_slice_inner(ty).is_some() {
+    } else if is_borrowed_fixed_array(ty)
+        || borrowed_non_u8_slice_inner(ty).is_some()
+        || borrowed_vec_inner(ty).is_some()
+    {
         quote! { #leo3_crate::types::LeanArray }
     } else if option_inner(ty).is_some() {
         quote! { #leo3_crate::types::LeanOption }
@@ -207,6 +197,12 @@ fn generate_from_lean_expr(
 ) -> TokenStream {
     if is_borrowed_str(ty) {
         return quote! { #leo3_crate::types::LeanString::cstr(&#obj_expr) };
+    }
+
+    if is_borrowed_string(ty) {
+        return quote! {
+            <String as #leo3_crate::conversion::FromLean>::from_lean(&#obj_expr)
+        };
     }
 
     if is_borrowed_u8_slice(ty) {
@@ -316,94 +312,7 @@ fn generate_into_lean_expr(
     leo3_crate: &TokenStream,
     counter: &mut usize,
 ) -> TokenStream {
-    if is_borrowed_u8_slice(ty) {
-        return quote! { #leo3_crate::conversion::slice_u8_into_lean(#value_expr, lean) };
-    }
-
-    if borrowed_non_u8_slice_inner(ty).is_some() || is_borrowed_fixed_array(ty) {
-        return quote! { #leo3_crate::conversion::slice_into_lean(#value_expr, lean) };
-    }
-
-    if is_vec_u8(ty) {
-        return quote! { #leo3_crate::conversion::vec_u8_into_lean(#value_expr, lean) };
-    }
-
-    if let Some(inner) = option_inner(ty) {
-        let some_ident = fresh_ident("some_value", counter);
-        let inner_expr =
-            generate_into_lean_expr(inner, quote! { #some_ident }, leo3_crate, counter);
-        return quote! {
-            match #value_expr {
-                None => #leo3_crate::types::LeanOption::none(lean),
-                Some(#some_ident) => {
-                    let lean_value = #inner_expr?;
-                    let any_value: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
-                        lean_value.cast();
-                    #leo3_crate::types::LeanOption::some(any_value)
-                }
-            }
-        };
-    }
-
-    if let Some((ok_ty, err_ty)) = result_parts(ty) {
-        let ok_ident = fresh_ident("ok_value", counter);
-        let err_ident = fresh_ident("err_value", counter);
-        let ok_expr = generate_into_lean_expr(ok_ty, quote! { #ok_ident }, leo3_crate, counter);
-        let err_expr = generate_into_lean_expr(err_ty, quote! { #err_ident }, leo3_crate, counter);
-        return quote! {
-            match #value_expr {
-                Err(#err_ident) => {
-                    let lean_error = #err_expr?;
-                    let any_error: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
-                        lean_error.cast();
-                    #leo3_crate::types::LeanExcept::error(any_error)
-                }
-                Ok(#ok_ident) => {
-                    let lean_value = #ok_expr?;
-                    let any_value: #leo3_crate::instance::LeanBound<'_, #leo3_crate::instance::LeanAny> =
-                        lean_value.cast();
-                    #leo3_crate::types::LeanExcept::ok(any_value)
-                }
-            }
-        };
-    }
-
-    if let Some(items) = tuple_items(ty) {
-        let value_ident = fresh_ident("tuple_value", counter);
-        let head_ident = fresh_ident("tuple_head", counter);
-        let tail_ident = fresh_ident("tuple_tail", counter);
-        let head_expr =
-            generate_into_lean_expr(&items[0], quote! { #head_ident }, leo3_crate, counter);
-        let tail_value = tuple_tail_value_tokens(&value_ident, items.len() - 1);
-        if items.len() == 2 {
-            let tail_expr =
-                generate_into_lean_expr(&items[1], quote! { #tail_ident }, leo3_crate, counter);
-            return quote! {
-                {
-                    let #value_ident = #value_expr;
-                    let (#head_ident, #tail_ident) = #value_ident;
-                    let lean_head = #head_expr?;
-                    let lean_tail = #tail_expr?;
-                    #leo3_crate::types::LeanProd::mk(lean_head.cast(), lean_tail.cast())
-                }
-            };
-        }
-
-        let tail_ty = tuple_tail_type(&items);
-        let tail_expr =
-            generate_into_lean_expr(&tail_ty, quote! { #tail_ident }, leo3_crate, counter);
-        return quote! {
-            {
-                let #value_ident = #value_expr;
-                let (#head_ident, #tail_ident) = (#value_ident.0, #tail_value);
-                let lean_head = #head_expr?;
-                let lean_tail = #tail_expr?;
-                #leo3_crate::types::LeanProd::mk(lean_head.cast(), lean_tail.cast())
-            }
-        };
-    }
-
-    quote! { #leo3_crate::to_lean!(#value_expr, lean, #ty) }
+    render_return_plan(ty, value_expr, leo3_crate, counter)
 }
 
 fn tuple_items(ty: &syn::Type) -> Option<Vec<syn::Type>> {
@@ -425,136 +334,10 @@ fn tuple_unpack_tokens(value_ident: &syn::Ident, count: usize) -> TokenStream {
     quote! { #(#value_ident.#indexes),* }
 }
 
-fn tuple_tail_value_tokens(value_ident: &syn::Ident, count: usize) -> TokenStream {
-    let indexes = (1..=count).map(syn::Index::from).collect::<Vec<_>>();
-    quote! { (#(#value_ident.#indexes),*) }
-}
-
 fn fresh_ident(prefix: &str, counter: &mut usize) -> syn::Ident {
     let ident = syn::Ident::new(&format!("{prefix}_{counter}"), Span::call_site());
     *counter += 1;
     ident
-}
-
-fn option_inner(ty: &syn::Type) -> Option<&syn::Type> {
-    let syn::Type::Path(type_path) = ty else {
-        return None;
-    };
-    let last = type_path.path.segments.last()?;
-    if last.ident != "Option" {
-        return None;
-    }
-    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-        return None;
-    };
-    match args.args.first()? {
-        syn::GenericArgument::Type(ty) => Some(ty),
-        _ => None,
-    }
-}
-
-fn result_parts(ty: &syn::Type) -> Option<(&syn::Type, &syn::Type)> {
-    let syn::Type::Path(type_path) = ty else {
-        return None;
-    };
-    let last = type_path.path.segments.last()?;
-    if last.ident != "Result" {
-        return None;
-    }
-    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-        return None;
-    };
-    let mut type_args = args.args.iter().filter_map(|arg| match arg {
-        syn::GenericArgument::Type(ty) => Some(ty),
-        _ => None,
-    });
-    Some((type_args.next()?, type_args.next()?))
-}
-
-fn vec_inner(ty: &syn::Type) -> Option<&syn::Type> {
-    let syn::Type::Path(type_path) = ty else {
-        return None;
-    };
-    let last = type_path.path.segments.last()?;
-    if last.ident != "Vec" {
-        return None;
-    }
-    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-        return None;
-    };
-    match args.args.first()? {
-        syn::GenericArgument::Type(ty) => Some(ty),
-        _ => None,
-    }
-}
-
-fn is_vec_u8(ty: &syn::Type) -> bool {
-    matches!(vec_inner(ty), Some(inner) if is_u8_type(inner))
-}
-
-fn is_borrowed_u8_slice(ty: &syn::Type) -> bool {
-    match ty {
-        syn::Type::Reference(reference) if reference.mutability.is_none() => {
-            matches!(&*reference.elem, syn::Type::Slice(slice) if is_u8_type(&slice.elem))
-        }
-        _ => false,
-    }
-}
-
-fn borrowed_non_u8_slice_inner(ty: &syn::Type) -> Option<&syn::Type> {
-    match ty {
-        syn::Type::Reference(reference) if reference.mutability.is_none() => match &*reference.elem
-        {
-            syn::Type::Slice(slice) if !is_u8_type(&slice.elem) => Some(&slice.elem),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
-fn is_borrowed_fixed_array(ty: &syn::Type) -> bool {
-    match ty {
-        syn::Type::Reference(reference) if reference.mutability.is_none() => {
-            matches!(&*reference.elem, syn::Type::Array(_))
-        }
-        _ => false,
-    }
-}
-
-fn borrowed_fixed_array_inner(ty: &syn::Type) -> Option<&syn::Type> {
-    match ty {
-        syn::Type::Reference(reference) if reference.mutability.is_none() => {
-            match &*reference.elem {
-                syn::Type::Array(_) => Some(reference.elem.as_ref()),
-                _ => None,
-            }
-        }
-        _ => None,
-    }
-}
-
-fn is_borrowed_str(ty: &syn::Type) -> bool {
-    match ty {
-        syn::Type::Reference(reference) if reference.mutability.is_none() => {
-            matches!(&*reference.elem, syn::Type::Path(type_path) if path_is_simple_ident(type_path, "str"))
-        }
-        _ => false,
-    }
-}
-
-fn is_u8_type(ty: &syn::Type) -> bool {
-    matches!(ty, syn::Type::Path(type_path) if path_is_simple_ident(type_path, "u8"))
-}
-
-fn path_is_simple_ident(type_path: &syn::TypePath, ident: &str) -> bool {
-    type_path.qself.is_none()
-        && type_path.path.segments.len() == 1
-        && type_path
-            .path
-            .segments
-            .first()
-            .map(|segment| segment.ident == ident)
-            .unwrap_or(false)
 }
 
 /// Generate the FFI wrapper function with panic boundary
@@ -771,5 +554,223 @@ mod tests {
         assert!(rendered.contains("Failed to convert Rust result to Lean"));
         assert!(!rendered.contains(".expect("));
         assert!(!rendered.contains(". expect ("));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_borrowed_string_and_vec_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(name: &String, bytes: &Vec<u8>, values: &Vec<u64>) -> (&String, &Vec<u8>, &Vec<u64>) {
+                (name, bytes, values)
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__name_string_storage"));
+        assert!(rendered.contains("__bytes_vec_storage"));
+        assert!(rendered.contains("__values_vec_storage"));
+        assert!(rendered.contains("vec_u8_from_lean"));
+        assert!(rendered.contains("slice_u8_into_lean"));
+        assert!(rendered.contains("slice_into_lean"));
+        assert!(rendered.contains("LeanString :: mk"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_option_of_borrowed_owned_container_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(
+                name: Option<&String>,
+                bytes: Option<&Vec<u8>>,
+                values: Option<&Vec<u64>>
+            ) -> u64 {
+                name.map(|s| s.len() as u64).unwrap_or(0)
+                    + bytes.map(|v| v.len() as u64).unwrap_or(0)
+                    + values.map(|v| v.iter().sum::<u64>()).unwrap_or(0)
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__name_option_storage"));
+        assert!(rendered.contains("__bytes_option_storage"));
+        assert!(rendered.contains("__values_option_storage"));
+        assert!(rendered.contains("LeanOption :: get"));
+        assert!(rendered.contains("vec_u8_from_lean"));
+        assert!(rendered.contains("as_ref"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_result_of_borrowed_owned_container_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(
+                value: Result<&String, &String>,
+                bytes: Result<&Vec<u8>, &String>,
+                words: Result<&Vec<u64>, &String>
+            ) -> u64 {
+                (match value {
+                    Ok(name) => name.len() as u64,
+                    Err(err) => err.len() as u64,
+                }) + (match bytes {
+                    Ok(data) => data.len() as u64,
+                    Err(err) => err.len() as u64,
+                }) + (match words {
+                    Ok(items) => items.iter().sum::<u64>(),
+                    Err(err) => err.len() as u64,
+                })
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__value_result_ok_storage"));
+        assert!(rendered.contains("__value_result_err_storage"));
+        assert!(rendered.contains("__bytes_result_ok_storage"));
+        assert!(rendered.contains("__bytes_result_err_storage"));
+        assert!(rendered.contains("__words_result_ok_storage"));
+        assert!(rendered.contains("__words_result_err_storage"));
+        assert!(rendered.contains("LeanExcept :: toRustResult"));
+        assert!(rendered.contains("typed_ok"));
+        assert!(rendered.contains("typed_err"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_tuple_of_borrowed_owned_container_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(value: (&String, &Vec<u8>, &Vec<u64>)) -> u64 {
+                value.0.len() as u64 + value.1.len() as u64 + value.2.iter().sum::<u64>()
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__value_tuple_storage"));
+        assert!(rendered.contains("LeanProd :: fst"));
+        assert!(rendered.contains("LeanProd :: snd"));
+        assert!(rendered.contains("& __value_tuple_storage"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_nested_tuple_of_borrowed_owned_container_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(value: ((&String, &Vec<u8>), &Vec<u64>)) -> u64 {
+                value.0.0.len() as u64 + value.0.1.len() as u64 + value.1.iter().sum::<u64>()
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__value_tuple_storage"));
+        assert!(rendered.contains("LeanProd :: fst"));
+        assert!(rendered.contains("LeanProd :: snd"));
+        assert!(rendered.contains("& __value_tuple_storage . 0 . 0"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_mixed_result_borrowed_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(left: Result<&String, String>, right: Result<Vec<u64>, &String>) -> u64 {
+                (match left {
+                    Ok(name) => name.len() as u64,
+                    Err(err) => err.len() as u64,
+                }) + (match right {
+                    Ok(values) => values.iter().sum::<u64>(),
+                    Err(err) => err.len() as u64,
+                })
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__left_result_ok_storage"));
+        assert!(rendered.contains("__left_result_err_storage"));
+        assert!(rendered.contains("__right_result_ok_storage"));
+        assert!(rendered.contains("__right_result_err_storage"));
+        assert!(rendered.contains("take"));
+        assert!(rendered.contains("as_ref"));
+    }
+
+    #[test]
+    fn generated_wrapper_supports_option_of_result_borrowed_aliases() {
+        let mut func: syn::ItemFn = syn::parse_quote! {
+            fn demo(
+                names: Option<Result<&String, &String>>,
+                bytes: Option<Result<&Vec<u8>, &String>>,
+                words: Option<Result<Vec<u64>, &String>>
+            ) -> u64 {
+                (match names {
+                    Some(Ok(name)) => name.len() as u64,
+                    Some(Err(err)) => err.len() as u64,
+                    None => 0,
+                }) + (match bytes {
+                    Some(Ok(data)) => data.len() as u64,
+                    Some(Err(err)) => err.len() as u64,
+                    None => 0,
+                }) + (match words {
+                    Some(Ok(items)) => items.iter().sum::<u64>(),
+                    Some(Err(err)) => err.len() as u64,
+                    None => 0,
+                })
+            }
+        };
+
+        let tokens = build_lean_function(
+            &mut func,
+            LeanFunctionOptions {
+                common: CommonOptions::default(),
+            },
+        )
+        .expect("leanfn expansion should succeed");
+
+        let rendered = tokens.to_string();
+        assert!(rendered.contains("__names_option_result_ok_storage"));
+        assert!(rendered.contains("__names_option_result_err_storage"));
+        assert!(rendered.contains("__bytes_option_result_ok_storage"));
+        assert!(rendered.contains("__bytes_option_result_err_storage"));
+        assert!(rendered.contains("__words_option_result_ok_storage"));
+        assert!(rendered.contains("__words_option_result_err_storage"));
+        assert!(rendered.contains("LeanOption :: get"));
+        assert!(rendered.contains("LeanExcept :: toRustResult"));
     }
 }

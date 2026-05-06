@@ -8,6 +8,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, punctuated::Punctuated, Token};
 
+pub mod conversion_plan;
 pub mod derive;
 pub mod lean_instance;
 pub mod leanclass;

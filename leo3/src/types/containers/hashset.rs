@@ -14,16 +14,14 @@ pub struct LeanHashSetType<T> {
 
 pub type LeanHashSet<'l, T> = LeanBound<'l, LeanHashSetType<T>>;
 
+use super::hashmap::beq_closure;
 pub use super::hashmap::LeanHashKey;
 
 #[inline]
-unsafe fn beq_closure<K: LeanHashKey>() -> *mut ffi::lean_object {
-    ffi::inline::lean_alloc_closure(K::decidable_eq_boxed(), 2, 0)
-}
-
-#[inline]
-unsafe fn borrowed_hash<K: LeanHashKey>() -> *mut ffi::lean_object {
-    K::hash_closure()
+unsafe fn owned_hash<K: LeanHashKey>() -> *mut ffi::lean_object {
+    let ptr = K::hash_closure();
+    ffi::lean_inc(ptr);
+    ptr
 }
 
 #[inline]
@@ -46,7 +44,7 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
             let beq = beq_closure::<T>();
             let ptr = ffi::hashset::l_Std_HashSet_insert___redArg(
                 beq,
-                borrowed_hash::<T>(),
+                owned_hash::<T>(),
                 self.into_ptr(),
                 elem.into_ptr(),
             );
@@ -59,9 +57,9 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
             let beq = beq_closure::<T>();
             ffi::hashset::l_Std_HashSet_contains___redArg(
                 beq,
-                borrowed_hash::<T>(),
+                owned_hash::<T>(),
                 owned_view(self),
-                elem.as_ptr(),
+                owned_view(elem),
             )
         };
         Ok(contains != 0)
@@ -76,9 +74,9 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
             let beq = beq_closure::<T>();
             let ptr = ffi::hashset::l_Std_HashSet_get_x3f___redArg(
                 beq,
-                borrowed_hash::<T>(),
+                owned_hash::<T>(),
                 owned_view(self),
-                elem.as_ptr(),
+                owned_view(elem),
             );
             let opt = LeanBound::<LeanOption>::from_owned_ptr(lean, ptr);
             Ok(LeanOption::get(&opt).map(|value| value.cast()))
@@ -90,9 +88,9 @@ impl<'l, T: LeanHashKey> LeanHashSet<'l, T> {
             let beq = beq_closure::<T>();
             let ptr = ffi::hashset::l_Std_HashSet_erase___redArg(
                 beq,
-                borrowed_hash::<T>(),
+                owned_hash::<T>(),
                 self.into_ptr(),
-                elem.as_ptr(),
+                owned_view(elem),
             );
             Ok(LeanBound::from_owned_ptr(lean, ptr))
         }
